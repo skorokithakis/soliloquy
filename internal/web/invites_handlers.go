@@ -166,7 +166,7 @@ func tokenSuffix(token string, n int) string {
 func (s *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 
-	token, err := auth.GenerateToken()
+	token, err := auth.GenerateInviteToken()
 	if err != nil {
 		s.serverError(w, err)
 		return

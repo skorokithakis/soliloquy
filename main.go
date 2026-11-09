@@ -93,7 +93,7 @@ func run() error {
 // no users and prints its URL to the log. The URL is the only way to create the
 // first account.
 func ensureFirstAdminInvite(ctx context.Context, database *db.DB, cfg config.Config) error {
-	token, err := auth.GenerateToken()
+	token, err := auth.GenerateInviteToken()
 	if err != nil {
 		return err
 	}
