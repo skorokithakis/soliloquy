@@ -53,6 +53,7 @@ if [ -n "$invite_url" ]; then
     -H "Origin: $base_url" \
     --data-urlencode username=admin \
     --data-urlencode password=admin \
+    --data-urlencode confirm_password=admin \
     "http://127.0.0.1:8000${invite_url#"$base_url"}"
   echo "Created QA admin account admin/admin." | tee -a "$log"
 fi
