@@ -1545,11 +1545,17 @@ a.btn.pri:hover {
 	gap: 12px;
 }
 
+/* Reset the stacked-form spacing from "form > label" and its input. */
 .theme-form label {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	margin: 0;
 	font: 12px var(--font-mono);
+}
+
+.theme-form input {
+	margin: 0;
 }
 
 .dz {
