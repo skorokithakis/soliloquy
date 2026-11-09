@@ -1609,7 +1609,7 @@ a.btn.pri:hover {
 
 .invites-side {
 	display: flex;
-	flex: 1 1 280px;
+	flex: 1 1 320px;
 	flex-direction: column;
 	gap: 14px;
 	min-width: 0;
@@ -1650,6 +1650,10 @@ a.btn.pri:hover {
 	font-weight: 500;
 }
 
+.tr .flag {
+	margin-left: 8px;
+}
+
 .tr .lead {
 	flex: 1;
 	align-self: center;
@@ -1671,6 +1675,7 @@ a.btn.pri:hover {
 
 .panel-head {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
@@ -2214,6 +2219,10 @@ a.btn.pri:hover {
 
 	.invites-page .tree {
 		font-size: 12px;
+	}
+
+	.tr .flag {
+		margin-left: 6px;
 	}
 
 	.n {
