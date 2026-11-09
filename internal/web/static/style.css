@@ -803,6 +803,12 @@ a.btn.pri:hover {
 	font: 11.5px var(--font-mono);
 }
 
+/* The submit button comes before cancel in the HTML so that Tab reaches it
+   first, but the design shows it last. */
+.edbar .btn.pri {
+	order: 1;
+}
+
 .notice {
 	padding: 12px 14px;
 	border: 1px solid var(--accent);

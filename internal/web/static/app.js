@@ -197,7 +197,7 @@ document.addEventListener("click", (event) => {
 	submit.className = "btn pri";
 	submit.textContent = "reply";
 
-	bar.append(note, spacer, counter, cancel, submit);
+	bar.append(note, spacer, counter, submit, cancel);
 	editor.append(textarea, bar);
 	form.append(editor);
 	actions.insertAdjacentElement("afterend", form);
