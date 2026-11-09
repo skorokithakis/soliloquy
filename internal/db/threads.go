@@ -5,16 +5,22 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/skorokithakis/soliloquy/internal/auth"
 )
 
 // Thread is a forum thread. Body is the Markdown source and BodyHTML is the
 // sanitized HTML rendered when the thread was saved.
+//
+// ID is the internal integer key. PublicID is the random identifier clients
+// see in URLs and live-update payloads.
 //
 // Comment code maintains LastActivityAt and vote code maintains Score on the
 // thread row. CommentCount is computed from the comments table when the thread
 // is read.
 type Thread struct {
 	ID              int64
+	PublicID        string
 	AuthorID        int64
 	Title           string
 	URL             string
@@ -42,7 +48,7 @@ func (t *Thread) AuthorName() string {
 	return t.AuthorUsername
 }
 
-const threadColumns = `t.id, t.author_id, t.title, t.url, t.body, t.body_html,
+const threadColumns = `t.id, t.public_id, t.author_id, t.title, t.url, t.body, t.body_html,
 	t.created_at, t.edited_at, t.deleted_at, t.last_activity_at, t.score,
 	(SELECT COUNT(*) FROM comments c WHERE c.thread_id = t.id AND c.deleted_at IS NULL),
 	u.username, u.deleted_at`
@@ -66,6 +72,7 @@ func scanThreadRow(row rowScanner, withVoted bool) (*Thread, error) {
 	)
 	dest := []any{
 		&thread.ID,
+		&thread.PublicID,
 		&thread.AuthorID,
 		&thread.Title,
 		&thread.URL,
@@ -98,13 +105,18 @@ func scanThreadRow(row rowScanner, withVoted bool) (*Thread, error) {
 // CreateThread inserts a thread with its initial score of 1. The thread's
 // created and last activity times both start at now.
 func (db *DB) CreateThread(ctx context.Context, authorID int64, title, rawURL, body, bodyHTML string, now time.Time) (*Thread, error) {
+	publicID, err := auth.GenerateShortID()
+	if err != nil {
+		return nil, err
+	}
+
 	result, err := db.ExecContext(ctx, `
 		INSERT INTO threads (
-			author_id, title, url, body, body_html, created_at,
+			public_id, author_id, title, url, body, body_html, created_at,
 			last_activity_at, score
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-		authorID, title, rawURL, body, bodyHTML, now.Unix(), now.Unix(),
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+		publicID, authorID, title, rawURL, body, bodyHTML, now.Unix(), now.Unix(),
 	)
 	if err != nil {
 		return nil, err
@@ -121,10 +133,20 @@ func (db *DB) CreateThread(ctx context.Context, authorID int64, title, rawURL, b
 // ThreadByID returns a thread, including a soft-deleted one, or nil when no
 // thread has that ID. Callers decide whether a deleted thread is visible.
 func (db *DB) ThreadByID(ctx context.Context, id int64) (*Thread, error) {
+	return db.threadBy(ctx, "t.id = ?", id)
+}
+
+// ThreadByPublicID returns a thread, including a soft-deleted one, or nil when
+// no thread has that public ID. Handlers use it to resolve the ID in a URL.
+func (db *DB) ThreadByPublicID(ctx context.Context, publicID string) (*Thread, error) {
+	return db.threadBy(ctx, "t.public_id = ?", publicID)
+}
+
+func (db *DB) threadBy(ctx context.Context, where string, value any) (*Thread, error) {
 	thread, err := scanThread(db.QueryRowContext(ctx, `
 		SELECT `+threadColumns+`
 		FROM threads t JOIN users u ON u.id = t.author_id
-		WHERE t.id = ?`, id))
+		WHERE `+where, value))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

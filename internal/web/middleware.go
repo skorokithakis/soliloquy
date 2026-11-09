@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -143,8 +142,32 @@ func readOnlyPath(r *http.Request) bool {
 		return true
 	}
 
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/threads/"), 10, 64)
-	return err == nil && id > 0 && strings.HasPrefix(r.URL.Path, "/threads/")
+	// Any single /threads/{id} path is read-only, including IDs that no longer
+	// resolve. The handler returns 404 for malformed or old numeric IDs, so a
+	// visitor sees the same 404 as a logged-in user instead of a login
+	// redirect. /threads/new and subpaths such as /threads/{id}/edit still need
+	// an account.
+	rest, found := strings.CutPrefix(r.URL.Path, "/threads/")
+	return found && rest != "" && rest != "new" && !strings.Contains(rest, "/")
+}
+
+// validPublicID reports whether id has the shape of a thread or comment public
+// ID. Handlers use it to reject malformed IDs without a database lookup, and
+// the live-update query uses it to ignore a malformed thread ID.
+func validPublicID(id string) bool {
+	if len(id) != auth.ShortIDLength {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		alphanumeric := (c >= 'A' && c <= 'Z') ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= '0' && c <= '9')
+		if !alphanumeric {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {

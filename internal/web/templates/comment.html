@@ -1,5 +1,5 @@
 {{define "comment"}}
-<li class="c" id="c{{.ID}}" data-comment-id="{{.ID}}">
+<li class="c" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
 	<div class="ch">
 		{{if .Deleted}}
 		{{if .LoggedIn}}<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>{{else}}<span class="vote none" aria-hidden="true"></span>{{end}}
@@ -7,7 +7,7 @@
 		<span>{{.CreatedAt}}</span>
 		{{else}}
 		{{if .CanVote}}
-		<form class="vote-form" method="post" action="/comments/{{.ID}}/vote">
+		<form class="vote-form" method="post" action="/comments/{{.PublicID}}/vote">
 			<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
 				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 			</button>
@@ -24,7 +24,7 @@
 		<span class="score">{{.ScoreText}}</span>
 		{{if .Edited}}<span>·</span><span>edited</span>{{end}}
 		{{end}}
-		{{if .HasParent}}<span>·</span><a class="par" href="#c{{.ParentID}}">parent</a>{{end}}
+		{{if .HasParent}}<span>·</span><a class="par" href="#c{{.ParentPublicID}}">parent</a>{{end}}
 		<button class="tog" type="button" hidden aria-expanded="true" aria-label="Collapse comment">[-]</button>
 	</div>
 	<div class="cb md{{if .Deleted}} gone{{end}}">
@@ -32,12 +32,12 @@
 	</div>
 	{{if not .Deleted}}
 	<div class="ca">
-		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.ID}}/reply">reply</a>{{end}}
-		<a href="#c{{.ID}}">link</a>
-		{{if .IsAuthor}}<a href="/comments/{{.ID}}/edit">edit</a>{{end}}
-		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.ID}}/delete"><button type="submit">delete</button></form>{{end}}
+		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply">reply</a>{{end}}
+		<a href="#c{{.PublicID}}">link</a>
+		{{if .IsAuthor}}<a href="/comments/{{.PublicID}}/edit">edit</a>{{end}}
+		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.PublicID}}/delete"><button type="submit">delete</button></form>{{end}}
 	</div>
 	{{end}}
-	<ol class="kids" data-parent-id="{{.ID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>
+	<ol class="kids" data-parent-id="{{.PublicID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>
 </li>
 {{end}}

@@ -41,11 +41,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	now := s.now()
 	views := make([]searchResultView, len(results))
 	for i, result := range results {
-		threadLink := threadPath(result.ThreadID)
+		threadLink := threadPath(result.ThreadPublicID)
 		link := threadLink
 		isComment := result.Kind == db.SearchKindComment
 		if isComment {
-			link = commentAnchorPath(result.ThreadID, result.ItemID)
+			link = commentAnchorPath(result.ThreadPublicID, result.ItemPublicID)
 		}
 
 		author := result.Author

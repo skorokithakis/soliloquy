@@ -15,7 +15,7 @@
 		<li class="row">
 			<div class="vc">
 				{{if .CanVote}}
-				<form class="vote-form" method="post" action="/threads/{{.ID}}/vote">
+				<form class="vote-form" method="post" action="/threads/{{.PublicID}}/vote">
 					<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
 						<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 					</button>
@@ -26,11 +26,11 @@
 				<span class="sc{{if .Voted}} on{{end}}">{{.Score}}</span>
 			</div>
 			<div class="thread-cell">
-				{{if .URL}}<a class="tt" href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">({{.Domain}})</span>{{else}}<a class="tt" href="/threads/{{.ID}}">{{.Title}}</a>{{end}}
+				{{if .URL}}<a class="tt" href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">({{.Domain}})</span>{{else}}<a class="tt" href="/threads/{{.PublicID}}">{{.Title}}</a>{{end}}
 				<div class="meta">
 					{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<span>{{.Author}}</span>{{end}}
 					<span>·</span>
-					<a href="/threads/{{.ID}}">{{.CommentText}}</a>
+					<a href="/threads/{{.PublicID}}">{{.CommentText}}</a>
 				</div>
 			</div>
 			<span class="act">{{.LastActivity}}</span>

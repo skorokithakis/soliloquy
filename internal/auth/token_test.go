@@ -2,21 +2,21 @@ package auth
 
 import "testing"
 
-func TestGenerateInviteToken(t *testing.T) {
+func TestGenerateShortID(t *testing.T) {
 	const iterations = 100
 
 	for i := 0; i < iterations; i++ {
-		token, err := GenerateInviteToken()
+		token, err := GenerateShortID()
 		if err != nil {
-			t.Fatalf("GenerateInviteToken: %v", err)
+			t.Fatalf("GenerateShortID: %v", err)
 		}
-		if len(token) != 8 {
-			t.Fatalf("GenerateInviteToken() = %q, length %d, want 8", token, len(token))
+		if len(token) != ShortIDLength {
+			t.Fatalf("GenerateShortID() = %q, length %d, want %d", token, len(token), ShortIDLength)
 		}
 		for _, r := range token {
 			alphanumeric := (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
 			if !alphanumeric {
-				t.Fatalf("GenerateInviteToken() = %q contains %q, want [A-Za-z0-9]", token, r)
+				t.Fatalf("GenerateShortID() = %q contains %q, want [A-Za-z0-9]", token, r)
 			}
 		}
 	}

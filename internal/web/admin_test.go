@@ -207,20 +207,20 @@ func TestAdminDeletesAnyThreadAndComment(t *testing.T) {
 	thread := createThreadDirect(t, server, bob, "Bob's thread", "", "body", server.now())
 	comment := createCommentDirect(t, server, thread, bob, nil, "Bob's comment", server.now())
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, adminCookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, adminCookie, "")
 	if page.Code != http.StatusOK {
 		t.Fatalf("thread page status = %d", page.Code)
 	}
 	for _, want := range []string{
-		fmt.Sprintf(`action="/threads/%d/delete"`, thread.ID),
-		fmt.Sprintf(`action="/comments/%d/delete"`, comment.ID),
+		fmt.Sprintf(`action="/threads/%s/delete"`, thread.PublicID),
+		fmt.Sprintf(`action="/comments/%s/delete"`, comment.PublicID),
 	} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("admin thread page does not contain %q", want)
 		}
 	}
 
-	response := postForm(t, server, commentAction(comment.ID, "delete"), nil, adminCookie)
+	response := postForm(t, server, commentAction(comment.PublicID, "delete"), nil, adminCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("admin comment delete status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
@@ -232,7 +232,7 @@ func TestAdminDeletesAnyThreadAndComment(t *testing.T) {
 		t.Error("admin comment delete did not soft-delete the comment")
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/delete", nil, adminCookie)
+	response = postForm(t, server, threadPath(thread.PublicID)+"/delete", nil, adminCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("admin thread delete status = %d, want %d", response.Code, http.StatusSeeOther)
 	}

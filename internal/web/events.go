@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/skorokithakis/soliloquy/internal/db"
@@ -22,10 +21,10 @@ type badgeEvent struct {
 }
 
 type commentEvent struct {
-	CommentID int64  `json:"comment_id"`
-	ThreadID  int64  `json:"thread_id"`
-	ParentID  *int64 `json:"parent_id"`
-	HTML      string `json:"html"`
+	CommentID string  `json:"comment_id"`
+	ThreadID  string  `json:"thread_id"`
+	ParentID  *string `json:"parent_id"`
+	HTML      string  `json:"html"`
 }
 
 // handleEvents is the single SSE stream used by a page. It always carries the
@@ -38,9 +37,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	threadID, hasThread := eventThreadID(r)
+	threadPublicID, hasThread := eventThreadID(r)
+	threadID := int64(0)
 	if hasThread {
-		thread, err := s.db.ThreadByID(r.Context(), threadID)
+		thread, err := s.db.ThreadByPublicID(r.Context(), threadPublicID)
 		if err != nil {
 			s.serverError(w, err)
 			return
@@ -49,6 +49,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+		threadID = thread.ID
 	}
 
 	flusher, ok := w.(http.Flusher)
@@ -148,16 +149,12 @@ func (s *Server) eventStreamValid(r *http.Request, threadID int64, hasThread boo
 	return thread != nil && thread.DeletedAt == nil
 }
 
-func eventThreadID(r *http.Request) (int64, bool) {
-	raw := r.URL.Query().Get("thread_id")
-	if raw == "" {
-		return 0, false
+func eventThreadID(r *http.Request) (string, bool) {
+	publicID := r.URL.Query().Get("thread_id")
+	if publicID == "" || !validPublicID(publicID) {
+		return "", false
 	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || id <= 0 {
-		return 0, false
-	}
-	return id, true
+	return publicID, true
 }
 
 func writeSSE(w http.ResponseWriter, flusher http.Flusher, name string, data []byte) error {
@@ -226,9 +223,9 @@ func (s *Server) publishNewComment(threadID int64, comment *db.Comment) {
 	s.hub.Publish(hub.ThreadTopic(threadID), hub.Event{
 		Name: "comment",
 		Data: mustJSON(commentEvent{
-			CommentID: comment.ID,
-			ThreadID:  threadID,
-			ParentID:  comment.ParentID,
+			CommentID: comment.PublicID,
+			ThreadID:  comment.ThreadPublicID,
+			ParentID:  comment.ParentPublicID,
 			HTML:      string(html),
 		}),
 	})

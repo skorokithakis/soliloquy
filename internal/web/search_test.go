@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,8 +28,8 @@ func TestSearchPage(t *testing.T) {
 		`action="/search"`,
 		`name="q"`,
 		`value="needle"`,
-		`href="` + threadPath(thread.ID) + `"`,
-		`href="` + commentAnchorPath(thread.ID, comment.ID) + `"`,
+		`href="` + threadPath(thread.PublicID) + `"`,
+		`href="` + commentAnchorPath(thread.PublicID, comment.PublicID) + `"`,
 		"<mark>needle</mark>",
 		"&lt;script&gt;alert(1)&lt;/script&gt;",
 		"alice",
@@ -107,7 +106,7 @@ func TestSearchLinksCommentAnchor(t *testing.T) {
 
 	response := doRequest(t, server, http.MethodGet, "/search?q=findable", nil, cookie, "")
 	body := response.Body.String()
-	want := `href="` + threadPath(thread.ID) + "#c" + strconv.FormatInt(comment.ID, 10) + `"`
+	want := `href="` + threadPath(thread.PublicID) + "#c" + comment.PublicID + `"`
 	if !strings.Contains(body, want) {
 		t.Errorf("comment result link %q is missing", want)
 	}

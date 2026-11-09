@@ -18,15 +18,17 @@ const (
 // Notification is an in-app notification for a user. CommentID is nil for a
 // mention in a thread body; ThreadID is always set.
 type Notification struct {
-	ID             int64
-	RecipientID    int64
-	Kind           string
-	ActorID        int64
-	ActorUsername  string
-	ActorDeletedAt *time.Time
-	ThreadID       int64
-	ThreadTitle    string
-	CommentID      *int64
+	ID              int64
+	RecipientID     int64
+	Kind            string
+	ActorID         int64
+	ActorUsername   string
+	ActorDeletedAt  *time.Time
+	ThreadID        int64
+	ThreadPublicID  string
+	ThreadTitle     string
+	CommentID       *int64
+	CommentPublicID *string
 	// BodyHTML is the rendered comment HTML, or the thread HTML for a mention
 	// in a thread.
 	BodyHTML  string
@@ -67,7 +69,8 @@ func (db *DB) CreateNotification(ctx context.Context, recipientID, actorID int64
 func (db *DB) NotificationByID(ctx context.Context, id int64) (*Notification, error) {
 	notification, err := scanNotification(db.QueryRowContext(ctx, `
 		SELECT n.id, n.recipient_id, n.kind, n.actor_id, u.username,
-			u.deleted_at, n.thread_id, t.title, n.comment_id,
+			u.deleted_at, n.thread_id, t.public_id, t.title, n.comment_id,
+			c.public_id,
 			CASE
 				WHEN n.comment_id IS NOT NULL
 					AND c.deleted_at IS NULL AND t.deleted_at IS NULL
@@ -95,7 +98,8 @@ func (db *DB) NotificationByID(ctx context.Context, id int64) (*Notification, er
 func (db *DB) ListNotifications(ctx context.Context, recipientID int64, limit, offset int) ([]Notification, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT n.id, n.recipient_id, n.kind, n.actor_id, u.username,
-			u.deleted_at, n.thread_id, t.title, n.comment_id,
+			u.deleted_at, n.thread_id, t.public_id, t.title, n.comment_id,
+			c.public_id,
 			CASE
 				WHEN n.comment_id IS NOT NULL
 					AND c.deleted_at IS NULL AND t.deleted_at IS NULL
@@ -151,11 +155,12 @@ func (db *DB) MarkNotificationsRead(ctx context.Context, recipientID int64, now 
 
 func scanNotification(row rowScanner) (*Notification, error) {
 	var (
-		notification Notification
-		actorDeleted sql.NullInt64
-		commentID    sql.NullInt64
-		createdAt    int64
-		readAt       sql.NullInt64
+		notification    Notification
+		actorDeleted    sql.NullInt64
+		commentID       sql.NullInt64
+		commentPublicID sql.NullString
+		createdAt       int64
+		readAt          sql.NullInt64
 	)
 	if err := row.Scan(
 		&notification.ID,
@@ -165,8 +170,10 @@ func scanNotification(row rowScanner) (*Notification, error) {
 		&notification.ActorUsername,
 		&actorDeleted,
 		&notification.ThreadID,
+		&notification.ThreadPublicID,
 		&notification.ThreadTitle,
 		&commentID,
+		&commentPublicID,
 		&notification.BodyHTML,
 		&createdAt,
 		&readAt,
@@ -176,6 +183,9 @@ func scanNotification(row rowScanner) (*Notification, error) {
 
 	notification.ActorDeletedAt = nullTimePtr(actorDeleted)
 	notification.CommentID = nullInt64Ptr(commentID)
+	if commentPublicID.Valid {
+		notification.CommentPublicID = &commentPublicID.String
+	}
 	notification.CreatedAt = timeFromUnix(createdAt)
 	notification.ReadAt = nullTimePtr(readAt)
 	return &notification, nil

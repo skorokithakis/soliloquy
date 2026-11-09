@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -26,19 +25,19 @@ func TestThreadPageRendersCommentTree(t *testing.T) {
 	root := createCommentDirect(t, server, thread, bob, nil, "root **bold**", now.Add(time.Minute))
 	reply := createCommentDirect(t, server, thread, alice, &root.ID, "child reply", now.Add(2*time.Minute))
 
-	response := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	response := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
 
 	body := response.Body.String()
 	for _, want := range []string{
-		`id="c` + strconv.FormatInt(root.ID, 10) + `"`,
-		`id="c` + strconv.FormatInt(reply.ID, 10) + `"`,
-		`data-parent-id="` + strconv.FormatInt(root.ID, 10) + `"`,
+		`id="c` + root.PublicID + `"`,
+		`id="c` + reply.PublicID + `"`,
+		`data-parent-id="` + root.PublicID + `"`,
 		"<strong>bold</strong>",
 		"child reply",
-		`action="/comments/` + strconv.FormatInt(root.ID, 10) + `/vote"`,
+		`action="/comments/` + root.PublicID + `/vote"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("thread page does not contain %q", want)
@@ -47,9 +46,9 @@ func TestThreadPageRendersCommentTree(t *testing.T) {
 
 	// The reply must be nested inside the root's reply container, not just
 	// present somewhere on the page.
-	rootStart := strings.Index(body, `id="c`+strconv.FormatInt(root.ID, 10)+`"`)
-	replyStart := strings.Index(body, `id="c`+strconv.FormatInt(reply.ID, 10)+`"`)
-	containerStart := strings.Index(body, `data-parent-id="`+strconv.FormatInt(root.ID, 10)+`"`)
+	rootStart := strings.Index(body, `id="c`+root.PublicID+`"`)
+	replyStart := strings.Index(body, `id="c`+reply.PublicID+`"`)
+	containerStart := strings.Index(body, `data-parent-id="`+root.PublicID+`"`)
 	if rootStart < 0 || containerStart < 0 || replyStart < 0 || replyStart < containerStart {
 		t.Errorf("reply is not nested in the root's reply container")
 	}
@@ -69,18 +68,18 @@ func TestThreadPageCommentControls(t *testing.T) {
 	root := createCommentDirect(t, server, thread, alice, nil, "from the author", server.now().Add(time.Minute))
 	reply := createCommentDirect(t, server, thread, bob, &root.ID, "a reply", server.now().Add(2*time.Minute))
 
-	body := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "").Body.String()
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String()
 
 	for _, want := range []string{
 		`id="comment-form"`,
-		`action="` + threadPath(thread.ID) + `/comments"`,
+		`action="` + threadPath(thread.PublicID) + `/comments"`,
 		"2 comments · best first",
 		`class="live" data-live hidden`,
 		`class="op"`,
-		`<a class="par" href="#c` + strconv.FormatInt(root.ID, 10) + `">parent</a>`,
-		`action="/comments/` + strconv.FormatInt(root.ID, 10) + `/vote"`,
+		`<a class="par" href="#c` + root.PublicID + `">parent</a>`,
+		`action="/comments/` + root.PublicID + `/vote"`,
 		`class="tog" type="button" hidden`,
-		`<a class="reply-link" href="/comments/` + strconv.FormatInt(root.ID, 10) + `/reply">reply</a>`,
+		`<a class="reply-link" href="/comments/` + root.PublicID + `/reply">reply</a>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("thread page does not contain %q", want)
@@ -92,7 +91,7 @@ func TestThreadPageCommentControls(t *testing.T) {
 	}
 
 	// The viewer's own comment has no vote form, but the score is still shown.
-	if strings.Contains(body, `action="/comments/`+strconv.FormatInt(reply.ID, 10)+`/vote"`) {
+	if strings.Contains(body, `action="/comments/`+reply.PublicID+`/vote"`) {
 		t.Error("the viewer's own comment has a vote form")
 	}
 }
@@ -113,7 +112,7 @@ func TestDeletedCommentVisibility(t *testing.T) {
 		t.Fatalf("delete root: %v", err)
 	}
 
-	response := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	response := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	body := response.Body.String()
 	if !strings.Contains(body, "[deleted]") {
 		t.Error("a deleted comment with replies is not shown as [deleted]")
@@ -132,7 +131,7 @@ func TestDeletedCommentVisibility(t *testing.T) {
 		t.Fatalf("delete leaf: %v", err)
 	}
 
-	response = doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	response = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	body = response.Body.String()
 	if strings.Contains(body, "[deleted]") {
 		t.Error("a deleted subtree with no visible replies still renders placeholders")
@@ -154,44 +153,44 @@ func TestCreateCommentAndReply(t *testing.T) {
 	bobCookie := signIn(t, server, bob)
 	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 
-	response := postForm(t, server, threadPath(thread.ID)+"/comments", url.Values{
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
 		"body": {"top level **comment**"},
 	}, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 	location := response.Header().Get("Location")
-	if !strings.HasPrefix(location, threadPath(thread.ID)+"#c") {
+	if !strings.HasPrefix(location, threadPath(thread.PublicID)+"#c") {
 		t.Fatalf("Location = %q, want a comment anchor", location)
 	}
-	rootID := anchorID(t, location)
+	rootID := anchorPublicID(t, location)
 
-	response = doRequest(t, server, http.MethodGet, "/comments/"+strconv.FormatInt(rootID, 10)+"/reply", nil, bobCookie, "")
+	response = doRequest(t, server, http.MethodGet, "/comments/"+rootID+"/reply", nil, bobCookie, "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("reply page status = %d, want %d", response.Code, http.StatusOK)
 	}
-	if !strings.Contains(response.Body.String(), `action="/comments/`+strconv.FormatInt(rootID, 10)+`/reply"`) {
+	if !strings.Contains(response.Body.String(), `action="/comments/`+rootID+`/reply"`) {
 		t.Error("reply page does not post to the reply route")
 	}
 
-	response = postForm(t, server, "/comments/"+strconv.FormatInt(rootID, 10)+"/reply", url.Values{
+	response = postForm(t, server, "/comments/"+rootID+"/reply", url.Values{
 		"body": {"a reply"},
 	}, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("reply status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 	replyLocation := response.Header().Get("Location")
-	replyID := anchorID(t, replyLocation)
+	replyID := anchorPublicID(t, replyLocation)
 	if replyID == rootID {
 		t.Fatal("reply reused the parent comment's ID")
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
 	body := page.Body.String()
 	if !strings.Contains(body, "top level <strong>comment</strong>") || !strings.Contains(body, "a reply") {
 		t.Error("thread page does not render the new comment and reply")
 	}
-	if !strings.Contains(body, `id="c`+strconv.FormatInt(replyID, 10)+`"`) {
+	if !strings.Contains(body, `id="c`+replyID+`"`) {
 		t.Error("thread page has no anchor for the new reply")
 	}
 }
@@ -210,10 +209,10 @@ func TestCommentValidation(t *testing.T) {
 		body string
 		want string
 	}{
-		{name: "empty top level", path: threadPath(thread.ID) + "/comments", body: "  \n\t", want: "Comment is required"},
-		{name: "long top level", path: threadPath(thread.ID) + "/comments", body: strings.Repeat("x", maxCommentBodyLength+1), want: "20000 characters"},
-		{name: "empty reply", path: commentAction(comment.ID, "reply"), body: "", want: "Comment is required"},
-		{name: "long reply", path: commentAction(comment.ID, "reply"), body: strings.Repeat("x", maxCommentBodyLength+1), want: "20000 characters"},
+		{name: "empty top level", path: threadPath(thread.PublicID) + "/comments", body: "  \n\t", want: "Comment is required"},
+		{name: "long top level", path: threadPath(thread.PublicID) + "/comments", body: strings.Repeat("x", maxCommentBodyLength+1), want: "20000 characters"},
+		{name: "empty reply", path: commentAction(comment.PublicID, "reply"), body: "", want: "Comment is required"},
+		{name: "long reply", path: commentAction(comment.PublicID, "reply"), body: strings.Repeat("x", maxCommentBodyLength+1), want: "20000 characters"},
 	}
 
 	for _, test := range tests {
@@ -246,47 +245,47 @@ func TestEditAndDeleteCommentPermissions(t *testing.T) {
 	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 	comment := createCommentDirect(t, server, thread, bob, nil, "original", server.now())
 
-	response := doRequest(t, server, http.MethodGet, commentAction(comment.ID, "edit"), nil, aliceCookie, "")
+	response := doRequest(t, server, http.MethodGet, commentAction(comment.PublicID, "edit"), nil, aliceCookie, "")
 	if response.Code != http.StatusForbidden {
 		t.Errorf("edit page as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
-	response = postForm(t, server, commentAction(comment.ID, "edit"), url.Values{"body": {"hijacked"}}, aliceCookie)
+	response = postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{"body": {"hijacked"}}, aliceCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("edit as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
-	response = postForm(t, server, commentAction(comment.ID, "delete"), nil, aliceCookie)
+	response = postForm(t, server, commentAction(comment.PublicID, "delete"), nil, aliceCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("delete as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 
-	response = doRequest(t, server, http.MethodGet, commentAction(comment.ID, "edit"), nil, bobCookie, "")
+	response = doRequest(t, server, http.MethodGet, commentAction(comment.PublicID, "edit"), nil, bobCookie, "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "original") {
 		t.Fatalf("author edit page: status = %d, body = %q", response.Code, response.Body.String())
 	}
 
-	response = postForm(t, server, commentAction(comment.ID, "edit"), url.Values{"body": {"edited **text**"}}, bobCookie)
+	response = postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{"body": {"edited **text**"}}, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("edit status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
 	for _, want := range []string{"edited <strong>text</strong>", "edited"} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("thread page does not contain %q after edit", want)
 		}
 	}
 
-	response = postForm(t, server, commentAction(comment.ID, "delete"), nil, bobCookie)
+	response = postForm(t, server, commentAction(comment.PublicID, "delete"), nil, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("delete status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 
-	page = doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
+	page = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
 	if strings.Contains(page.Body.String(), "edited <strong>text</strong>") {
 		t.Error("deleted comment is still rendered")
 	}
 
-	response = doRequest(t, server, http.MethodGet, commentAction(comment.ID, "edit"), nil, bobCookie, "")
+	response = doRequest(t, server, http.MethodGet, commentAction(comment.PublicID, "edit"), nil, bobCookie, "")
 	if response.Code != http.StatusNotFound {
 		t.Errorf("edit page for a deleted comment: status = %d, want %d", response.Code, http.StatusNotFound)
 	}
@@ -304,15 +303,15 @@ func TestCommentWritesOnDeletedThread(t *testing.T) {
 		t.Fatalf("delete thread: %v", err)
 	}
 
-	response := doRequest(t, server, http.MethodGet, commentAction(comment.ID, "reply"), nil, bobCookie, "")
+	response := doRequest(t, server, http.MethodGet, commentAction(comment.PublicID, "reply"), nil, bobCookie, "")
 	if response.Code != http.StatusNotFound {
 		t.Errorf("reply page on a deleted thread: status = %d, want %d", response.Code, http.StatusNotFound)
 	}
 	for _, path := range []string{
-		commentAction(comment.ID, "reply"),
-		commentAction(comment.ID, "edit"),
-		commentAction(comment.ID, "delete"),
-		commentAction(comment.ID, "vote"),
+		commentAction(comment.PublicID, "reply"),
+		commentAction(comment.PublicID, "edit"),
+		commentAction(comment.PublicID, "delete"),
+		commentAction(comment.PublicID, "vote"),
 	} {
 		response = postForm(t, server, path, url.Values{"body": {"too late"}}, bobCookie)
 		if response.Code != http.StatusNotFound {
@@ -330,20 +329,20 @@ func TestVotes(t *testing.T) {
 	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
 
-	response := postForm(t, server, threadPath(thread.ID)+"/vote", nil, bobCookie)
+	response := postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("thread vote status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	if location := response.Header().Get("Location"); location != threadPath(thread.ID) {
-		t.Errorf("thread vote Location = %q, want %q", location, threadPath(thread.ID))
+	if location := response.Header().Get("Location"); location != threadPath(thread.PublicID) {
+		t.Errorf("thread vote Location = %q, want %q", location, threadPath(thread.PublicID))
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
 	if !strings.Contains(page.Body.String(), `data-score-format="number">2</span>`) {
 		t.Error("thread page does not show the voted score")
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/vote", nil, bobCookie)
+	response = postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("thread unvote status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
@@ -355,12 +354,12 @@ func TestVotes(t *testing.T) {
 		t.Errorf("thread score after unvote = %d, want 1", thread.Score)
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/vote", nil, aliceCookie)
+	response = postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, aliceCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("own thread vote status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 
-	response = doJSONPost(t, server, commentAction(comment.ID, "vote"), bobCookie)
+	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), bobCookie)
 	if response.Code != http.StatusOK {
 		t.Fatalf("comment vote status = %d, want %d", response.Code, http.StatusOK)
 	}
@@ -372,14 +371,14 @@ func TestVotes(t *testing.T) {
 		t.Errorf("vote response = %+v", vote)
 	}
 
-	response = doJSONPost(t, server, commentAction(comment.ID, "vote"), aliceCookie)
+	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), aliceCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("own comment vote status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 
 	// The owner sees no vote form for their own comment.
-	page = doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, aliceCookie, "")
-	if strings.Contains(page.Body.String(), `action="/comments/`+strconv.FormatInt(comment.ID, 10)+`/vote"`) {
+	page = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, aliceCookie, "")
+	if strings.Contains(page.Body.String(), `action="/comments/`+comment.PublicID+`/vote"`) {
 		t.Error("own comment has a vote form")
 	}
 }
@@ -413,16 +412,12 @@ func doJSONPost(t *testing.T, server *Server, path string, cookie *http.Cookie) 
 	return response
 }
 
-func anchorID(t *testing.T, location string) int64 {
+func anchorPublicID(t *testing.T, location string) string {
 	t.Helper()
 
 	_, anchor, found := strings.Cut(location, "#c")
-	if !found {
+	if !found || anchor == "" {
 		t.Fatalf("Location %q has no comment anchor", location)
 	}
-	id, err := strconv.ParseInt(anchor, 10, 64)
-	if err != nil {
-		t.Fatalf("anchor ID in %q: %v", location, err)
-	}
-	return id
+	return anchor
 }

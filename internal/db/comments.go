@@ -6,19 +6,28 @@ import (
 	"errors"
 	"sort"
 	"time"
+
+	"github.com/skorokithakis/soliloquy/internal/auth"
 )
 
 // Comment is a reply in a thread. Body is the Markdown source and BodyHTML is
 // the sanitized HTML rendered when the comment was saved. ParentID is nil for
 // top-level comments.
 //
+// ID is the internal integer key. PublicID is the random identifier clients see
+// in URLs, anchors and live-update payloads; ThreadPublicID and ParentPublicID
+// are the public IDs of the thread and parent comment.
+//
 // Voted is true when the viewer passed to the query has an active vote on the
 // comment. It is false for viewer 0, which callers use when no user is
 // involved.
 type Comment struct {
 	ID              int64
+	PublicID        string
 	ThreadID        int64
+	ThreadPublicID  string
 	ParentID        *int64
+	ParentPublicID  *string
 	AuthorID        int64
 	Body            string
 	BodyHTML        string
@@ -48,7 +57,9 @@ type CommentNode struct {
 	Replies []*CommentNode
 }
 
-const commentColumns = `c.id, c.thread_id, c.parent_id, c.author_id, c.body,
+const commentColumns = `c.id, c.public_id, c.thread_id, t.public_id, c.parent_id,
+	(SELECT p.public_id FROM comments p WHERE p.id = c.parent_id),
+	c.author_id, c.body,
 	c.body_html, c.created_at, c.edited_at, c.deleted_at, c.score, u.username,
 	u.deleted_at,
 	EXISTS(SELECT 1 FROM votes v
@@ -58,6 +69,7 @@ func scanComment(row rowScanner) (*Comment, error) {
 	var (
 		comment         Comment
 		parentID        sql.NullInt64
+		parentPublicID  sql.NullString
 		createdAt       int64
 		editedAt        sql.NullInt64
 		deletedAt       sql.NullInt64
@@ -65,8 +77,11 @@ func scanComment(row rowScanner) (*Comment, error) {
 	)
 	if err := row.Scan(
 		&comment.ID,
+		&comment.PublicID,
 		&comment.ThreadID,
+		&comment.ThreadPublicID,
 		&parentID,
+		&parentPublicID,
 		&comment.AuthorID,
 		&comment.Body,
 		&comment.BodyHTML,
@@ -82,6 +97,9 @@ func scanComment(row rowScanner) (*Comment, error) {
 	}
 
 	comment.ParentID = nullInt64Ptr(parentID)
+	if parentPublicID.Valid {
+		comment.ParentPublicID = &parentPublicID.String
+	}
 	comment.CreatedAt = timeFromUnix(createdAt)
 	comment.EditedAt = nullTimePtr(editedAt)
 	comment.DeletedAt = nullTimePtr(deletedAt)
@@ -98,6 +116,11 @@ var ErrCommentNotFound = errors.New("comment target not found")
 // the parent is a live comment in the same thread. It returns ErrCommentNotFound
 // otherwise.
 func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64, authorID int64, body, bodyHTML string, now time.Time) (*Comment, error) {
+	publicID, err := auth.GenerateShortID()
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -107,9 +130,10 @@ func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64
 	parent := nullableInt64(parentID)
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO comments (
-			thread_id, parent_id, author_id, body, body_html, created_at, score
+			public_id, thread_id, parent_id, author_id, body, body_html,
+			created_at, score
 		)
-		SELECT ?, ?, ?, ?, ?, ?, 1
+		SELECT ?, ?, ?, ?, ?, ?, ?, 1
 		WHERE EXISTS (
 			SELECT 1 FROM threads t
 			WHERE t.id = ? AND t.deleted_at IS NULL
@@ -120,7 +144,7 @@ func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64
 				WHERE p.id = ? AND p.thread_id = ? AND p.deleted_at IS NULL
 			)
 		)`,
-		threadID, parent, authorID, body, bodyHTML, now.Unix(),
+		publicID, threadID, parent, authorID, body, bodyHTML, now.Unix(),
 		threadID, parent, parent, threadID,
 	)
 	if err != nil {
@@ -158,10 +182,23 @@ func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64
 // CommentByID returns a comment, including a soft-deleted one, or nil when no
 // comment has that ID. Callers decide whether a deleted comment is visible.
 func (db *DB) CommentByID(ctx context.Context, id, viewerID int64) (*Comment, error) {
+	return db.commentBy(ctx, viewerID, "c.id = ?", id)
+}
+
+// CommentByPublicID returns a comment, including a soft-deleted one, or nil
+// when no comment has that public ID. Handlers use it to resolve the ID in a
+// URL.
+func (db *DB) CommentByPublicID(ctx context.Context, publicID string, viewerID int64) (*Comment, error) {
+	return db.commentBy(ctx, viewerID, "c.public_id = ?", publicID)
+}
+
+func (db *DB) commentBy(ctx context.Context, viewerID int64, where string, value any) (*Comment, error) {
 	comment, err := scanComment(db.QueryRowContext(ctx, `
 		SELECT `+commentColumns+`
-		FROM comments c JOIN users u ON u.id = c.author_id
-		WHERE c.id = ?`, viewerID, id))
+		FROM comments c
+		JOIN users u ON u.id = c.author_id
+		JOIN threads t ON t.id = c.thread_id
+		WHERE `+where, viewerID, value))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -176,7 +213,9 @@ func (db *DB) CommentByID(ctx context.Context, id, viewerID int64) (*Comment, er
 func (db *DB) ListComments(ctx context.Context, threadID, viewerID int64) ([]Comment, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT `+commentColumns+`
-		FROM comments c JOIN users u ON u.id = c.author_id
+		FROM comments c
+		JOIN users u ON u.id = c.author_id
+		JOIN threads t ON t.id = c.thread_id
 		WHERE c.thread_id = ?
 		ORDER BY c.created_at, c.id`, viewerID, threadID)
 	if err != nil {

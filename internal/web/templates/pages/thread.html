@@ -2,10 +2,10 @@
 <div class="thread-page">
 	<a class="back" href="/">‹ ~/threads</a>
 
-	<article class="thread" id="t{{.Thread.ID}}">
+	<article class="thread" id="t{{.Thread.PublicID}}">
 		<div class="vc thread-vote">
 			{{if .CanVote}}
-			<form class="vote-form" method="post" action="/threads/{{.Thread.ID}}/vote">
+			<form class="vote-form" method="post" action="/threads/{{.Thread.PublicID}}/vote">
 				<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
 					<svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 				</button>
@@ -30,9 +30,9 @@
 			{{if .Body}}<div class="md thread-body">{{.Body}}</div>{{end}}
 			{{if or .IsAuthor .CanDelete}}
 			<div class="thread-actions">
-				{{if .IsAuthor}}<a href="/threads/{{.Thread.ID}}/edit">edit</a>{{end}}
+				{{if .IsAuthor}}<a href="/threads/{{.Thread.PublicID}}/edit">edit</a>{{end}}
 				{{if .CanDelete}}
-				<form class="inline-form" method="post" action="/threads/{{.Thread.ID}}/delete">
+				<form class="inline-form" method="post" action="/threads/{{.Thread.PublicID}}/delete">
 					<button type="submit">delete</button>
 				</form>
 				{{end}}
@@ -44,7 +44,7 @@
 	{{if .Visitor}}
 	<p class="login-prompt"><a class="btn" href="/login">Log in to comment</a></p>
 	{{else}}
-	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.ID}}/comments" aria-label="Add a comment">
+	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.PublicID}}/comments" aria-label="Add a comment">
 		{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
 		<div class="editor">
 			<textarea name="body" maxlength="20000" required aria-label="Comment" placeholder="Add a comment. Markdown works. Type @ to mention someone.">{{.CommentBody}}</textarea>

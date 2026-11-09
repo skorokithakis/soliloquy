@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +30,7 @@ func TestVisitorReadsNothingWhenForumIsPrivate(t *testing.T) {
 
 	gets := []string{
 		"/",
-		threadPath(thread.ID),
+		threadPath(thread.PublicID),
 		"/search?q=Thread",
 		"/threads/new",
 		"/invites",
@@ -40,8 +39,8 @@ func TestVisitorReadsNothingWhenForumIsPrivate(t *testing.T) {
 		"/account",
 		"/admin/users",
 		"/admin/settings",
-		threadPath(thread.ID) + "/edit",
-		commentAction(comment.ID, "reply"),
+		threadPath(thread.PublicID) + "/edit",
+		commentAction(comment.PublicID, "reply"),
 	}
 	for _, path := range gets {
 		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
@@ -56,9 +55,9 @@ func TestVisitorReadsNothingWhenForumIsPrivate(t *testing.T) {
 	}{
 		{"/threads", url.Values{"title": {"Hijacked"}, "body": {"nope"}}},
 		{"/preview", url.Values{"body": {"nope"}}},
-		{threadPath(thread.ID) + "/vote", nil},
-		{threadPath(thread.ID) + "/comments", url.Values{"body": {"nope"}}},
-		{commentAction(comment.ID, "vote"), nil},
+		{threadPath(thread.PublicID) + "/vote", nil},
+		{threadPath(thread.PublicID) + "/comments", url.Values{"body": {"nope"}}},
+		{commentAction(comment.PublicID, "vote"), nil},
 		{"/admin/settings", url.Values{"public": {"on"}, "forum_name": {"Hijacked"}}},
 	}
 	for _, post := range posts {
@@ -138,7 +137,7 @@ func TestVisitorReadsPublicForumWithoutControls(t *testing.T) {
 		}
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, nil, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, nil, "")
 	if page.Code != http.StatusOK {
 		t.Fatalf("thread page status = %d, want %d", page.Code, http.StatusOK)
 	}
@@ -157,13 +156,13 @@ func TestVisitorReadsPublicForumWithoutControls(t *testing.T) {
 	for _, unwanted := range []string{
 		"data-sse-url",
 		`id="comment-form"`,
-		`action="` + threadPath(thread.ID) + `/comments"`,
+		`action="` + threadPath(thread.PublicID) + `/comments"`,
 		`name="body"`,
 		`class="vote-form"`,
 		`aria-label="Upvote"`,
 		`class="reply-link"`,
-		`href="` + threadPath(thread.ID) + `/edit"`,
-		`action="` + threadPath(thread.ID) + `/delete"`,
+		`href="` + threadPath(thread.PublicID) + `/edit"`,
+		`action="` + threadPath(thread.PublicID) + `/delete"`,
 		`href="/account"`,
 	} {
 		if strings.Contains(pageBody, unwanted) {
@@ -200,7 +199,7 @@ func TestVisitorReadsPublicForumWithoutControls(t *testing.T) {
 
 	// A logged-in member still gets the normal controls.
 	cookie := signIn(t, server, bob)
-	member := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	member := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	for _, want := range []string{
 		`id="comment-form"`,
 		`class="vote-form"`,
@@ -230,8 +229,8 @@ func TestVisitorCannotUsePrivateRoutesWhenPublic(t *testing.T) {
 		"/admin/settings",
 		"/events",
 		"/password",
-		threadPath(thread.ID) + "/edit",
-		commentAction(comment.ID, "reply"),
+		threadPath(thread.PublicID) + "/edit",
+		commentAction(comment.PublicID, "reply"),
 	}
 	for _, path := range gets {
 		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
@@ -246,10 +245,10 @@ func TestVisitorCannotUsePrivateRoutesWhenPublic(t *testing.T) {
 	}{
 		{"/threads", url.Values{"title": {"Hijacked"}, "body": {"nope"}}},
 		{"/preview", url.Values{"body": {"nope"}}},
-		{threadPath(thread.ID) + "/vote", nil},
-		{threadPath(thread.ID) + "/comments", url.Values{"body": {"nope"}}},
-		{commentAction(comment.ID, "vote"), nil},
-		{commentAction(comment.ID, "delete"), nil},
+		{threadPath(thread.PublicID) + "/vote", nil},
+		{threadPath(thread.PublicID) + "/comments", url.Values{"body": {"nope"}}},
+		{commentAction(comment.PublicID, "vote"), nil},
+		{commentAction(comment.PublicID, "delete"), nil},
 		{"/admin/settings", url.Values{"public": {"off"}, "forum_name": {"Hijacked"}}},
 	}
 	for _, post := range posts {
@@ -289,8 +288,9 @@ func TestVisitorCannotUsePrivateRoutesWhenPublic(t *testing.T) {
 	}
 }
 
-// TestPublicModeAllowsOnlyThreadPaths guards the numeric thread ID check, so a
-// visitor cannot reach /threads/new through the public read-only rule.
+// TestPublicModeAllowsOnlyThreadPaths guards the thread path check, so a
+// visitor cannot reach /threads/new through the public read-only rule, and old
+// numeric thread URLs still get a 404.
 func TestPublicModeAllowsOnlyThreadPaths(t *testing.T) {
 	server := newTestServer(t)
 	setPublic(t, server, true)
@@ -298,7 +298,7 @@ func TestPublicModeAllowsOnlyThreadPaths(t *testing.T) {
 	alice := createTestUser(t, server, "alice", false)
 	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 
-	for _, path := range []string{"/", "/search", threadPath(thread.ID)} {
+	for _, path := range []string{"/", "/search", threadPath(thread.PublicID)} {
 		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
 		if response.Code != http.StatusOK {
 			t.Errorf("%s: status = %d, want %d", path, response.Code, http.StatusOK)
@@ -308,15 +308,24 @@ func TestPublicModeAllowsOnlyThreadPaths(t *testing.T) {
 	for _, path := range []string{
 		"/threads/new",
 		"/threads/",
-		"/threads/abc",
-		"/threads/0",
-		"/threads/-1",
-		"/threads/" + strconv.FormatInt(thread.ID, 10) + "/",
-		"/threads/" + strconv.FormatInt(thread.ID, 10) + "/edit",
+		"/threads/" + thread.PublicID + "/",
+		"/threads/" + thread.PublicID + "/edit",
 	} {
 		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
 		if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/login" {
 			t.Errorf("%s: status = %d, Location = %q, want a redirect to /login", path, response.Code, response.Header().Get("Location"))
+		}
+	}
+
+	for _, path := range []string{
+		"/threads/abc",
+		"/threads/0",
+		"/threads/-1",
+		"/threads/999",
+	} {
+		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
+		if response.Code != http.StatusNotFound {
+			t.Errorf("%s: status = %d, want %d", path, response.Code, http.StatusNotFound)
 		}
 	}
 }

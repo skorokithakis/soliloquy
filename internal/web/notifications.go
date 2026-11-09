@@ -15,23 +15,23 @@ import (
 const notificationsPerPage = 30
 
 type notificationView struct {
-	Kind         string
-	KindLabel    string
-	Actor        string
-	ActorDeleted bool
-	ThreadTitle  string
-	Snippet      string
-	CommentID    *int64
-	ThreadID     int64
-	CreatedAt    string
-	Unread       bool
+	Kind            string
+	KindLabel       string
+	Actor           string
+	ActorDeleted    bool
+	ThreadTitle     string
+	Snippet         string
+	CommentPublicID *string
+	ThreadPublicID  string
+	CreatedAt       string
+	Unread          bool
 }
 
 func (n notificationView) Link() string {
-	if n.CommentID != nil {
-		return commentAnchorPath(n.ThreadID, *n.CommentID)
+	if n.CommentPublicID != nil {
+		return commentAnchorPath(n.ThreadPublicID, *n.CommentPublicID)
 	}
-	return threadPath(n.ThreadID)
+	return threadPath(n.ThreadPublicID)
 }
 
 type notificationsPageData struct {
@@ -64,16 +64,16 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 	earlier := []notificationView{}
 	for _, notification := range notifications {
 		view := notificationView{
-			Kind:         notification.Kind,
-			KindLabel:    notificationKindLabel(notification.Kind),
-			Actor:        notification.ActorName(),
-			ActorDeleted: notification.ActorDeletedAt != nil,
-			ThreadTitle:  notification.ThreadTitle,
-			Snippet:      notificationSnippet(notification.BodyHTML, 140),
-			CommentID:    notification.CommentID,
-			ThreadID:     notification.ThreadID,
-			CreatedAt:    relativeTime(notification.CreatedAt, now),
-			Unread:       notification.ReadAt == nil,
+			Kind:            notification.Kind,
+			KindLabel:       notificationKindLabel(notification.Kind),
+			Actor:           notification.ActorName(),
+			ActorDeleted:    notification.ActorDeletedAt != nil,
+			ThreadTitle:     notification.ThreadTitle,
+			Snippet:         notificationSnippet(notification.BodyHTML, 140),
+			CommentPublicID: notification.CommentPublicID,
+			ThreadPublicID:  notification.ThreadPublicID,
+			CreatedAt:       relativeTime(notification.CreatedAt, now),
+			Unread:          notification.ReadAt == nil,
 		}
 		if view.Unread {
 			unread = append(unread, view)

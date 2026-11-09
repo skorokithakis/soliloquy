@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -22,23 +21,22 @@ const maxCommentBodyLength = 20000
 // the same. Viewer-specific controls are only emitted when IsAuthor or CanVote
 // is set.
 type commentView struct {
-	ID            int64
-	ThreadID      int64
-	ParentID      int64
-	HasParent     bool
-	Author        string
-	AuthorDeleted bool
-	Score         int64
-	ScoreText     string
-	CreatedAt     string
-	Edited        bool
-	Body          template.HTML
-	Deleted       bool
-	IsAuthor      bool
-	CanDelete     bool
-	Voted         bool
-	CanVote       bool
-	IsOP          bool
+	PublicID       string
+	ParentPublicID string
+	HasParent      bool
+	Author         string
+	AuthorDeleted  bool
+	Score          int64
+	ScoreText      string
+	CreatedAt      string
+	Edited         bool
+	Body           template.HTML
+	Deleted        bool
+	IsAuthor       bool
+	CanDelete      bool
+	Voted          bool
+	CanVote        bool
+	IsOP           bool
 	// LoggedIn says whether the viewer has an account. Visitors get no vote,
 	// reply, edit or delete controls, and no account link on the author name.
 	LoggedIn bool
@@ -85,8 +83,7 @@ func commentViews(nodes []*db.CommentNode, viewer *db.User, threadAuthorID int64
 func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) commentView {
 	comment := node.Comment
 	view := commentView{
-		ID:            comment.ID,
-		ThreadID:      comment.ThreadID,
+		PublicID:      comment.PublicID,
 		Author:        comment.AuthorName(),
 		AuthorDeleted: comment.AuthorDeletedAt != nil,
 		Score:         comment.Score,
@@ -102,8 +99,8 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		LoggedIn:      viewer != nil,
 		Replies:       commentViews(node.Replies, viewer, threadAuthorID, now),
 	}
-	if comment.ParentID != nil {
-		view.ParentID = *comment.ParentID
+	if comment.ParentPublicID != nil {
+		view.ParentPublicID = *comment.ParentPublicID
 		view.HasParent = true
 	}
 	if comment.DeletedAt == nil {
@@ -140,7 +137,7 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	s.publishBadgeCounts(r.Context(), recipients)
 	s.publishNewComment(thread.ID, comment)
 
-	http.Redirect(w, r, commentAnchorPath(thread.ID, comment.ID), http.StatusSeeOther)
+	http.Redirect(w, r, commentAnchorPath(thread.PublicID, comment.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleReplyPage(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +146,7 @@ func (s *Server) handleReplyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderCommentForm(w, r, http.StatusOK, "Reply", commentAction(comment.ID, "reply"), "Post reply", "", "", commentAnchorPath(comment.ThreadID, comment.ID))
+	s.renderCommentForm(w, r, http.StatusOK, "Reply", commentAction(comment.PublicID, "reply"), "Post reply", "", "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +158,7 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", commentAction(comment.ID, "reply"), "Post reply", body, err.Error(), commentAnchorPath(comment.ThreadID, comment.ID))
+		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", commentAction(comment.PublicID, "reply"), "Post reply", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 		return
 	}
 
@@ -180,7 +177,7 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	s.publishBadgeCounts(r.Context(), recipients)
 	s.publishNewComment(comment.ThreadID, reply)
 
-	http.Redirect(w, r, commentAnchorPath(reply.ThreadID, reply.ID), http.StatusSeeOther)
+	http.Redirect(w, r, commentAnchorPath(reply.ThreadPublicID, reply.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleEditCommentPage(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +190,7 @@ func (s *Server) handleEditCommentPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderCommentForm(w, r, http.StatusOK, "Edit comment", commentAction(comment.ID, "edit"), "Save changes", comment.Body, "", commentAnchorPath(comment.ThreadID, comment.ID))
+	s.renderCommentForm(w, r, http.StatusOK, "Edit comment", commentAction(comment.PublicID, "edit"), "Save changes", comment.Body, "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +206,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderCommentForm(w, r, http.StatusBadRequest, "Edit comment", commentAction(comment.ID, "edit"), "Save changes", body, err.Error(), commentAnchorPath(comment.ThreadID, comment.ID))
+		s.renderCommentForm(w, r, http.StatusBadRequest, "Edit comment", commentAction(comment.PublicID, "edit"), "Save changes", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 		return
 	}
 
@@ -227,7 +224,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
 
-	http.Redirect(w, r, commentAnchorPath(comment.ThreadID, comment.ID), http.StatusSeeOther)
+	http.Redirect(w, r, commentAnchorPath(comment.ThreadPublicID, comment.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +244,7 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, commentAnchorPath(comment.ThreadID, comment.ID), http.StatusSeeOther)
+	http.Redirect(w, r, commentAnchorPath(comment.ThreadPublicID, comment.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleVoteThread(w http.ResponseWriter, r *http.Request) {
@@ -261,7 +258,7 @@ func (s *Server) handleVoteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondVote(w, r, result, threadPath(thread.ID))
+	s.respondVote(w, r, result, threadPath(thread.PublicID))
 }
 
 func (s *Server) handleVoteComment(w http.ResponseWriter, r *http.Request) {
@@ -275,7 +272,7 @@ func (s *Server) handleVoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.respondVote(w, r, result, commentAnchorPath(comment.ThreadID, comment.ID))
+	s.respondVote(w, r, result, commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 // voteError writes the response for a vote error and reports whether the
@@ -340,13 +337,13 @@ func (s *Server) renderCommentForm(w http.ResponseWriter, r *http.Request, statu
 // comments on deleted threads are treated as absent for every write, because
 // replies and edits attach to live content only.
 func (s *Server) visibleComment(w http.ResponseWriter, r *http.Request) (*db.Comment, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id <= 0 {
+	publicID := r.PathValue("id")
+	if !validPublicID(publicID) {
 		http.NotFound(w, r)
 		return nil, false
 	}
 
-	comment, err := s.db.CommentByID(r.Context(), id, currentUser(r).ID)
+	comment, err := s.db.CommentByPublicID(r.Context(), publicID, currentUser(r).ID)
 	if err != nil {
 		s.serverError(w, err)
 		return nil, false
@@ -379,10 +376,10 @@ func renderCommentBody(body string) (string, error) {
 	return renderThreadBody(body)
 }
 
-func commentAction(id int64, action string) string {
-	return "/comments/" + strconv.FormatInt(id, 10) + "/" + action
+func commentAction(publicID string, action string) string {
+	return "/comments/" + publicID + "/" + action
 }
 
-func commentAnchorPath(threadID, commentID int64) string {
-	return threadPath(threadID) + "#c" + strconv.FormatInt(commentID, 10)
+func commentAnchorPath(threadPublicID, commentPublicID string) string {
+	return threadPath(threadPublicID) + "#c" + commentPublicID
 }

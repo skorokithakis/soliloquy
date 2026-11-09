@@ -30,15 +30,17 @@ const maxSearchResults = 50
 // contains Markdown source with SearchSnippetStart and SearchSnippetEnd around
 // matching terms.
 type SearchResult struct {
-	Kind          string
-	ThreadID      int64
-	ItemID        int64
-	Title         string
-	Snippet       string
-	Author        string
-	AuthorDeleted bool
-	CreatedAt     time.Time
-	CommentCount  int64
+	Kind           string
+	ThreadID       int64
+	ThreadPublicID string
+	ItemID         int64
+	ItemPublicID   string
+	Title          string
+	Snippet        string
+	Author         string
+	AuthorDeleted  bool
+	CreatedAt      time.Time
+	CommentCount   int64
 }
 
 // Search returns up to maxSearchResults matches for query, best first. Deleted
@@ -51,6 +53,9 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT search_index.kind, search_index.item_id, search_index.thread_id,
+			t.public_id,
+			CASE WHEN search_index.kind = 'comment'
+				THEN c.public_id ELSE t.public_id END,
 			t.title,
 			snippet(search_index, 4, char(1), char(2), '…', 20),
 			CASE WHEN search_index.kind = 'comment'
@@ -88,6 +93,8 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 			&result.Kind,
 			&result.ItemID,
 			&result.ThreadID,
+			&result.ThreadPublicID,
+			&result.ItemPublicID,
 			&result.Title,
 			&result.Snippet,
 			&result.Author,

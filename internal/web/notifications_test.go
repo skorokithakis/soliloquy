@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -24,13 +23,13 @@ func TestCommentNotifications(t *testing.T) {
 	bobCookie := signIn(t, server, bob)
 	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 
-	response := postForm(t, server, threadPath(thread.ID)+"/comments", url.Values{
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
 		"body": {"top level"},
 	}, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	rootID := anchorID(t, response.Header().Get("Location"))
+	rootID := anchorPublicID(t, response.Header().Get("Location"))
 
 	notifications := mustListNotifications(t, server, alice.ID)
 	if len(notifications) != 1 {
@@ -40,14 +39,14 @@ func TestCommentNotifications(t *testing.T) {
 	if notification.Kind != db.NotificationThreadComment || notification.ActorID != bob.ID {
 		t.Errorf("alice notification = %+v", notification)
 	}
-	if notification.CommentID == nil || *notification.CommentID != rootID {
-		t.Errorf("alice notification comment = %v, want %d", notification.CommentID, rootID)
+	if notification.CommentID == nil || notification.CommentPublicID == nil || *notification.CommentPublicID != rootID {
+		t.Errorf("alice notification comment = %v, want %s", notification.CommentPublicID, rootID)
 	}
 	if got := mustListNotifications(t, server, bob.ID); len(got) != 0 {
 		t.Errorf("bob got notifications for his own comment: %+v", got)
 	}
 
-	response = postForm(t, server, "/comments/"+strconv.FormatInt(rootID, 10)+"/reply", url.Values{
+	response = postForm(t, server, "/comments/"+rootID+"/reply", url.Values{
 		"body": {"a reply"},
 	}, aliceCookie)
 	if response.Code != http.StatusSeeOther {
@@ -88,12 +87,12 @@ func TestMentionNotificationsOnCreateAndEdit(t *testing.T) {
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("create thread status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	threadID, err := strconv.ParseInt(strings.TrimPrefix(response.Header().Get("Location"), "/threads/"), 10, 64)
-	if err != nil {
-		t.Fatalf("parse thread location: %v", err)
+	threadPublicID := strings.TrimPrefix(response.Header().Get("Location"), "/threads/")
+	if threadPublicID == "" {
+		t.Fatal("create thread Location has no thread public ID")
 	}
 
-	response = postForm(t, server, threadPath(threadID)+"/edit", url.Values{
+	response = postForm(t, server, threadPath(threadPublicID)+"/edit", url.Values{
 		"title": {"Thread"},
 		"body":  {"Hello @bob, @disabled and @alice, welcome @carol"},
 	}, cookie)
@@ -116,16 +115,16 @@ func TestMentionNotificationsOnCreateAndEdit(t *testing.T) {
 
 	// A top-level comment on alice's own thread notifies mentioned users but
 	// not alice as the thread's author.
-	response = postForm(t, server, threadPath(threadID)+"/comments", url.Values{
+	response = postForm(t, server, threadPath(threadPublicID)+"/comments", url.Values{
 		"body": {"@dave and @bob"},
 	}, cookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	commentID := anchorID(t, response.Header().Get("Location"))
+	commentID := anchorPublicID(t, response.Header().Get("Location"))
 
-	if got := mustListNotifications(t, server, dave.ID); len(got) != 1 || got[0].CommentID == nil || *got[0].CommentID != commentID {
-		t.Errorf("dave notifications = %+v, want one mention on comment %d", got, commentID)
+	if got := mustListNotifications(t, server, dave.ID); len(got) != 1 || got[0].CommentPublicID == nil || *got[0].CommentPublicID != commentID {
+		t.Errorf("dave notifications = %+v, want one mention on comment %s", got, commentID)
 	}
 	if got := mustListNotifications(t, server, bob.ID); len(got) != 2 {
 		t.Errorf("bob notifications = %d, want the thread mention plus the comment mention", len(got))
@@ -181,7 +180,7 @@ func TestNotificationsPageMarksReadAndShowsBadge(t *testing.T) {
 		"Thread",
 		`class="snip">hello</div>`,
 		"unread · 1",
-		commentAnchorPath(thread.ID, comment.ID),
+		commentAnchorPath(thread.PublicID, comment.PublicID),
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("notifications page does not contain %q", want)
@@ -306,7 +305,7 @@ func TestMentionDoesNotDuplicatePrimaryNotification(t *testing.T) {
 		thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 		root := createCommentDirect(t, server, thread, bob, nil, "root", server.now())
 
-		response := postForm(t, server, "/comments/"+strconv.FormatInt(root.ID, 10)+"/reply", url.Values{
+		response := postForm(t, server, "/comments/"+root.PublicID+"/reply", url.Values{
 			"body": {"@bob thanks"},
 		}, aliceCookie)
 		if response.Code != http.StatusSeeOther {
@@ -329,7 +328,7 @@ func TestMentionDoesNotDuplicatePrimaryNotification(t *testing.T) {
 		bobCookie := signIn(t, server, bob)
 		thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
 
-		response := postForm(t, server, threadPath(thread.ID)+"/comments", url.Values{
+		response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
 			"body": {"@alice hello"},
 		}, bobCookie)
 		if response.Code != http.StatusSeeOther {
@@ -356,8 +355,8 @@ func TestEventsRejectsDeletedOrMissingThread(t *testing.T) {
 		t.Fatalf("delete thread: %v", err)
 	}
 
-	for _, threadID := range []int64{thread.ID, 9999} {
-		path := "/events?thread_id=" + strconv.FormatInt(threadID, 10)
+	for _, threadPublicID := range []string{thread.PublicID, "zzzzzzzz"} {
+		path := "/events?thread_id=" + threadPublicID
 		response := doRequest(t, server, http.MethodGet, path, nil, cookie, "")
 		if response.Code != http.StatusNotFound {
 			t.Errorf("%s status = %d, want %d", path, response.Code, http.StatusNotFound)
@@ -377,13 +376,13 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 	badges, unsubscribeBadges := server.hub.Subscribe(hub.UserTopic(alice.ID))
 	defer unsubscribeBadges()
 
-	response := postForm(t, server, threadPath(thread.ID)+"/comments", url.Values{
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
 		"body": {"**live** comment"},
 	}, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	commentID := anchorID(t, response.Header().Get("Location"))
+	commentID := anchorPublicID(t, response.Header().Get("Location"))
 
 	select {
 	case event := <-comments:
@@ -394,7 +393,7 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 		if err := json.Unmarshal(event.Data, &payload); err != nil {
 			t.Fatalf("decode comment event: %v", err)
 		}
-		if payload.CommentID != commentID || payload.ThreadID != thread.ID || payload.ParentID != nil {
+		if payload.CommentID != commentID || payload.ThreadID != thread.PublicID || payload.ParentID != nil {
 			t.Errorf("comment event = %+v", payload)
 		}
 		if !strings.Contains(payload.HTML, "<strong>live</strong> comment") {
@@ -437,7 +436,7 @@ func TestReplyEventCarriesParentID(t *testing.T) {
 	comments, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
 	defer unsubscribe()
 
-	response := postForm(t, server, "/comments/"+strconv.FormatInt(root.ID, 10)+"/reply", url.Values{
+	response := postForm(t, server, "/comments/"+root.PublicID+"/reply", url.Values{
 		"body": {"reply"},
 	}, bobCookie)
 	if response.Code != http.StatusSeeOther {
@@ -450,8 +449,8 @@ func TestReplyEventCarriesParentID(t *testing.T) {
 		if err := json.Unmarshal(event.Data, &payload); err != nil {
 			t.Fatalf("decode comment event: %v", err)
 		}
-		if payload.ParentID == nil || *payload.ParentID != root.ID {
-			t.Errorf("reply event parent = %v, want %d", payload.ParentID, root.ID)
+		if payload.ParentID == nil || *payload.ParentID != root.PublicID {
+			t.Errorf("reply event parent = %v, want %s", payload.ParentID, root.PublicID)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("no comment event was published")
@@ -470,7 +469,7 @@ func TestEventsStreamSendsInitialBadgeAndNewComments(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+"/events?thread_id="+strconv.FormatInt(thread.ID, 10), nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+"/events?thread_id="+thread.PublicID, nil)
 	if err != nil {
 		t.Fatalf("create request: %v", err)
 	}
@@ -513,7 +512,7 @@ func TestEventsStreamSendsInitialBadgeAndNewComments(t *testing.T) {
 	if err := json.Unmarshal([]byte(data), &payload); err != nil {
 		t.Fatalf("decode comment event: %v", err)
 	}
-	if payload.CommentID != comment.ID || !strings.Contains(payload.HTML, "streamed") {
+	if payload.CommentID != comment.PublicID || !strings.Contains(payload.HTML, "streamed") {
 		t.Errorf("comment event = %+v", payload)
 	}
 }
@@ -562,7 +561,7 @@ func TestEventStreamClosesWhenSessionInvalidated(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+"/events?thread_id="+strconv.FormatInt(thread.ID, 10), nil)
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+"/events?thread_id="+thread.PublicID, nil)
 			if err != nil {
 				t.Fatalf("create request: %v", err)
 			}

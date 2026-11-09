@@ -57,8 +57,8 @@ type PageData struct {
 	// SearchQuery keeps the header search box filled in on the search page.
 	SearchQuery string
 	// EventThreadID tells the layout which thread's live comment stream the
-	// page should subscribe to. Zero means no thread stream.
-	EventThreadID int64
+	// page should subscribe to. Empty means no thread stream.
+	EventThreadID string
 	// ForumName is the site name shown in the title and logo.
 	ForumName string
 	// BaseURL is the configured site base URL, used to build absolute URLs

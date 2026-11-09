@@ -24,7 +24,7 @@ const (
 )
 
 type threadView struct {
-	ID            int64
+	PublicID      string
 	Title         string
 	URL           string
 	Domain        string
@@ -190,7 +190,7 @@ func (s *Server) handleCreateThread(w http.ResponseWriter, r *http.Request) {
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
 
-	http.Redirect(w, r, threadPath(thread.ID), http.StatusSeeOther)
+	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleThreadPage(w http.ResponseWriter, r *http.Request) {
@@ -240,7 +240,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		CommentLength: utf8.RuneCountInString(commentBody),
 		CommentError:  commentError,
 	}
-	data.EventThreadID = thread.ID
+	data.EventThreadID = thread.PublicID
 	data.Visitor = user == nil
 	s.renderStatus(w, status, "thread", data)
 }
@@ -255,7 +255,7 @@ func (s *Server) handleEditThreadPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderThreadForm(w, r, http.StatusOK, "threads/"+strconv.FormatInt(thread.ID, 10)+"/edit", threadPath(thread.ID)+"/edit", "save changes", threadFormValues{
+	s.renderThreadForm(w, r, http.StatusOK, "threads/"+thread.PublicID+"/edit", threadPath(thread.PublicID)+"/edit", "save changes", threadFormValues{
 		Title: thread.Title,
 		URL:   thread.URL,
 		Body:  thread.Body,
@@ -268,7 +268,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	action := threadPath(thread.ID) + "/edit"
+	action := threadPath(thread.PublicID) + "/edit"
 	if currentUser(r).ID != thread.AuthorID {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -276,7 +276,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	values, err := readThreadForm(r)
 	if err != nil {
-		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/"+strconv.FormatInt(thread.ID, 10)+"/edit", action, "save changes", values, err.Error())
+		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/"+thread.PublicID+"/edit", action, "save changes", values, err.Error())
 		return
 	}
 
@@ -300,7 +300,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
 
-	http.Redirect(w, r, threadPath(thread.ID), http.StatusSeeOther)
+	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
@@ -327,13 +327,13 @@ func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
 // invalid and deleted threads. It returns false when it has already written a
 // response.
 func (s *Server) visibleThread(w http.ResponseWriter, r *http.Request) (*db.Thread, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || id <= 0 {
+	publicID := r.PathValue("id")
+	if !validPublicID(publicID) {
 		http.NotFound(w, r)
 		return nil, false
 	}
 
-	thread, err := s.db.ThreadByID(r.Context(), id)
+	thread, err := s.db.ThreadByPublicID(r.Context(), publicID)
 	if err != nil {
 		s.serverError(w, err)
 		return nil, false
@@ -447,7 +447,7 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 	}
 
 	return threadView{
-		ID:            thread.ID,
+		PublicID:      thread.PublicID,
 		Title:         thread.Title,
 		URL:           thread.URL,
 		Domain:        domain,
@@ -459,8 +459,8 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 	}
 }
 
-func threadPath(id int64) string {
-	return "/threads/" + strconv.FormatInt(id, 10)
+func threadPath(publicID string) string {
+	return "/threads/" + publicID
 }
 
 func threadPageNumber(r *http.Request) int {

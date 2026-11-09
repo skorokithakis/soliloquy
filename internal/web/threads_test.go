@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -135,7 +134,7 @@ func TestCreateThreadRendersAndStoresBody(t *testing.T) {
 		t.Errorf("stored HTML is not sanitized: %q", thread.BodyHTML)
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	if page.Code != http.StatusOK {
 		t.Fatalf("thread page status = %d, want %d", page.Code, http.StatusOK)
 	}
@@ -147,7 +146,7 @@ func TestCreateThreadRendersAndStoresBody(t *testing.T) {
 	}
 
 	index := doRequest(t, server, http.MethodGet, "/", nil, cookie, "")
-	if !strings.Contains(index.Body.String(), `href="`+threadPath(thread.ID)+`"`) {
+	if !strings.Contains(index.Body.String(), `href="`+threadPath(thread.PublicID)+`"`) {
 		t.Error("a thread without a URL should link to its thread page")
 	}
 }
@@ -234,17 +233,17 @@ func TestAuthorEditsThread(t *testing.T) {
 	createdAt := server.now()
 	thread := createThreadDirect(t, server, alice, "Original", "", "old body", createdAt)
 
-	response := doRequest(t, server, http.MethodGet, threadPath(thread.ID)+"/edit", nil, cookie, "")
+	response := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID)+"/edit", nil, cookie, "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("edit page status = %d, want %d", response.Code, http.StatusOK)
 	}
-	for _, want := range []string{"threads/" + strconv.FormatInt(thread.ID, 10) + "/edit", "Original", "old body", `action="` + threadPath(thread.ID) + `/edit"`} {
+	for _, want := range []string{"threads/" + thread.PublicID + "/edit", "Original", "old body", `action="` + threadPath(thread.PublicID) + `/edit"`} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("edit page does not contain %q", want)
 		}
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/edit", url.Values{
+	response = postForm(t, server, threadPath(thread.PublicID)+"/edit", url.Values{
 		"title": {"Edited"},
 		"url":   {"https://example.com/"},
 		"body":  {"new **body**"},
@@ -252,11 +251,11 @@ func TestAuthorEditsThread(t *testing.T) {
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("edit status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
-	if location := response.Header().Get("Location"); location != threadPath(thread.ID) {
-		t.Errorf("Location = %q, want %q", location, threadPath(thread.ID))
+	if location := response.Header().Get("Location"); location != threadPath(thread.PublicID) {
+		t.Errorf("Location = %q, want %q", location, threadPath(thread.PublicID))
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	if page.Code != http.StatusOK {
 		t.Fatalf("thread page status = %d, want %d", page.Code, http.StatusOK)
 	}
@@ -285,12 +284,12 @@ func TestThreadWritesRequireAuthor(t *testing.T) {
 	bobCookie := signIn(t, server, bob)
 	thread := createThreadDirect(t, server, alice, "Original", "", "body", server.now())
 
-	response := doRequest(t, server, http.MethodGet, threadPath(thread.ID)+"/edit", nil, bobCookie, "")
+	response := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID)+"/edit", nil, bobCookie, "")
 	if response.Code != http.StatusForbidden {
 		t.Errorf("edit page as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/edit", url.Values{
+	response = postForm(t, server, threadPath(thread.PublicID)+"/edit", url.Values{
 		"title": {"Hijacked"},
 		"body":  {"changed"},
 	}, bobCookie)
@@ -298,7 +297,7 @@ func TestThreadWritesRequireAuthor(t *testing.T) {
 		t.Errorf("edit as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 
-	response = postForm(t, server, threadPath(thread.ID)+"/delete", nil, bobCookie)
+	response = postForm(t, server, threadPath(thread.PublicID)+"/delete", nil, bobCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("delete as another user: status = %d, want %d", response.Code, http.StatusForbidden)
 	}
@@ -311,7 +310,7 @@ func TestThreadWritesRequireAuthor(t *testing.T) {
 		t.Errorf("another user changed the thread: %+v", stored)
 	}
 
-	response = doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
+	response = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
 	if response.Code != http.StatusOK {
 		t.Errorf("signed-in user cannot view a thread: status = %d", response.Code)
 	}
@@ -323,7 +322,7 @@ func TestAuthorDeletesThread(t *testing.T) {
 	cookie := signIn(t, server, alice)
 	thread := createThreadDirect(t, server, alice, "Delete me", "", "body", server.now())
 
-	response := postForm(t, server, threadPath(thread.ID)+"/delete", nil, cookie)
+	response := postForm(t, server, threadPath(thread.PublicID)+"/delete", nil, cookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("delete status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
@@ -336,7 +335,7 @@ func TestAuthorDeletesThread(t *testing.T) {
 		t.Error("deleted thread still shows on the front page")
 	}
 
-	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, cookie, "")
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "")
 	if page.Code != http.StatusNotFound {
 		t.Errorf("deleted thread page status = %d, want %d", page.Code, http.StatusNotFound)
 	}
@@ -358,7 +357,7 @@ func TestFrontPageVotesAndOwnThreads(t *testing.T) {
 	bobCookie := signIn(t, server, bob)
 	thread := createThreadDirect(t, server, alice, "Vote me", "", "body", server.now())
 
-	response := postForm(t, server, threadPath(thread.ID)+"/vote", nil, bobCookie)
+	response := postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, bobCookie)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("vote status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
@@ -371,7 +370,7 @@ func TestFrontPageVotesAndOwnThreads(t *testing.T) {
 	}
 
 	aliceBody := doRequest(t, server, http.MethodGet, "/", nil, aliceCookie, "").Body.String()
-	if strings.Contains(aliceBody, `action="/threads/`+strconv.FormatInt(thread.ID, 10)+`/vote"`) {
+	if strings.Contains(aliceBody, `action="/threads/`+thread.PublicID+`/vote"`) {
 		t.Error("front page shows a vote form on the author's own thread")
 	}
 	if !strings.Contains(aliceBody, `class="vote none"`) {
