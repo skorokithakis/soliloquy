@@ -1,0 +1,21 @@
+<!--
+  Soliloquy mark: an amber prompt chevron and block cursor on a dark square.
+  No text, so it stays correct when an admin renames the forum.
+
+  Regenerate the rasters from this directory (ImageMagick 7):
+
+    magick -background none -density 48 favicon.svg -strip -depth 8 -alpha off /tmp/favicon-16.png
+    magick -background none -density 96 favicon.svg -strip -depth 8 -alpha off /tmp/favicon-32.png
+    magick /tmp/favicon-16.png /tmp/favicon-32.png favicon.ico
+    magick -background none -density 540 favicon.svg -strip -depth 8 -alpha off apple-touch-icon.png
+    magick -background none -density 1440 favicon.svg -strip -depth 8 /tmp/favicon-og.png
+    magick -size 1200x630 xc:'#0f110e' /tmp/favicon-og.png -gravity center \
+      -composite -strip -depth 8 og.png
+
+  Commit the results; there is no build step.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Terminal prompt">
+	<rect width="32" height="32" fill="#0f110e"/>
+	<polygon points="9.706,7.172 17.206,14.172 17.206,17.828 9.706,24.828 6.294,21.172 11.836,16.000 6.294,10.828" fill="#ffb23e"/>
+	<rect x="20" y="6" width="6" height="20" fill="#ffb23e"/>
+</svg>

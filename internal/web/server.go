@@ -31,6 +31,7 @@ type Server struct {
 	templates       map[string]*template.Template
 	commentTemplate *template.Template
 	static          http.Handler
+	favicon         []byte
 	baseOrigin      string
 	baseHost        string
 	throttle        *auth.Throttle
@@ -60,6 +61,9 @@ type PageData struct {
 	EventThreadID int64
 	// ForumName is the site name shown in the title and logo.
 	ForumName string
+	// BaseURL is the configured site base URL, used to build absolute URLs
+	// for link preview metadata.
+	BaseURL string
 	// Visitor marks a public, read-only page rendered for someone without a
 	// session. Those pages use the full header but hide all controls that
 	// need an account.
@@ -95,12 +99,18 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		return nil, fmt.Errorf("open static assets: %w", err)
 	}
 
+	favicon, err := fs.ReadFile(staticFS, "favicon.ico")
+	if err != nil {
+		return nil, fmt.Errorf("read favicon: %w", err)
+	}
+
 	return &Server{
 		db:              database,
 		cfg:             cfg,
 		templates:       templates,
 		commentTemplate: commentTemplate,
 		static:          http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))),
+		favicon:         favicon,
 		baseOrigin:      base.Scheme + "://" + base.Host,
 		baseHost:        base.Host,
 		throttle:        auth.NewThrottle(),
@@ -154,9 +164,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /notifications", s.handleNotificationsPage)
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /events", s.handleEvents)
+	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
 	mux.Handle("GET /static/", s.static)
 
 	return s.originCheck(s.loadUser(mux))
+}
+
+// handleFavicon serves the icon at the site root because browsers and bots
+// request /favicon.ico by default.
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/x-icon")
+	http.ServeContent(w, r, "favicon.ico", time.Time{}, bytes.NewReader(s.favicon))
 }
 
 func (s *Server) pageData(r *http.Request, title string) PageData {
@@ -166,6 +184,7 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 		Theme:       "auto",
 		Nav:         navSection(r.URL.Path),
 		ForumName:   db.DefaultForumName,
+		BaseURL:     s.cfg.BaseURL,
 	}
 	settings, err := s.db.Settings(r.Context())
 	if err != nil {

@@ -66,8 +66,9 @@ func (s *Server) originCheck(next http.Handler) http.Handler {
 // login, sign-up and, when the forum is public, the read-only pages.
 func (s *Server) loadUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Static assets must be available on the login page.
-		if strings.HasPrefix(r.URL.Path, "/static/") {
+		// Static assets and the favicon must be available on the login page
+		// and to logged-out visitors.
+		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/favicon.ico" {
 			next.ServeHTTP(w, r)
 			return
 		}
