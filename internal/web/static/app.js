@@ -86,6 +86,20 @@ document.addEventListener("input", (event) => {
 	}
 });
 
+// Submit the form with Ctrl+Enter (Cmd+Enter on macOS) from any multiline box.
+// requestSubmit runs validation and the submit handlers, like the button does.
+document.addEventListener("keydown", (event) => {
+	if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey) || event.repeat || event.isComposing) {
+		return;
+	}
+	const field = event.target;
+	if (!(field instanceof HTMLTextAreaElement) || !field.form) {
+		return;
+	}
+	event.preventDefault();
+	field.form.requestSubmit();
+});
+
 // Collapse and expand comment subtrees. The controls are hidden in the HTML
 // and only enabled here, so they do nothing when JavaScript is unavailable.
 document.addEventListener("click", (event) => {
