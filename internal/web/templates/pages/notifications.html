@@ -1,15 +1,47 @@
-{{define "content"}}
-<h1>Notifications</h1>
-{{if .Notifications}}
-<ul class="notification-list">
-	{{range .Notifications}}
-	<li class="notification{{if .Unread}} notification-unread{{end}}">
-		<a class="notification-link" href="{{.Link}}">{{if eq .Kind "reply"}}{{.Actor}} replied to your comment{{else if eq .Kind "thread_comment"}}{{.Actor}} commented on your thread{{else}}{{.Actor}} mentioned you{{end}}</a>
-		<span class="notification-meta">in {{.ThreadTitle}} · {{.CreatedAt}}</span>
-	</li>
-	{{end}}
-</ul>
-{{else}}
-<p>No notifications yet.</p>
+{{define "notification"}}
+<li class="n{{if .Unread}} un{{end}}">
+	<span class="dot{{if not .Unread}} dot-empty{{end}}"{{if .Unread}} aria-label="unread"{{else}} aria-hidden="true"{{end}}></span>
+	<span class="kind">{{.KindLabel}}</span>
+	<div class="n-body">
+		<a class="what" href="{{.Link}}">
+			<span class="who">
+				{{if .ActorDeleted}}<span class="gone">{{.Actor}}</span>{{else}}<span class="u">{{.Actor}}</span>{{end}}
+				<span class="kind-inline">{{.KindLabel}}</span>
+			</span>
+			<span class="action">{{if eq .Kind "mention"}}mentioned you in “{{.ThreadTitle}}”{{else if eq .Kind "reply"}}replied to your comment in “{{.ThreadTitle}}”{{else}}commented on your thread “{{.ThreadTitle}}”{{end}}</span>
+		</a>
+		{{if .Snippet}}<div class="snip">{{.Snippet}}</div>{{end}}
+	</div>
+	<time>{{.CreatedAt}}</time>
+</li>
 {{end}}
+
+{{define "content"}}
+<div class="notifications-page">
+	<h1 class="pt"><span class="p">~/</span>notifications</h1>
+
+	{{if .Unread}}
+	<div class="label section-label">unread · {{.UnreadCount}}</div>
+	<ol class="nl">
+		{{range .Unread}}{{template "notification" .}}{{end}}
+	</ol>
+	{{end}}
+
+	{{if .Earlier}}
+	<div class="label section-label earlier-label">earlier</div>
+	<ol class="nl">
+		{{range .Earlier}}{{template "notification" .}}{{end}}
+	</ol>
+	{{end}}
+
+	{{if and (not .Unread) (not .Earlier)}}
+	<p>No notifications yet.</p>
+	{{end}}
+
+	{{if .HasNext}}
+	<div class="load-more">
+		<a class="btn" href="/notifications?page={{.NextPage}}">load older</a>
+	</div>
+	{{end}}
+</div>
 {{end}}

@@ -1,11 +1,18 @@
 {{define "content"}}
-<h1>{{.Heading}}</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-<form method="post" action="{{.Action}}">
-	<label>Comment
-		<textarea name="body" rows="8" maxlength="20000" required autofocus>{{.FormBody}}</textarea>
-	</label>
-	<button type="submit">{{.SubmitLabel}}</button>
-</form>
-<p><a href="{{.CancelURL}}">Cancel</a></p>
+<div class="comment-form-page">
+	<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
+	{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+	<form method="post" action="{{.Action}}">
+		<div class="editor">
+			<textarea name="body" rows="8" maxlength="20000" required autofocus aria-label="{{.Heading}}">{{.FormBody}}</textarea>
+			<div class="edbar">
+				<span>markdown · @mention</span>
+				<span class="sp"></span>
+				<span data-counter>{{.BodyLength}} / 20000</span>
+				<a class="btn ghost" href="{{.CancelURL}}">cancel</a>
+				<button class="btn pri" type="submit">{{.SubmitLabel}}</button>
+			</div>
+		</div>
+	</form>
+</div>
 {{end}}

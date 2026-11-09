@@ -5,6 +5,39 @@ import (
 	"testing"
 )
 
+func TestRenderHighlightsMentions(t *testing.T) {
+	got, err := Render("Hello @alice, not a@b, `@bob` or\n\n```\n@carol\n```")
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := string(got)
+	want := `<span class="mention">@alice</span>`
+	if !strings.Contains(html, want) {
+		t.Errorf("rendered HTML = %q, want it to contain %q", html, want)
+	}
+	for _, unwanted := range []string{
+		`<span class="mention">@bob</span>`,
+		`<span class="mention">@carol</span>`,
+		`<span class="mention">@b</span>`,
+	} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("rendered HTML highlights %q: %s", unwanted, html)
+		}
+	}
+}
+
+func TestSanitizerAllowsOnlyMentionClass(t *testing.T) {
+	html := sanitizer.Sanitize(`<span class="mention">@alice</span><span class="other">text</span>`)
+
+	if !strings.Contains(html, `<span class="mention">@alice</span>`) {
+		t.Errorf("sanitized HTML = %q, want mention span", html)
+	}
+	if strings.Contains(html, `class="other"`) {
+		t.Errorf("sanitized HTML kept a non-mention class: %q", html)
+	}
+}
+
 func TestRenderSanitizesHTML(t *testing.T) {
 	source := `<script>alert("xss")</script>
 

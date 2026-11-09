@@ -27,8 +27,11 @@ type Notification struct {
 	ThreadID       int64
 	ThreadTitle    string
 	CommentID      *int64
-	CreatedAt      time.Time
-	ReadAt         *time.Time
+	// BodyHTML is the rendered comment HTML, or the thread HTML for a mention
+	// in a thread.
+	BodyHTML  string
+	CreatedAt time.Time
+	ReadAt    *time.Time
 }
 
 // ActorName is the name shown for the user who caused the notification.
@@ -64,11 +67,19 @@ func (db *DB) CreateNotification(ctx context.Context, recipientID, actorID int64
 func (db *DB) NotificationByID(ctx context.Context, id int64) (*Notification, error) {
 	notification, err := scanNotification(db.QueryRowContext(ctx, `
 		SELECT n.id, n.recipient_id, n.kind, n.actor_id, u.username,
-			u.deleted_at, n.thread_id, t.title, n.comment_id, n.created_at,
-			n.read_at
+			u.deleted_at, n.thread_id, t.title, n.comment_id,
+			CASE
+				WHEN n.comment_id IS NOT NULL
+					AND c.deleted_at IS NULL AND t.deleted_at IS NULL
+				THEN c.body_html
+				WHEN n.comment_id IS NULL AND t.deleted_at IS NULL
+				THEN t.body_html
+				ELSE ''
+			END, n.created_at, n.read_at
 		FROM notifications n
 		JOIN users u ON u.id = n.actor_id
 		JOIN threads t ON t.id = n.thread_id
+		LEFT JOIN comments c ON c.id = n.comment_id
 		WHERE n.id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -79,17 +90,27 @@ func (db *DB) NotificationByID(ctx context.Context, id int64) (*Notification, er
 	return notification, nil
 }
 
-// ListNotifications returns a recipient's notifications, newest first.
-func (db *DB) ListNotifications(ctx context.Context, recipientID int64) ([]Notification, error) {
+// ListNotifications returns a page of a recipient's notifications, newest
+// first.
+func (db *DB) ListNotifications(ctx context.Context, recipientID int64, limit, offset int) ([]Notification, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT n.id, n.recipient_id, n.kind, n.actor_id, u.username,
-			u.deleted_at, n.thread_id, t.title, n.comment_id, n.created_at,
-			n.read_at
+			u.deleted_at, n.thread_id, t.title, n.comment_id,
+			CASE
+				WHEN n.comment_id IS NOT NULL
+					AND c.deleted_at IS NULL AND t.deleted_at IS NULL
+				THEN c.body_html
+				WHEN n.comment_id IS NULL AND t.deleted_at IS NULL
+				THEN t.body_html
+				ELSE ''
+			END, n.created_at, n.read_at
 		FROM notifications n
 		JOIN users u ON u.id = n.actor_id
 		JOIN threads t ON t.id = n.thread_id
+		LEFT JOIN comments c ON c.id = n.comment_id
 		WHERE n.recipient_id = ?
-		ORDER BY n.created_at DESC, n.id DESC`, recipientID)
+		ORDER BY n.created_at DESC, n.id DESC
+		LIMIT ? OFFSET ?`, recipientID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +167,7 @@ func scanNotification(row rowScanner) (*Notification, error) {
 		&notification.ThreadID,
 		&notification.ThreadTitle,
 		&commentID,
+		&notification.BodyHTML,
 		&createdAt,
 		&readAt,
 	); err != nil {

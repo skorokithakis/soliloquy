@@ -1,22 +1,51 @@
 {{define "content"}}
-<h1>Soliloquy</h1>
-<p><a class="new-thread" href="/threads/new">Start a thread</a></p>
-{{if .Threads}}
-<ul class="thread-list">
-	{{range .Threads}}
-	<li class="thread-row">
-		<h2 class="thread-title">
-			{{if .URL}}<a href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="thread-domain">{{.Domain}}</span>{{else}}<a href="/threads/{{.ID}}">{{.Title}}</a>{{end}}
-		</h2>
-		<p class="thread-meta">by {{.Author}} · {{.ScoreText}} · <a href="/threads/{{.ID}}">{{.CommentText}}</a> · {{.LastActivity}}</p>
-	</li>
+<div class="front-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>threads</h1>
+		<span class="label">sorted by latest activity · page {{.Page}}</span>
+	</div>
+	<div class="pagehead-mobile">
+		<span class="label">latest activity</span>
+		<span class="label">page {{.Page}}</span>
+	</div>
+
+	{{if .Threads}}
+	<ol class="list">
+		{{range .Threads}}
+		<li class="row">
+			<div class="vc">
+				{{if .CanVote}}
+				<form class="vote-form" method="post" action="/threads/{{.ID}}/vote">
+					<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
+						<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
+					</button>
+				</form>
+				{{else}}
+				<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
+				{{end}}
+				<span class="sc{{if .Voted}} on{{end}}">{{.Score}}</span>
+			</div>
+			<div class="thread-cell">
+				{{if .URL}}<a class="tt" href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">({{.Domain}})</span>{{else}}<a class="tt" href="/threads/{{.ID}}">{{.Title}}</a>{{end}}
+				<div class="meta">
+					{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<span>{{.Author}}</span>{{end}}
+					<span>·</span>
+					<a href="/threads/{{.ID}}">{{.CommentText}}</a>
+				</div>
+			</div>
+			<span class="act">{{.LastActivity}}</span>
+		</li>
+		{{end}}
+	</ol>
+	{{else}}
+	<p>No threads yet. <a href="/threads/new">Start the first one.</a></p>
 	{{end}}
-</ul>
-<nav class="pagination">
-	{{if .HasPrev}}<a href="/?page={{.PrevPage}}" rel="prev">Newer</a>{{end}}
-	{{if .HasNext}}<a href="/?page={{.NextPage}}" rel="next">Older</a>{{end}}
-</nav>
-{{else}}
-<p>No threads yet. <a href="/threads/new">Start the first one.</a></p>
-{{end}}
+
+	<nav class="pagination" aria-label="Pages">
+		<span class="label">page {{.Page}} of {{.TotalPages}} · 30 per page</span>
+		<span class="sp"></span>
+		{{if .HasPrev}}<a class="btn" href="/?page={{.PrevPage}}" rel="prev">‹ newer</a>{{end}}
+		{{if .HasNext}}<a class="btn" href="/?page={{.NextPage}}" rel="next">older ›</a>{{end}}
+	</nav>
+</div>
 {{end}}

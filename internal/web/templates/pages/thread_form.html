@@ -1,18 +1,49 @@
 {{define "content"}}
-<h1>{{.Heading}}</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-<form method="post" action="{{.Action}}">
-	<label>Title
-		<input name="title" value="{{.FormTitle}}" maxlength="200" required autofocus>
-	</label>
-	<label>URL
-		<input name="url" type="url" value="{{.FormURL}}" placeholder="https://example.com/">
-	</label>
-	<p class="hint">Optional. Must start with http:// or https://.</p>
-	<label>Body
-		<textarea name="body" rows="12" maxlength="20000">{{.FormBody}}</textarea>
-	</label>
-	<p class="hint">Optional Markdown. Add a URL, a body, or both.</p>
-	<button type="submit">{{.SubmitLabel}}</button>
-</form>
+<div class="thread-form-page">
+	<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
+	{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+
+	<div class="thread-form-layout">
+		<form class="thread-form" method="post" action="{{.Action}}" aria-label="{{.Heading}}">
+			<div class="field">
+				<label for="thread-title">title</label>
+				<input id="thread-title" class="inp" name="title" value="{{.FormTitle}}" maxlength="200" required autofocus data-counter-name="title">
+				<div class="hint"><span></span><span data-counter="title">{{.TitleLength}} / 200</span></div>
+			</div>
+			<div class="field">
+				<label for="thread-url">url <span>(optional)</span></label>
+				<input id="thread-url" class="inp mono" name="url" type="url" value="{{.FormURL}}" placeholder="https://">
+			</div>
+			<div class="field">
+				<label for="thread-body">body <span>(optional, markdown)</span></label>
+				<div class="editor">
+					<div class="tabs" role="tablist" hidden data-tabs>
+						<button type="button" class="on" role="tab" aria-selected="true" data-tab="write">write</button>
+						<button type="button" role="tab" aria-selected="false" data-tab="preview">preview</button>
+					</div>
+					<textarea id="thread-body" name="body" maxlength="20000" data-counter-name="body" aria-label="Body">{{.FormBody}}</textarea>
+					<div class="preview md" hidden data-preview></div>
+				</div>
+				<div class="hint"><span>you need a url, a body, or both</span><span data-counter="body">{{.BodyLength}} / 20000</span></div>
+			</div>
+			<div class="thread-form-actions">
+				<button class="btn pri" type="submit">{{.SubmitLabel}}</button>
+				<a class="btn ghost" href="{{.CancelURL}}">cancel</a>
+				<span class="sp"></span>
+				<span class="mention-note" data-mention-note></span>
+			</div>
+		</form>
+
+		<aside class="thread-help" aria-label="Markdown help">
+			<div class="label">markdown</div>
+			<pre class="cheat"><b>**bold**</b>      <b>_italic_</b>
+<b>`code`</b>        <b>```</b> block
+<b>[text](url)</b>   link
+<b>&gt; quote</b>       <b>- list</b>
+<b>@name</b>         mention</pre>
+			<div class="label">how it shows</div>
+			<p>With a url, the title links to it and the domain shows next to it. New threads go to the top of the front page.</p>
+		</aside>
+	</div>
+</div>
 {{end}}

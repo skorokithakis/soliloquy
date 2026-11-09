@@ -175,7 +175,14 @@ func TestNotificationsPageMarksReadAndShowsBadge(t *testing.T) {
 		t.Fatalf("notifications page status = %d, want %d", response.Code, http.StatusOK)
 	}
 	body := response.Body.String()
-	for _, want := range []string{"bob replied to your comment", "Thread", commentAnchorPath(thread.ID, comment.ID)} {
+	for _, want := range []string{
+		`class="u">bob</span>`,
+		"replied to your comment in",
+		"Thread",
+		`class="snip">hello</div>`,
+		"unread · 1",
+		commentAnchorPath(thread.ID, comment.ID),
+	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("notifications page does not contain %q", want)
 		}
@@ -189,6 +196,104 @@ func TestNotificationsPageMarksReadAndShowsBadge(t *testing.T) {
 	index = doRequest(t, server, http.MethodGet, "/", nil, cookie, "")
 	if strings.Contains(index.Body.String(), `class="badge"`) {
 		t.Error("header still shows a badge after notifications were read")
+	}
+}
+
+func TestNotificationsPageSections(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, bob, nil, "an older comment", server.now().Add(time.Minute))
+	ctx := context.Background()
+
+	if _, err := server.db.CreateNotification(ctx, alice.ID, bob.ID, db.NotificationReply, thread.ID, &comment.ID, server.now().Add(2*time.Minute)); err != nil {
+		t.Fatalf("CreateNotification: %v", err)
+	}
+	if err := server.db.MarkNotificationsRead(ctx, alice.ID, server.now().Add(3*time.Minute)); err != nil {
+		t.Fatalf("MarkNotificationsRead: %v", err)
+	}
+	if _, err := server.db.CreateNotification(ctx, alice.ID, bob.ID, db.NotificationMention, thread.ID, &comment.ID, server.now().Add(4*time.Minute)); err != nil {
+		t.Fatalf("CreateNotification: %v", err)
+	}
+
+	body := doRequest(t, server, http.MethodGet, "/notifications", nil, cookie, "").Body.String()
+	for _, want := range []string{
+		"unread · 1",
+		`earlier-label">earlier</div>`,
+		"mentioned you in “Thread”",
+		"replied to your comment in “Thread”",
+		"an older comment",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("notifications page does not contain %q", want)
+		}
+	}
+}
+
+func TestNotificationsPagination(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, bob, nil, "comment", server.now())
+	ctx := context.Background()
+	base := server.now()
+
+	for i := 0; i < notificationsPerPage+1; i++ {
+		if _, err := server.db.CreateNotification(ctx, alice.ID, bob.ID, db.NotificationReply, thread.ID, &comment.ID, base.Add(time.Duration(i)*time.Minute)); err != nil {
+			t.Fatalf("CreateNotification %d: %v", i, err)
+		}
+	}
+
+	first := doRequest(t, server, http.MethodGet, "/notifications", nil, cookie, "")
+	if first.Code != http.StatusOK {
+		t.Fatalf("first page status = %d, want %d", first.Code, http.StatusOK)
+	}
+	body := first.Body.String()
+	if count := strings.Count(body, `<li class="n`); count != notificationsPerPage {
+		t.Errorf("first page rows = %d, want %d", count, notificationsPerPage)
+	}
+	if !strings.Contains(body, `href="/notifications?page=2"`) {
+		t.Error("first page has no load older link")
+	}
+	if !strings.Contains(body, "unread · 30") {
+		t.Error("first page does not show the unread count")
+	}
+
+	second := doRequest(t, server, http.MethodGet, "/notifications?page=2", nil, cookie, "")
+	if second.Code != http.StatusOK {
+		t.Fatalf("second page status = %d, want %d", second.Code, http.StatusOK)
+	}
+	body = second.Body.String()
+	if count := strings.Count(body, `<li class="n`); count != 1 {
+		t.Errorf("second page rows = %d, want 1", count)
+	}
+	if strings.Contains(body, "/notifications?page=3") {
+		t.Error("second page has a load older link")
+	}
+	if !strings.Contains(body, `earlier-label">earlier</div>`) {
+		t.Error("second page does not show the earlier section")
+	}
+}
+
+func TestNotificationSnippet(t *testing.T) {
+	tests := []struct {
+		html string
+		max  int
+		want string
+	}{
+		{html: "<p>one</p>\n<p>two <strong>three</strong></p>", max: 100, want: "one two three"},
+		{html: "<p>&lt;b&gt;not a tag&lt;/b&gt;</p>", max: 100, want: "<b>not a tag</b>"},
+		{html: "<p>" + strings.Repeat("x", 10) + "</p>", max: 5, want: "xxxxx…"},
+		{html: "\n<p> </p>", max: 10, want: ""},
+	}
+	for _, test := range tests {
+		if got := notificationSnippet(test.html, test.max); got != test.want {
+			t.Errorf("notificationSnippet(%q) = %q, want %q", test.html, got, test.want)
+		}
 	}
 }
 
@@ -501,7 +606,7 @@ func TestEventStreamClosesWhenSessionInvalidated(t *testing.T) {
 func mustListNotifications(t *testing.T, server *Server, userID int64) []db.Notification {
 	t.Helper()
 
-	notifications, err := server.db.ListNotifications(context.Background(), userID)
+	notifications, err := server.db.ListNotifications(context.Background(), userID, 1000, 0)
 	if err != nil {
 		t.Fatalf("ListNotifications: %v", err)
 	}

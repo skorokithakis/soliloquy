@@ -32,10 +32,19 @@ func currentUser(r *http.Request) *db.User {
 	return user
 }
 
+// currentSession returns the session making the request, or nil.
+func currentSession(r *http.Request) *db.Session {
+	session, _ := r.Context().Value(sessionContextKey).(*db.Session)
+	return session
+}
+
 // currentSessionHash returns the hash of the session token making the request.
 func currentSessionHash(r *http.Request) string {
-	hash, _ := r.Context().Value(sessionContextKey).(string)
-	return hash
+	session := currentSession(r)
+	if session == nil {
+		return ""
+	}
+	return session.TokenHash
 }
 
 // originCheck rejects POST requests whose Origin header is missing or does not
@@ -75,7 +84,7 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 				s.clearSessionCookie(w)
 			} else {
 				ctx := context.WithValue(r.Context(), userContextKey, user)
-				ctx = context.WithValue(ctx, sessionContextKey, session.TokenHash)
+				ctx = context.WithValue(ctx, sessionContextKey, session)
 				r = r.WithContext(ctx)
 
 				if session.ExpiresAt.Sub(now) < auth.SessionLifetime-sessionExtensionInterval {

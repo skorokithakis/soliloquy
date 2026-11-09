@@ -2,21 +2,29 @@ package web
 
 import (
 	"context"
+	"html"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/skorokithakis/soliloquy/internal/db"
 	"github.com/skorokithakis/soliloquy/internal/markdown"
 )
 
+const notificationsPerPage = 30
+
 type notificationView struct {
-	Kind        string
-	Actor       string
-	ThreadTitle string
-	CommentID   *int64
-	ThreadID    int64
-	CreatedAt   string
-	Unread      bool
+	Kind         string
+	KindLabel    string
+	Actor        string
+	ActorDeleted bool
+	ThreadTitle  string
+	Snippet      string
+	CommentID    *int64
+	ThreadID     int64
+	CreatedAt    string
+	Unread       bool
 }
 
 func (n notificationView) Link() string {
@@ -28,29 +36,49 @@ func (n notificationView) Link() string {
 
 type notificationsPageData struct {
 	PageData
-	Notifications []notificationView
+	Unread      []notificationView
+	Earlier     []notificationView
+	UnreadCount int64
+	Page        int
+	HasNext     bool
+	NextPage    int
 }
 
 func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
+	page := threadPageNumber(r)
 
-	notifications, err := s.db.ListNotifications(r.Context(), user.ID)
+	notifications, err := s.db.ListNotifications(r.Context(), user.ID, notificationsPerPage+1, (page-1)*notificationsPerPage)
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
 
+	hasNext := len(notifications) > notificationsPerPage
+	if hasNext {
+		notifications = notifications[:notificationsPerPage]
+	}
+
 	now := s.now()
-	views := make([]notificationView, len(notifications))
-	for i, notification := range notifications {
-		views[i] = notificationView{
-			Kind:        notification.Kind,
-			Actor:       notification.ActorName(),
-			ThreadTitle: notification.ThreadTitle,
-			CommentID:   notification.CommentID,
-			ThreadID:    notification.ThreadID,
-			CreatedAt:   relativeTime(notification.CreatedAt, now),
-			Unread:      notification.ReadAt == nil,
+	unread := []notificationView{}
+	earlier := []notificationView{}
+	for _, notification := range notifications {
+		view := notificationView{
+			Kind:         notification.Kind,
+			KindLabel:    notificationKindLabel(notification.Kind),
+			Actor:        notification.ActorName(),
+			ActorDeleted: notification.ActorDeletedAt != nil,
+			ThreadTitle:  notification.ThreadTitle,
+			Snippet:      notificationSnippet(notification.BodyHTML, 140),
+			CommentID:    notification.CommentID,
+			ThreadID:     notification.ThreadID,
+			CreatedAt:    relativeTime(notification.CreatedAt, now),
+			Unread:       notification.ReadAt == nil,
+		}
+		if view.Unread {
+			unread = append(unread, view)
+		} else {
+			earlier = append(earlier, view)
 		}
 	}
 
@@ -61,9 +89,45 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 	s.publishBadgeCounts(r.Context(), []int64{user.ID})
 
 	s.render(w, "notifications", notificationsPageData{
-		PageData:      s.pageData(r, "Notifications"),
-		Notifications: views,
+		PageData:    s.pageData(r, "Notifications"),
+		Unread:      unread,
+		Earlier:     earlier,
+		UnreadCount: int64(len(unread)),
+		Page:        page,
+		HasNext:     hasNext,
+		NextPage:    page + 1,
 	})
+}
+
+func notificationKindLabel(kind string) string {
+	switch kind {
+	case db.NotificationMention:
+		return "mention"
+	case db.NotificationReply:
+		return "reply"
+	default:
+		return "comment"
+	}
+}
+
+var htmlTagPattern = regexp.MustCompile(`<[^>]*>`)
+
+// notificationSnippet takes the text content of rendered, sanitized HTML and
+// returns a short one-line preview. Tags are removed before entities are
+// unescaped, so user text that looks like HTML stays visible as text.
+func notificationSnippet(bodyHTML string, limit int) string {
+	text := htmlTagPattern.ReplaceAllString(bodyHTML, " ")
+	text = html.UnescapeString(text)
+	text = strings.Join(strings.Fields(text), " ")
+	if text == "" {
+		return ""
+	}
+
+	runes := []rune(text)
+	if len(runes) > limit {
+		return string(runes[:limit]) + "…"
+	}
+	return text
 }
 
 // notifyNewComment creates the notifications caused by a new comment: a reply

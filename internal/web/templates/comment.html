@@ -1,27 +1,41 @@
 {{define "comment"}}
-<li class="comment" id="c{{.ID}}" data-comment-id="{{.ID}}">
-	{{if .Deleted}}
-	<p class="comment-deleted">[deleted]</p>
-	{{else}}
-	<div class="comment-body">{{.Body}}</div>
-	<p class="comment-meta">by {{.Author}} · <span class="score">{{.ScoreText}}</span> · {{.CreatedAt}}{{if .Edited}} · edited{{end}}</p>
-	<div class="comment-actions">
+<li class="c" id="c{{.ID}}" data-comment-id="{{.ID}}">
+	<div class="ch">
+		{{if .Deleted}}
+		<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
+		<span class="gone">[deleted]</span>
+		<span>{{.CreatedAt}}</span>
+		{{else}}
 		{{if .CanVote}}
 		<form class="vote-form" method="post" action="/comments/{{.ID}}/vote">
-			<button type="submit" data-voted="{{if .Voted}}true{{else}}false{{end}}">{{if .Voted}}Unvote{{else}}Upvote{{end}}</button>
+			<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
+				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
+			</button>
 		</form>
+		{{else}}
+		<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
 		{{end}}
-		<a href="/comments/{{.ID}}/reply">Reply</a>
-		{{if .IsAuthor}}<a href="/comments/{{.ID}}/edit">Edit</a>{{end}}
-		{{if .CanDelete}}
-		<form class="inline-form" method="post" action="/comments/{{.ID}}/delete">
-			<button type="submit">Delete</button>
-		</form>
+		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<a class="u" href="/account">{{.Author}}</a>{{end}}
+		{{if .IsOP}}<span class="op">op</span>{{end}}
+		<span>{{.CreatedAt}}</span>
+		<span>·</span>
+		<span class="score">{{.ScoreText}}</span>
+		{{if .Edited}}<span>·</span><span>edited</span>{{end}}
 		{{end}}
+		{{if .HasParent}}<span>·</span><a class="par" href="#c{{.ParentID}}">parent</a>{{end}}
+		<button class="tog" type="button" hidden aria-expanded="true" aria-label="Collapse comment">[-]</button>
+	</div>
+	<div class="cb md{{if .Deleted}} gone{{end}}">
+		{{if .Deleted}}<p>[deleted]</p>{{else}}{{.Body}}{{end}}
+	</div>
+	{{if not .Deleted}}
+	<div class="ca">
+		<a class="reply-link" href="/comments/{{.ID}}/reply">reply</a>
+		<a href="#c{{.ID}}">link</a>
+		{{if .IsAuthor}}<a href="/comments/{{.ID}}/edit">edit</a>{{end}}
+		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.ID}}/delete"><button type="submit">delete</button></form>{{end}}
 	</div>
 	{{end}}
-	<ol class="comment-replies" data-parent-id="{{.ID}}">
-		{{range .Replies}}{{template "comment" .}}{{end}}
-	</ol>
+	<ol class="kids" data-parent-id="{{.ID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>
 </li>
 {{end}}

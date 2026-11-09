@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -32,6 +33,12 @@ func TestSearchPage(t *testing.T) {
 		`href="` + commentAnchorPath(thread.ID, comment.ID) + `"`,
 		"<mark>needle</mark>",
 		"&lt;script&gt;alert(1)&lt;/script&gt;",
+		"alice",
+		"1 comment",
+		"open comment ›",
+		"class=\"ty t\"",
+		"class=\"ty\"",
+		"class=\"ctx\"",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("search page does not contain %q", want)
@@ -66,8 +73,28 @@ func TestSearchPageEmptyQuery(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("syntax search status = %d, want %d", response.Code, http.StatusOK)
 	}
-	if !strings.Contains(response.Body.String(), "<h1>Search</h1>") {
+	if !strings.Contains(response.Body.String(), `class="bigsearch"`) {
 		t.Error("syntax search page did not render")
+	}
+}
+
+func TestSearchShowsDeletedAuthor(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, bob)
+	createThreadDirect(t, server, alice, "Deleted author thread", "", "findable body", server.now())
+
+	if err := server.db.DeleteAccount(context.Background(), alice.ID, server.now()); err != nil {
+		t.Fatalf("DeleteAccount: %v", err)
+	}
+
+	body := doRequest(t, server, http.MethodGet, "/search?q=findable", nil, cookie, "").Body.String()
+	if !strings.Contains(body, "[deleted user]") {
+		t.Error("search page does not show [deleted user] for a deleted author")
+	}
+	if strings.Contains(body, ">alice<") {
+		t.Error("search page shows the deleted author's username")
 	}
 }
 

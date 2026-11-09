@@ -1,13 +1,24 @@
 {{define "content"}}
-<h1>Log in</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-<form method="post" action="/login">
-	<label>Username
-		<input name="username" value="{{.Username}}" autocomplete="username" required autofocus>
-	</label>
-	<label>Password
-		<input type="password" name="password" autocomplete="current-password" required>
-	</label>
-	<button type="submit">Log in</button>
-</form>
+<div class="auth-page auth-login">
+	<pre class="getty">a private forum · members only
+tty1 · {{.Host}}</pre>
+
+	<form class="card auth-card" method="post" action="/login" aria-label="Log in">
+		<div class="auth-fields">
+			{{if .Error}}<div class="err" role="alert"><span aria-hidden="true">!</span><span>{{.Error}}</span></div>{{end}}
+			<div class="field">
+				<label for="login">login:</label>
+				<input id="login" class="inp" name="username" value="{{.Username}}" autocomplete="username" required autofocus>
+			</div>
+			<div class="field">
+				<label for="password">password:</label>
+				<input id="password" class="inp" type="password" name="password" autocomplete="current-password" required>
+			</div>
+			<button class="btn auth-submit" type="submit"{{if .WaitSeconds}} disabled data-wait-seconds="{{.WaitSeconds}}"{{end}}>{{if .WaitSeconds}}wait {{.WaitSeconds}}s{{else}}log in{{end}}</button>
+			{{if .WaitSeconds}}<noscript><p class="auth-note">Wait {{.WaitSeconds}} seconds, then reload this page.</p></noscript>{{end}}
+		</div>
+	</form>
+
+	<p class="auth-note">No account? You need an invite link from a member.<br>Forgot your password? Ask an admin for a reset link.</p>
+</div>
 {{end}}

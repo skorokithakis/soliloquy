@@ -22,19 +22,24 @@ const maxCommentBodyLength = 20000
 // the same. Viewer-specific controls are only emitted when IsAuthor or CanVote
 // is set.
 type commentView struct {
-	ID        int64
-	ThreadID  int64
-	Author    string
-	ScoreText string
-	CreatedAt string
-	Edited    bool
-	Body      template.HTML
-	Deleted   bool
-	IsAuthor  bool
-	CanDelete bool
-	Voted     bool
-	CanVote   bool
-	Replies   []commentView
+	ID            int64
+	ThreadID      int64
+	ParentID      int64
+	HasParent     bool
+	Author        string
+	AuthorDeleted bool
+	Score         int64
+	ScoreText     string
+	CreatedAt     string
+	Edited        bool
+	Body          template.HTML
+	Deleted       bool
+	IsAuthor      bool
+	CanDelete     bool
+	Voted         bool
+	CanVote       bool
+	IsOP          bool
+	Replies       []commentView
 }
 
 type commentFormPageData struct {
@@ -43,6 +48,7 @@ type commentFormPageData struct {
 	Action      string
 	SubmitLabel string
 	FormBody    string
+	BodyLength  int
 	CancelURL   string
 }
 
@@ -65,29 +71,36 @@ func (s *Server) renderCommentHTML(view commentView) (template.HTML, error) {
 	return template.HTML(buf.String()), nil
 }
 
-func commentViews(nodes []*db.CommentNode, viewer *db.User, now time.Time) []commentView {
+func commentViews(nodes []*db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) []commentView {
 	views := make([]commentView, len(nodes))
 	for i, node := range nodes {
-		views[i] = commentViewFor(node, viewer, now)
+		views[i] = commentViewFor(node, viewer, threadAuthorID, now)
 	}
 	return views
 }
 
-func commentViewFor(node *db.CommentNode, viewer *db.User, now time.Time) commentView {
+func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) commentView {
 	comment := node.Comment
 	view := commentView{
-		ID:        comment.ID,
-		ThreadID:  comment.ThreadID,
-		Author:    comment.AuthorName(),
-		ScoreText: pointsText(comment.Score),
-		CreatedAt: relativeTime(comment.CreatedAt, now),
-		Edited:    comment.EditedAt != nil,
-		Deleted:   comment.DeletedAt != nil,
-		IsAuthor:  viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
-		CanDelete: viewer != nil && (viewer.ID == comment.AuthorID || viewer.IsAdmin) && comment.DeletedAt == nil,
-		Voted:     comment.Voted,
-		CanVote:   viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
-		Replies:   commentViews(node.Replies, viewer, now),
+		ID:            comment.ID,
+		ThreadID:      comment.ThreadID,
+		Author:        comment.AuthorName(),
+		AuthorDeleted: comment.AuthorDeletedAt != nil,
+		Score:         comment.Score,
+		ScoreText:     pointsText(comment.Score),
+		CreatedAt:     relativeTime(comment.CreatedAt, now),
+		Edited:        comment.EditedAt != nil,
+		Deleted:       comment.DeletedAt != nil,
+		IsAuthor:      viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
+		CanDelete:     viewer != nil && (viewer.ID == comment.AuthorID || viewer.IsAdmin) && comment.DeletedAt == nil,
+		Voted:         comment.Voted,
+		CanVote:       viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
+		IsOP:          comment.AuthorID == threadAuthorID,
+		Replies:       commentViews(node.Replies, viewer, threadAuthorID, now),
+	}
+	if comment.ParentID != nil {
+		view.ParentID = *comment.ParentID
+		view.HasParent = true
 	}
 	if comment.DeletedAt == nil {
 		view.Body = template.HTML(comment.BodyHTML)
@@ -312,6 +325,7 @@ func (s *Server) renderCommentForm(w http.ResponseWriter, r *http.Request, statu
 		Action:      action,
 		SubmitLabel: submitLabel,
 		FormBody:    body,
+		BodyLength:  utf8.RuneCountInString(body),
 		CancelURL:   cancelURL,
 	}
 	data.Error = message

@@ -1,18 +1,27 @@
 {{define "content"}}
-<h1>Reset password</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-{{if .Valid}}
-<form method="post" action="/reset/{{.Token}}">
-	<label>New password
-		<input type="password" name="password" autocomplete="new-password" required autofocus>
-	</label>
-	<label>Confirm new password
-		<input type="password" name="confirm_password" autocomplete="new-password" required>
-	</label>
-	<button type="submit">Set password</button>
-</form>
-<p class="hint">Setting a new password signs out all of the account's sessions.</p>
-{{else}}
-<p><a href="/login">Go to log in</a></p>
-{{end}}
+<div class="auth-page auth-reset">
+	{{if .Valid}}
+	<form class="card auth-card" method="post" action="/reset/{{.Token}}" aria-label="Reset password">
+		<div class="auth-fields">
+			<div class="auth-heading">reset password</div>
+			{{if .Error}}<div class="err" role="alert"><span aria-hidden="true">!</span><span>{{.Error}}</span></div>{{end}}
+			<div class="field">
+				<label for="password">new password</label>
+				<input id="password" class="inp" type="password" name="password" autocomplete="new-password" required autofocus>
+			</div>
+			<div class="field">
+				<label for="password-again">password again</label>
+				<input id="password-again" class="inp" type="password" name="confirm_password" autocomplete="new-password" required>
+			</div>
+			<button class="btn" type="submit">set password</button>
+			<p class="auth-note">Setting a new password signs out all of the account's sessions.</p>
+		</div>
+	</form>
+	{{else}}
+	<div class="card auth-card">
+		<div class="err" role="alert"><span aria-hidden="true">!</span><span>{{.Error}}</span></div>
+		<p class="auth-note"><a href="/login">Go to log in</a></p>
+	</div>
+	{{end}}
+</div>
 {{end}}

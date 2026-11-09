@@ -1,40 +1,74 @@
 {{define "content"}}
-<article class="thread" id="t{{.Thread.ID}}">
-	<h1 class="thread-title">
-		{{if .Thread.URL}}<a href="{{.Thread.URL}}" rel="nofollow noopener">{{.Thread.Title}}</a> <span class="thread-domain">{{.Thread.Domain}}</span>{{else}}{{.Thread.Title}}{{end}}
-	</h1>
-	<p class="thread-meta">by {{.Thread.Author}} · <span class="score">{{.Thread.ScoreText}}</span> · {{.CreatedAt}}{{if .Edited}} · edited{{end}}</p>
-	{{if .Body}}<div class="thread-body">{{.Body}}</div>{{end}}
-	<div class="thread-actions">
-		{{if .CanVote}}
-		<form class="vote-form" method="post" action="/threads/{{.Thread.ID}}/vote">
-			<button type="submit" data-voted="{{if .Voted}}true{{else}}false{{end}}">{{if .Voted}}Unvote{{else}}Upvote{{end}}</button>
-		</form>
-		{{end}}
-		{{if .IsAuthor}}<a href="/threads/{{.Thread.ID}}/edit">Edit</a>{{end}}
-		{{if .CanDelete}}
-		<form class="inline-form" method="post" action="/threads/{{.Thread.ID}}/delete">
-			<button type="submit">Delete</button>
-		</form>
-		{{end}}
-	</div>
-</article>
-<nav class="thread-nav"><a href="/">Back to all threads</a></nav>
-<section class="comments">
-	<h2>Comments</h2>
-	<ol class="comment-list" id="comments" data-parent-id="">
-		{{range .Comments}}{{template "comment" .}}{{end}}
-	</ol>
-	{{if not .Comments}}<p class="no-comments">No comments yet.</p>{{end}}
-</section>
-<section class="comment-form">
-	<h2>Add a comment</h2>
-	{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
-	<form method="post" action="/threads/{{.Thread.ID}}/comments">
-		<label>Comment
-			<textarea name="body" rows="8" maxlength="20000" required>{{.CommentBody}}</textarea>
-		</label>
-		<button type="submit">Post comment</button>
+<div class="thread-page">
+	<a class="back" href="/">‹ ~/threads</a>
+
+	<article class="thread" id="t{{.Thread.ID}}">
+		<div class="vc thread-vote">
+			{{if .CanVote}}
+			<form class="vote-form" method="post" action="/threads/{{.Thread.ID}}/vote">
+				<button class="vote{{if .Voted}} on{{end}}" type="submit" aria-label="{{if .Voted}}Remove upvote{{else}}Upvote{{end}}" aria-pressed="{{if .Voted}}true{{else}}false{{end}}" data-voted="{{if .Voted}}true{{else}}false{{end}}">
+					<svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
+				</button>
+			</form>
+			{{else}}
+			<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
+			{{end}}
+			<span class="score{{if .Voted}} on{{end}}" data-score-format="number">{{.Thread.Score}}</span>
+		</div>
+		<div class="thread-main">
+			<h1 class="thread-title">
+				{{if .Thread.URL}}<a href="{{.Thread.URL}}" rel="nofollow noopener">{{.Thread.Title}}</a> <span class="dom">{{.Thread.Domain}}</span>{{else}}{{.Thread.Title}}{{end}}
+			</h1>
+			<div class="meta">
+				{{if .Thread.AuthorDeleted}}<span class="gone">{{.Thread.Author}}</span>{{else}}<span>{{.Thread.Author}}</span>{{end}}
+				<span>·</span>
+				<span>{{.CreatedAt}}</span>
+				<span>·</span>
+				<a href="#comments">{{.Thread.CommentText}}</a>
+				{{if .Edited}}<span>·</span><span>edited</span>{{end}}
+			</div>
+			{{if .Body}}<div class="md thread-body">{{.Body}}</div>{{end}}
+			{{if or .IsAuthor .CanDelete}}
+			<div class="thread-actions">
+				{{if .IsAuthor}}<a href="/threads/{{.Thread.ID}}/edit">edit</a>{{end}}
+				{{if .CanDelete}}
+				<form class="inline-form" method="post" action="/threads/{{.Thread.ID}}/delete">
+					<button type="submit">delete</button>
+				</form>
+				{{end}}
+			</div>
+			{{end}}
+		</div>
+	</article>
+
+	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.ID}}/comments" aria-label="Add a comment">
+		{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
+		<div class="editor">
+			<textarea name="body" maxlength="20000" required aria-label="Comment" placeholder="Add a comment. Markdown works. Type @ to mention someone.">{{.CommentBody}}</textarea>
+			<div class="edbar">
+				<span>markdown · @mention</span>
+				<span class="sp"></span>
+				<span data-counter>{{.CommentLength}} / 20000</span>
+				<button class="btn pri" type="submit">comment</button>
+			</div>
+		</div>
 	</form>
-</section>
+
+	<div class="comments-head">
+		<span class="label">{{.Thread.CommentText}} · best first</span>
+		<span class="sp"></span>
+		<span class="live" data-live hidden><i></i>live</span>
+	</div>
+
+	<section class="comments" aria-label="Comments">
+		<ol class="comment-list" id="comments" data-parent-id="">
+			{{range .Comments}}{{template "comment" .}}{{end}}
+		</ol>
+		{{if not .Comments}}<p class="no-comments">No comments yet.</p>{{end}}
+	</section>
+
+	<div class="dock">
+		<a class="fake" href="#comment-form">add a comment…</a>
+	</div>
+</div>
 {{end}}

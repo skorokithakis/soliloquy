@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"strings"
+	"time"
 )
 
 // Search result kinds.
@@ -28,11 +30,15 @@ const maxSearchResults = 50
 // contains Markdown source with SearchSnippetStart and SearchSnippetEnd around
 // matching terms.
 type SearchResult struct {
-	Kind     string
-	ThreadID int64
-	ItemID   int64
-	Title    string
-	Snippet  string
+	Kind          string
+	ThreadID      int64
+	ItemID        int64
+	Title         string
+	Snippet       string
+	Author        string
+	AuthorDeleted bool
+	CreatedAt     time.Time
+	CommentCount  int64
 }
 
 // Search returns up to maxSearchResults matches for query, best first. Deleted
@@ -46,11 +52,21 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 	rows, err := db.QueryContext(ctx, `
 		SELECT search_index.kind, search_index.item_id, search_index.thread_id,
 			t.title,
-			snippet(search_index, 4, char(1), char(2), '…', 20)
+			snippet(search_index, 4, char(1), char(2), '…', 20),
+			CASE WHEN search_index.kind = 'comment'
+				THEN cu.username ELSE tu.username END,
+			CASE WHEN search_index.kind = 'comment'
+				THEN cu.deleted_at ELSE tu.deleted_at END,
+			CASE WHEN search_index.kind = 'comment'
+				THEN c.created_at ELSE t.created_at END,
+			(SELECT COUNT(*) FROM comments cc
+				WHERE cc.thread_id = t.id AND cc.deleted_at IS NULL)
 		FROM search_index
 		JOIN threads t ON t.id = search_index.thread_id
+		JOIN users tu ON tu.id = t.author_id
 		LEFT JOIN comments c
 			ON search_index.kind = 'comment' AND c.id = search_index.item_id
+		LEFT JOIN users cu ON cu.id = c.author_id
 		WHERE search_index MATCH ?
 			AND t.deleted_at IS NULL
 			AND (search_index.kind = 'thread' OR c.deleted_at IS NULL)
@@ -63,10 +79,26 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 
 	results := []SearchResult{}
 	for rows.Next() {
-		var result SearchResult
-		if err := rows.Scan(&result.Kind, &result.ItemID, &result.ThreadID, &result.Title, &result.Snippet); err != nil {
+		var (
+			result     SearchResult
+			createdAt  int64
+			authorGone sql.NullInt64
+		)
+		if err := rows.Scan(
+			&result.Kind,
+			&result.ItemID,
+			&result.ThreadID,
+			&result.Title,
+			&result.Snippet,
+			&result.Author,
+			&authorGone,
+			&createdAt,
+			&result.CommentCount,
+		); err != nil {
 			return nil, err
 		}
+		result.AuthorDeleted = authorGone.Valid
+		result.CreatedAt = timeFromUnix(createdAt)
 		results = append(results, result)
 	}
 	return results, rows.Err()

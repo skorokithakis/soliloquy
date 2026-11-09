@@ -1,27 +1,55 @@
 {{define "content"}}
-<h1>Search</h1>
-<form class="search-form" method="get" action="/search" role="search">
-	<label>Search threads and comments
-		<input type="search" name="q" value="{{.Query}}" autofocus>
-	</label>
-	<button type="submit">Search</button>
-</form>
-{{if .Searched}}
-	{{if .Results}}
-	<p class="hint">{{len .Results}} {{if eq (len .Results) 1}}result{{else}}results{{end}} for “{{.Query}}”.</p>
-	<ul class="search-results">
-		{{range .Results}}
-		<li class="search-result">
-			<a class="search-result-title" href="{{.Link}}">{{.Title}}</a>
-			<span class="search-result-kind">{{.Kind}}</span>
-			{{if .Snippet}}<p class="search-result-snippet">{{.Snippet}}</p>{{end}}
-		</li>
+<div class="search-page">
+	<form method="get" action="/search" role="search" aria-label="Search threads and comments">
+		<label class="bigsearch">
+			<span class="ps" aria-hidden="true">grep</span>
+			<input type="search" name="q" value="{{.Query}}" aria-label="Search threads and comments" autofocus>
+			<button class="btn pri" type="submit">search</button>
+		</label>
+	</form>
+
+	{{if .Searched}}
+		{{if .Results}}
+		<div class="search-summary">
+			<span class="label">{{len .Results}} {{if eq (len .Results) 1}}result{{else}}results{{end}} · best match first</span>
+			<span class="label">threads and comments</span>
+		</div>
+		<ol class="rl">
+			{{range .Results}}
+			<li class="r">
+				<span class="ty{{if not .IsComment}} t{{end}}">{{.KindLabel}}</span>
+				<div class="search-result-body">
+					{{if .IsComment}}
+					<div class="ctx">
+						{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}{{.Author}}{{end}}
+						in <a href="{{.ThreadLink}}">{{.Title}}</a>
+					</div>
+					{{else}}
+					<a class="tt" href="{{.Link}}">{{.Title}}</a>
+					{{end}}
+					{{if .Snippet}}<div class="snip">{{.Snippet}}</div>{{end}}
+					<div class="meta">
+						{{if .IsComment}}
+						<span>{{.Age}}</span>
+						<span>·</span>
+						<a href="{{.Link}}">open comment ›</a>
+						{{else}}
+						{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<span>{{.Author}}</span>{{end}}
+						<span>·</span>
+						<span>{{.Age}}</span>
+						<span>·</span>
+						<a href="{{.ThreadLink}}#comments">{{.CommentText}}</a>
+						{{end}}
+					</div>
+				</div>
+			</li>
+			{{end}}
+		</ol>
+		{{else}}
+		<p>No results for “{{.Query}}”.</p>
 		{{end}}
-	</ul>
 	{{else}}
-	<p>No results for “{{.Query}}”.</p>
-	{{end}}
-{{else}}
 	<p class="hint">Search thread titles, thread bodies and comments.</p>
-{{end}}
+	{{end}}
+</div>
 {{end}}

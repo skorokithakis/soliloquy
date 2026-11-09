@@ -27,6 +27,7 @@ type User struct {
 	CreatedAt    time.Time
 	DisabledAt   *time.Time
 	DeletedAt    *time.Time
+	Theme        string
 }
 
 // Active reports whether the user may log in and use the site.
@@ -43,7 +44,7 @@ func (u *User) DisplayName() string {
 	return u.Username
 }
 
-const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at`
+const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at, theme`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -72,6 +73,7 @@ func scanUser(row rowScanner) (*User, error) {
 		&createdAt,
 		&disabledAt,
 		&deletedAt,
+		&user.Theme,
 	); err != nil {
 		return nil, err
 	}
@@ -108,6 +110,12 @@ func (db *DB) UserByUsername(ctx context.Context, username string) (*User, error
 		return nil, err
 	}
 	return user, nil
+}
+
+// SetTheme stores a user's theme preference.
+func (db *DB) SetTheme(ctx context.Context, userID int64, theme string) error {
+	_, err := db.ExecContext(ctx, `UPDATE users SET theme = ? WHERE id = ?`, theme, userID)
+	return err
 }
 
 // CreateUser inserts a user. invitedBy is nil for the first admin; normal
@@ -153,6 +161,17 @@ func (db *DB) ListUsers(ctx context.Context) ([]User, error) {
 		users = append(users, *user)
 	}
 	return users, rows.Err()
+}
+
+// CountInvitedUsers returns how many accounts were invited by userID,
+// including accounts that were later deleted.
+func (db *DB) CountInvitedUsers(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users WHERE invited_by = ?`, userID).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // InviteNode is a user and the users they invited.

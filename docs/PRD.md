@@ -125,8 +125,8 @@ In-app only. A user gets a notification when:
 3. someone mentions them as `@username` in a thread or comment. When a post
    is edited, only users who are newly mentioned get a notification.
    Mentions are found in normal text only, not in code spans or code blocks.
-   Only existing, active users get a notification. Mentions show as plain
-   text, not links.
+   Only existing, active users get a notification. Mentions are highlighted,
+   not links.
 
 Users do not get notifications for their own actions. There is a
 notifications page and an unread count badge in the header.
@@ -154,7 +154,7 @@ An admin can:
 ### 3.10 Appearance
 
 - Server-rendered pages that work on desktop and mobile.
-- Dark mode follows the system setting. This is CSS only, with no toggle.
+- Each account can choose system, light or dark on the account page. The default follows the system setting.
 
 ## 4. Technical design
 
@@ -232,4 +232,4 @@ Flags or environment variables:
 - Running more than one instance.
 - User profile pages.
 - Cancelling invites.
-- A dark mode toggle.
+- A global dark mode toggle; themes are per account.

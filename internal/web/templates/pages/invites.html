@@ -1,20 +1,65 @@
 {{define "content"}}
-<h1>My invites</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-<p>Each link works once and expires after seven days.</p>
-<form method="post" action="/invites">
-	<button type="submit">Create invite link</button>
-</form>
-{{if .Invites}}
-<ul class="invite-list">
-	{{range .Invites}}
-	<li>
-		<a href="{{.URL}}">{{.URL}}</a>
-		<span class="hint">Created {{.CreatedAt.Format "2006-01-02"}}, expires {{.ExpiresAt.Format "2006-01-02"}}</span>
-	</li>
-	{{end}}
-</ul>
-{{else}}
-<p>You have no unused invite links.</p>
-{{end}}
+<div class="invites-page">
+	<div class="invites-layout">
+		<section class="invites-tree" aria-labelledby="tree-heading">
+			<div class="pagehead">
+				<h1 class="pt" id="tree-heading"><span class="p">~/</span>invites</h1>
+				<span class="sp"></span>
+				<span class="label">{{len .Tree}} people · who invited whom</span>
+			</div>
+			<p class="invites-intro">Everyone here was invited by someone. This tree is visible to all members.</p>
+
+			<ul class="tree" aria-label="Invite tree">
+				{{range .Tree}}
+				<li class="tr">
+					<span class="pre">{{.Prefix}}</span>
+					{{if .Deleted}}<span class="gone">[deleted user]</span>{{else}}<span class="nm{{if .Disabled}} off{{end}}">{{.Name}}</span>{{end}}
+					{{if .IsAdmin}}<span class="flag a">admin</span>{{end}}
+					{{if .IsYou}}<span class="flag you">you</span>{{end}}
+					{{if .Disabled}}<span class="flag">disabled</span>{{end}}
+					<span class="lead"></span>
+					<span class="dt">{{.Joined}}</span>
+				</li>
+				{{end}}
+			</ul>
+			<p class="tree-summary">{{.Accounts}} {{if eq .Accounts 1}}account{{else}}accounts{{end}}, {{.Deleted}} deleted · {{.Disabled}} disabled</p>
+		</section>
+
+		<aside class="invites-side" aria-label="Your invites">
+			<div class="panel">
+				<div class="panel-head">
+					<h2 class="label">invite someone</h2>
+					<form class="inline-form" method="post" action="/invites">
+						<button class="btn pri" type="submit">+ new invite link</button>
+					</form>
+				</div>
+				{{if .NewestURL}}
+				<div class="linkbox">
+					<code>{{.NewestURL}}</code>
+					<button class="btn" type="button" data-copy="{{.NewestURL}}">copy</button>
+				</div>
+				<p class="hint">Works once. Expires in 7 days. You show as their inviter in the tree.</p>
+				{{else}}
+				<p class="hint">Create a link to invite someone.</p>
+				{{end}}
+			</div>
+
+			<div class="panel">
+				<h2 class="label">your links</h2>
+				{{if .Links}}
+				<ul class="il">
+					{{range .Links}}
+					<li>
+						<span class="k">{{if .Available}}<a href="{{.URL}}" title="{{.URL}}">{{.Short}}</a>{{else}}{{.Short}}{{end}}</span>
+						<span class="s">{{if .Used}}<span class="ok">used</span> by {{.UsedByName}}{{else}}{{.State}}{{end}}</span>
+					</li>
+					{{end}}
+				</ul>
+				{{else}}
+				<p class="hint">You have no invite links yet.</p>
+				{{end}}
+			</div>
+		</aside>
+	</div>
+</div>
 {{end}}

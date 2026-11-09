@@ -36,7 +36,7 @@ func TestThreadLifecycle(t *testing.T) {
 		t.Errorf("new thread times = %v/%v, want %v", first.CreatedAt, first.LastActivityAt, base)
 	}
 
-	threads, err := database.ListThreads(ctx, 10, 0)
+	threads, err := database.ListThreads(ctx, alice.ID, 10, 0)
 	if err != nil {
 		t.Fatalf("ListThreads: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestThreadLifecycle(t *testing.T) {
 	if _, err := database.ExecContext(ctx, `UPDATE threads SET last_activity_at = ? WHERE id = ?`, base.Add(3*time.Minute).Unix(), first.ID); err != nil {
 		t.Fatalf("move activity: %v", err)
 	}
-	threads, err = database.ListThreads(ctx, 10, 0)
+	threads, err = database.ListThreads(ctx, alice.ID, 10, 0)
 	if err != nil {
 		t.Fatalf("ListThreads after activity: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestThreadLifecycle(t *testing.T) {
 		t.Errorf("second DeleteThread = %t, %v; want false, nil", deleted, err)
 	}
 
-	threads, err = database.ListThreads(ctx, 10, 0)
+	threads, err = database.ListThreads(ctx, alice.ID, 10, 0)
 	if err != nil {
 		t.Fatalf("ListThreads after delete: %v", err)
 	}
@@ -77,11 +77,19 @@ func TestThreadLifecycle(t *testing.T) {
 		t.Error("soft-deleted thread has no deleted_at")
 	}
 
-	page, err := database.ListThreads(ctx, 1, 0)
+	page, err := database.ListThreads(ctx, alice.ID, 1, 0)
 	if err != nil {
 		t.Fatalf("ListThreads page: %v", err)
 	}
 	assertThreadIDs(t, page, first.ID)
+
+	count, err := database.CountThreads(ctx)
+	if err != nil {
+		t.Fatalf("CountThreads: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("CountThreads = %d, want 2 live threads", count)
+	}
 }
 
 func TestUpdateThreadRequiresAuthor(t *testing.T) {

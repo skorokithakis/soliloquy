@@ -1,5 +1,7 @@
+{{define "mainnav"}}<a{{if eq .Nav "threads"}} class="on" aria-current="page"{{end}} href="/">threads</a><a{{if eq .Nav "invites"}} class="on" aria-current="page"{{end}} href="/invites">invites</a>{{with .CurrentUser}}{{if .IsAdmin}}<a{{if eq $.Nav "admin"}} class="on" aria-current="page"{{end}} href="/admin/users">admin</a>{{end}}{{end}}{{end}}
+
 {{define "layout"}}<!doctype html>
-<html lang="en">
+<html lang="en" class="sq {{if .Theme}}{{.Theme}}{{else}}auto{{end}}">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,28 +10,46 @@
 	<script src="/static/app.js" defer></script>
 </head>
 <body{{if .CurrentUser}} data-sse-url="/events{{if .EventThreadID}}?thread_id={{.EventThreadID}}{{end}}"{{end}}>
-	<header class="site-header">
-		<a class="site-title" href="/">Soliloquy</a>
-		{{with .CurrentUser}}
-		<nav class="site-nav">
-			<form class="header-search" method="get" action="/search" role="search">
-				<input type="search" name="q" value="{{$.SearchQuery}}" placeholder="Search" aria-label="Search threads and comments">
-				<button type="submit">Search</button>
-			</form>
-			<span class="site-user">{{.Username}}</span>
-			<a class="notifications-link" href="/notifications">Notifications{{if $.UnreadNotifications}} <span class="badge">{{$.UnreadNotifications}}</span>{{end}}</a>
-			<a href="/threads/new">New thread</a>
-			<a href="/invites">My invites</a>
-			<a href="/tree">Invite tree</a>
-			<a href="/password">Change password</a>
-			<form class="inline-form" method="post" action="/logout">
-				<button type="submit">Log out</button>
-			</form>
-		</nav>
-		{{end}}
-	</header>
-	<main class="site-main">
+{{if .CurrentUser}}
+	<header class="top"><div class="wrap">
+		<a class="logo" href="/" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+		<nav class="nav" aria-label="Main">{{template "mainnav" .}}</nav>
+		<div class="sp"></div>
+		<form class="search" method="get" action="/search" role="search">
+			<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>
+			<input type="search" name="q" value="{{.SearchQuery}}" placeholder="search" aria-label="Search threads and comments">
+		</form>
+		<a class="ib search-link" href="/search" aria-label="Search"><svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg></a>
+		<a class="btn pri" href="/threads/new"><span class="btn-text">+ new thread</span><svg class="btn-icon" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg></a>
+		<a class="ib notifications-link" href="/notifications" aria-label="Notifications{{if .UnreadNotifications}}, {{.UnreadNotifications}} unread{{end}}">
+			<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg>
+			{{if .UnreadNotifications}}<span class="badge">{{.UnreadNotifications}}</span>{{end}}
+		</a>
+		<a class="me" href="/account">{{.CurrentUser.Username}}</a>
+	</div></header>
+	<nav class="sub" aria-label="Main">
+		{{template "mainnav" .}}
+		<span class="sp"></span>
+		<a href="/account">{{.CurrentUser.Username}}</a>
+	</nav>
+{{end}}
+	<main class="{{if .CurrentUser}}wrap{{else}}bare{{end}}">
+{{if not .CurrentUser}}
+		<div class="bare-inner">
+			<a class="logo" href="/" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+{{end}}
 		{{template "content" .}}
+{{if not .CurrentUser}}
+		</div>
+{{end}}
+{{if .CurrentUser}}
+		<footer class="foot">
+			<span>soliloquy v1.0</span>
+			<span>AGPL-3.0</span>
+			<a href="https://github.com/skorokithakis/soliloquy">source</a>
+			<a href="/invites">invite tree</a>
+		</footer>
+{{end}}
 	</main>
 </body>
 </html>

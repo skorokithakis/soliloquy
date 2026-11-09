@@ -10,10 +10,16 @@ import (
 )
 
 type searchResultView struct {
-	Title   string
-	Link    string
-	Kind    string
-	Snippet template.HTML
+	Title         string
+	Link          string
+	ThreadLink    string
+	KindLabel     string
+	IsComment     bool
+	Author        string
+	AuthorDeleted bool
+	Age           string
+	CommentText   string
+	Snippet       template.HTML
 }
 
 type searchPageData struct {
@@ -32,20 +38,31 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := s.now()
 	views := make([]searchResultView, len(results))
 	for i, result := range results {
-		link := threadPath(result.ThreadID)
-		kind := "Thread"
-		if result.Kind == db.SearchKindComment {
+		threadLink := threadPath(result.ThreadID)
+		link := threadLink
+		isComment := result.Kind == db.SearchKindComment
+		if isComment {
 			link = commentAnchorPath(result.ThreadID, result.ItemID)
-			kind = "Comment"
 		}
 
+		author := result.Author
+		if result.AuthorDeleted {
+			author = "[deleted user]"
+		}
 		views[i] = searchResultView{
-			Title:   result.Title,
-			Link:    link,
-			Kind:    kind,
-			Snippet: searchSnippetHTML(result.Snippet),
+			Title:         result.Title,
+			Link:          link,
+			ThreadLink:    threadLink,
+			KindLabel:     result.Kind,
+			IsComment:     isComment,
+			Author:        author,
+			AuthorDeleted: result.AuthorDeleted,
+			Age:           relativeTime(result.CreatedAt, now),
+			CommentText:   commentsText(result.CommentCount),
+			Snippet:       searchSnippetHTML(result.Snippet),
 		}
 	}
 

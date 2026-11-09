@@ -35,12 +35,41 @@ func TestNotificationLifecycle(t *testing.T) {
 	if first.ActorName() != "bob" || first.ThreadTitle != "Thread" || first.CommentID == nil || *first.CommentID != comment.ID {
 		t.Errorf("notification = %+v", first)
 	}
+	if first.BodyHTML != "<p>reply</p>" {
+		t.Errorf("reply notification body = %q, want comment HTML", first.BodyHTML)
+	}
 	if first.ReadAt != nil {
 		t.Error("new notification is already read")
 	}
 
-	if _, err := database.CreateNotification(ctx, alice.ID, bob.ID, NotificationMention, thread.ID, nil, base.Add(3*time.Minute)); err != nil {
+	mention, err := database.CreateNotification(ctx, alice.ID, bob.ID, NotificationMention, thread.ID, nil, base.Add(3*time.Minute))
+	if err != nil {
 		t.Fatalf("CreateNotification mention: %v", err)
+	}
+	if mention.BodyHTML != "<p>body</p>" {
+		t.Errorf("thread mention body = %q, want thread HTML", mention.BodyHTML)
+	}
+
+	if _, err := database.DeleteComment(ctx, comment.ID, base.Add(4*time.Minute)); err != nil {
+		t.Fatalf("DeleteComment: %v", err)
+	}
+	first, err = database.NotificationByID(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("NotificationByID after comment delete: %v", err)
+	}
+	if first.BodyHTML != "" {
+		t.Errorf("deleted comment snippet = %q, want empty", first.BodyHTML)
+	}
+
+	if _, err := database.DeleteThread(ctx, thread.ID, base.Add(5*time.Minute)); err != nil {
+		t.Fatalf("DeleteThread: %v", err)
+	}
+	mention, err = database.NotificationByID(ctx, mention.ID)
+	if err != nil {
+		t.Fatalf("NotificationByID after thread delete: %v", err)
+	}
+	if mention.BodyHTML != "" {
+		t.Errorf("deleted thread snippet = %q, want empty", mention.BodyHTML)
 	}
 
 	count, err := database.CountUnreadNotifications(ctx, alice.ID)
@@ -51,7 +80,7 @@ func TestNotificationLifecycle(t *testing.T) {
 		t.Errorf("bob CountUnreadNotifications = %d, %v; want 0, nil", count, err)
 	}
 
-	notifications, err := database.ListNotifications(ctx, alice.ID)
+	notifications, err := database.ListNotifications(ctx, alice.ID, 100, 0)
 	if err != nil || len(notifications) != 2 {
 		t.Fatalf("ListNotifications = %v, %v; want 2", notifications, err)
 	}
@@ -67,7 +96,7 @@ func TestNotificationLifecycle(t *testing.T) {
 		t.Fatalf("CountUnreadNotifications after mark = %d, %v; want 0, nil", count, err)
 	}
 
-	notifications, err = database.ListNotifications(ctx, alice.ID)
+	notifications, err = database.ListNotifications(ctx, alice.ID, 100, 0)
 	if err != nil || len(notifications) != 2 {
 		t.Fatalf("ListNotifications after mark = %v, %v; want 2", notifications, err)
 	}

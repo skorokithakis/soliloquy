@@ -24,13 +24,14 @@ func TestSignupInviteAndPasswordFlow(t *testing.T) {
 	}
 
 	response := doRequest(t, server, http.MethodGet, "/invite/"+bootstrapToken, nil, nil, "")
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Sign up") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "create account") {
 		t.Fatalf("sign-up page: status = %d, body = %q", response.Code, response.Body.String())
 	}
 
 	response = postForm(t, server, "/invite/"+bootstrapToken, url.Values{
-		"username": {"Admin"},
-		"password": {testPassword},
+		"username":         {"Admin"},
+		"password":         {testPassword},
+		"confirm_password": {testPassword},
 	}, nil)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("admin sign-up status = %d, want %d", response.Code, http.StatusSeeOther)
@@ -67,8 +68,9 @@ func TestSignupInviteAndPasswordFlow(t *testing.T) {
 	}
 
 	response = postForm(t, server, "/invite/"+invites[0].Token, url.Values{
-		"username": {"bob"},
-		"password": {testPassword},
+		"username":         {"bob"},
+		"password":         {testPassword},
+		"confirm_password": {testPassword},
 	}, nil)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("second sign-up status = %d, want %d", response.Code, http.StatusSeeOther)
@@ -87,8 +89,9 @@ func TestSignupInviteAndPasswordFlow(t *testing.T) {
 	}
 
 	response = postForm(t, server, "/invite/"+invites[0].Token, url.Values{
-		"username": {"carol"},
-		"password": {testPassword},
+		"username":         {"carol"},
+		"password":         {testPassword},
+		"confirm_password": {testPassword},
 	}, nil)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("reusing invite status = %d, want %d", response.Code, http.StatusNotFound)
@@ -219,16 +222,18 @@ func TestSignupRejectsInvalidUsernameWithoutConsumingInvite(t *testing.T) {
 	}
 
 	response := postForm(t, server, "/invite/"+token, url.Values{
-		"username": {"x"},
-		"password": {testPassword},
+		"username":         {"x"},
+		"password":         {testPassword},
+		"confirm_password": {testPassword},
 	}, nil)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid username status = %d, want %d", response.Code, http.StatusBadRequest)
 	}
 
 	response = postForm(t, server, "/invite/"+token, url.Values{
-		"username": {"admin"},
-		"password": {testPassword},
+		"username":         {"admin"},
+		"password":         {testPassword},
+		"confirm_password": {testPassword},
 	}, nil)
 	if response.Code != http.StatusSeeOther {
 		t.Fatalf("valid sign-up after rejected attempt status = %d, want %d", response.Code, http.StatusSeeOther)

@@ -5,12 +5,14 @@ package markdown
 import (
 	"bytes"
 	"html/template"
+	"regexp"
 	"strings"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
@@ -24,19 +26,21 @@ const (
 
 var (
 	converter = goldmark.New(
+		goldmark.WithExtensions(mentionExtension{}),
 		goldmark.WithParserOptions(
 			parser.WithASTTransformers(util.Prioritized(linkRelTransformer{}, 100)),
 		),
 	)
 
 	// The UGC policy is too strict for our links, which carry a rel attribute
-	// added by the renderer.
+	// added by the renderer, and for mention spans.
 	sanitizer = newSanitizer()
 )
 
 func newSanitizer() *bluemonday.Policy {
 	policy := bluemonday.UGCPolicy()
 	policy.AllowAttrs("rel").Matching(bluemonday.SpaceSeparatedTokens).OnElements("a")
+	policy.AllowAttrs("class").Matching(regexp.MustCompile(`^mention$`)).OnElements("span")
 	return policy
 }
 
@@ -140,6 +144,84 @@ func isUsernameByte(b byte) bool {
 		b >= 'A' && b <= 'Z' ||
 		b >= '0' && b <= '9' ||
 		b == '_' || b == '-'
+}
+
+func isUsernameRune(r rune) bool {
+	return r < 0x80 && isUsernameByte(byte(r))
+}
+
+// mentionNode is an inline @username. The renderer wraps it in a span so the
+// page can highlight it without making it a link.
+type mentionNode struct {
+	ast.BaseInline
+
+	Name string
+}
+
+var mentionKind = ast.NewNodeKind("Mention")
+
+func (n *mentionNode) Kind() ast.NodeKind {
+	return mentionKind
+}
+
+func (n *mentionNode) Dump(source []byte, level int) {
+	ast.DumpHelper(n, source, level, map[string]string{"Name": n.Name}, nil)
+}
+
+// mentionParser turns @username into a mentionNode. It follows the same
+// username and email-like rules as Mentions, and inline parsers are not run
+// inside code spans or code blocks.
+type mentionParser struct{}
+
+func (mentionParser) Trigger() []byte {
+	return []byte{'@'}
+}
+
+func (mentionParser) Parse(_ ast.Node, reader text.Reader, _ parser.Context) ast.Node {
+	line, _ := reader.PeekLine()
+	if len(line) == 0 || line[0] != '@' {
+		return nil
+	}
+	if isUsernameRune(reader.PrecendingCharacter()) {
+		return nil
+	}
+
+	end := 1
+	for end < len(line) && isUsernameByte(line[end]) {
+		end++
+	}
+	length := end - 1
+	if length < minUsernameLength || length > maxUsernameLength {
+		return nil
+	}
+
+	reader.Advance(end)
+	return &mentionNode{Name: string(line[1:end])}
+}
+
+type mentionRenderer struct{}
+
+func (mentionRenderer) RegisterFuncs(register renderer.NodeRendererFuncRegisterer) {
+	register.Register(mentionKind, renderMention)
+}
+
+func renderMention(w util.BufWriter, _ []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+	if !entering {
+		return ast.WalkContinue, nil
+	}
+
+	n := node.(*mentionNode)
+	_, _ = w.WriteString(`<span class="mention">@`)
+	_, _ = w.Write(util.EscapeHTML([]byte(n.Name)))
+	_, _ = w.WriteString(`</span>`)
+	return ast.WalkContinue, nil
+}
+
+type mentionExtension struct{}
+
+func (mentionExtension) Extend(m goldmark.Markdown) {
+	m.Parser().AddOptions(parser.WithInlineParsers(util.Prioritized(mentionParser{}, 600)))
+	m.Renderer().AddOptions(renderer.WithNodeRenderers(util.Prioritized(mentionRenderer{}, 600)))
 }
 
 // linkRelTransformer adds rel="nofollow noopener" to every link before the HTML

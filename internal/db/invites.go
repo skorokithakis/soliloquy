@@ -13,13 +13,15 @@ const InviteLifetime = 7 * 24 * time.Hour
 // Invite is a single-use account creation link. CreatedBy is nil for the
 // bootstrap admin invite that is printed when the database has no users.
 type Invite struct {
-	Token     string
-	CreatedBy *int64
-	IsAdmin   bool
-	CreatedAt time.Time
-	ExpiresAt time.Time
-	UsedAt    *time.Time
-	UsedBy    *int64
+	Token         string
+	CreatedBy     *int64
+	IsAdmin       bool
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
+	UsedAt        *time.Time
+	UsedBy        *int64
+	UsedByName    string
+	UsedByDeleted bool
 }
 
 const inviteColumns = `token, created_by, is_admin, created_at, expires_at, used_at, used_by`
@@ -100,6 +102,61 @@ func (db *DB) ListActiveInvites(ctx context.Context, userID int64, now time.Time
 			return nil, err
 		}
 		invites = append(invites, *invite)
+	}
+	return invites, rows.Err()
+}
+
+// ListInvites returns all of a user's invites, newest first, including used
+// and expired ones. UsedByName is set when the invite was redeemed.
+func (db *DB) ListInvites(ctx context.Context, userID int64) ([]Invite, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT i.token, i.created_by, i.is_admin, i.created_at, i.expires_at,
+			i.used_at, i.used_by, u.username, u.deleted_at
+		FROM invites i
+		LEFT JOIN users u ON u.id = i.used_by
+		WHERE i.created_by = ?
+		ORDER BY i.created_at DESC, i.token`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	invites := []Invite{}
+	for rows.Next() {
+		var (
+			invite     Invite
+			createdBy  sql.NullInt64
+			isAdmin    int64
+			createdAt  int64
+			expiresAt  int64
+			usedAt     sql.NullInt64
+			usedBy     sql.NullInt64
+			usedByName sql.NullString
+			usedByGone sql.NullInt64
+		)
+		if err := rows.Scan(
+			&invite.Token,
+			&createdBy,
+			&isAdmin,
+			&createdAt,
+			&expiresAt,
+			&usedAt,
+			&usedBy,
+			&usedByName,
+			&usedByGone,
+		); err != nil {
+			return nil, err
+		}
+
+		invite.CreatedBy = nullInt64Ptr(createdBy)
+		invite.IsAdmin = isAdmin != 0
+		invite.CreatedAt = timeFromUnix(createdAt)
+		invite.ExpiresAt = timeFromUnix(expiresAt)
+		invite.UsedAt = nullTimePtr(usedAt)
+		invite.UsedBy = nullInt64Ptr(usedBy)
+		invite.UsedByName = usedByName.String
+		invite.UsedByDeleted = usedByGone.Valid
+		invites = append(invites, invite)
 	}
 	return invites, rows.Err()
 }

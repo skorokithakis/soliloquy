@@ -2,9 +2,11 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +14,60 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/db"
 	"github.com/skorokithakis/soliloquy/internal/markdown"
 )
+
+func TestThreadPreview(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	createTestUser(t, server, "bob", false)
+	disabled := createTestUser(t, server, "disabled", false)
+	cookie := signIn(t, server, alice)
+	if _, err := server.db.Exec("UPDATE users SET disabled_at = ? WHERE id = ?", server.now().Unix(), disabled.ID); err != nil {
+		t.Fatalf("disable user: %v", err)
+	}
+
+	response := doRequest(t, server, http.MethodPost, "/preview", url.Values{
+		"body": {"**bold** @bob @alice @nobody @disabled"},
+	}, cookie, testBaseURL)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if contentType := response.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", contentType)
+	}
+
+	var preview previewResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &preview); err != nil {
+		t.Fatalf("decode preview: %v (body %q)", err, response.Body.String())
+	}
+	if !strings.Contains(preview.HTML, "<strong>bold</strong>") {
+		t.Errorf("preview HTML = %q, want rendered Markdown", preview.HTML)
+	}
+	if !strings.Contains(preview.HTML, `<span class="mention">@bob</span>`) {
+		t.Errorf("preview HTML = %q, want highlighted mention", preview.HTML)
+	}
+	if len(preview.Mentions) != 1 || preview.Mentions[0] != "bob" {
+		t.Errorf("preview mentions = %v, want [bob]", preview.Mentions)
+	}
+}
+
+func TestThreadFormKeepsPreviewHiddenWithoutJS(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+
+	body := doRequest(t, server, http.MethodGet, "/threads/new", nil, cookie, "").Body.String()
+	for _, want := range []string{
+		`role="tablist" hidden data-tabs`,
+		`class="preview md" hidden data-preview`,
+		`data-counter="title">0 / 200`,
+		`data-counter="body">0 / 20000`,
+		`href="/">cancel</a>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("thread form does not contain %q", want)
+		}
+	}
+}
 
 func TestCreateThreadWithURL(t *testing.T) {
 	server := newTestServer(t)
@@ -35,7 +91,7 @@ func TestCreateThreadWithURL(t *testing.T) {
 	if page.Code != http.StatusOK {
 		t.Fatalf("thread page status = %d, want %d", page.Code, http.StatusOK)
 	}
-	for _, want := range []string{`href="https://example.com/path"`, "example.com", "alice", "1 point"} {
+	for _, want := range []string{`href="https://example.com/path"`, "example.com", "alice", `data-score-format="number">1</span>`} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("thread page does not contain %q", want)
 		}
@@ -43,7 +99,7 @@ func TestCreateThreadWithURL(t *testing.T) {
 
 	index := doRequest(t, server, http.MethodGet, "/", nil, cookie, "")
 	body := index.Body.String()
-	for _, want := range []string{"A link", `href="https://example.com/path"`, "example.com", "alice", "1 point", "0 comments"} {
+	for _, want := range []string{"A link", `href="https://example.com/path"`, "example.com", "alice", `class="sc">1</span>`, "0 comments"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("front page does not contain %q", want)
 		}
@@ -64,7 +120,7 @@ func TestCreateThreadRendersAndStoresBody(t *testing.T) {
 		t.Fatalf("create status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 
-	threads, err := server.db.ListThreads(context.Background(), 10, 0)
+	threads, err := server.db.ListThreads(context.Background(), alice.ID, 10, 0)
 	if err != nil || len(threads) != 1 {
 		t.Fatalf("ListThreads: threads = %v, err = %v", threads, err)
 	}
@@ -182,7 +238,7 @@ func TestAuthorEditsThread(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("edit page status = %d, want %d", response.Code, http.StatusOK)
 	}
-	for _, want := range []string{"Edit thread", "Original", "old body", `action="` + threadPath(thread.ID) + `/edit"`} {
+	for _, want := range []string{"threads/" + strconv.FormatInt(thread.ID, 10) + "/edit", "Original", "old body", `action="` + threadPath(thread.ID) + `/edit"`} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("edit page does not contain %q", want)
 		}
@@ -294,6 +350,38 @@ func TestAuthorDeletesThread(t *testing.T) {
 	}
 }
 
+func TestFrontPageVotesAndOwnThreads(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Vote me", "", "body", server.now())
+
+	response := postForm(t, server, threadPath(thread.ID)+"/vote", nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("vote status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	bobBody := doRequest(t, server, http.MethodGet, "/", nil, bobCookie, "").Body.String()
+	for _, want := range []string{`class="vote on"`, `class="sc on">2</span>`} {
+		if !strings.Contains(bobBody, want) {
+			t.Errorf("front page for voter does not contain %q", want)
+		}
+	}
+
+	aliceBody := doRequest(t, server, http.MethodGet, "/", nil, aliceCookie, "").Body.String()
+	if strings.Contains(aliceBody, `action="/threads/`+strconv.FormatInt(thread.ID, 10)+`/vote"`) {
+		t.Error("front page shows a vote form on the author's own thread")
+	}
+	if !strings.Contains(aliceBody, `class="vote none"`) {
+		t.Error("front page does not reserve the vote column on the author's own thread")
+	}
+	if !strings.Contains(aliceBody, `class="sc">2</span>`) {
+		t.Error("front page does not show the score on the author's own thread")
+	}
+}
+
 func TestFrontPagePagination(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)
@@ -309,7 +397,7 @@ func TestFrontPagePagination(t *testing.T) {
 		t.Fatalf("first page status = %d", first.Code)
 	}
 	body := first.Body.String()
-	if count := strings.Count(body, `class="thread-row"`); count != threadsPerPage {
+	if count := strings.Count(body, `class="row"`); count != threadsPerPage {
 		t.Errorf("first page rows = %d, want %d", count, threadsPerPage)
 	}
 	if !strings.Contains(body, "Thread 30") || strings.Contains(body, "Thread 00") {
@@ -318,13 +406,16 @@ func TestFrontPagePagination(t *testing.T) {
 	if !strings.Contains(body, `href="/?page=2"`) {
 		t.Error("first page has no older-page link")
 	}
+	if !strings.Contains(body, "page 1 of 2 · 30 per page") {
+		t.Error("first page does not show the page count")
+	}
 
 	second := doRequest(t, server, http.MethodGet, "/?page=2", nil, cookie, "")
 	if second.Code != http.StatusOK {
 		t.Fatalf("second page status = %d", second.Code)
 	}
 	body = second.Body.String()
-	if count := strings.Count(body, `class="thread-row"`); count != 1 {
+	if count := strings.Count(body, `class="row"`); count != 1 {
 		t.Errorf("second page rows = %d, want 1", count)
 	}
 	if !strings.Contains(body, "Thread 00") || strings.Contains(body, "Thread 30") {
@@ -332,6 +423,9 @@ func TestFrontPagePagination(t *testing.T) {
 	}
 	if !strings.Contains(body, `href="/?page=1"`) {
 		t.Error("second page has no newer-page link")
+	}
+	if !strings.Contains(body, "page 2 of 2 · 30 per page") {
+		t.Error("second page does not show the page count")
 	}
 }
 
@@ -378,18 +472,18 @@ func TestRelativeTime(t *testing.T) {
 		t    time.Time
 		want string
 	}{
-		{name: "future", t: now.Add(time.Minute), want: "just now"},
-		{name: "seconds", t: now.Add(-30 * time.Second), want: "just now"},
-		{name: "one minute", t: now.Add(-time.Minute), want: "1 minute ago"},
-		{name: "minutes", t: now.Add(-5 * time.Minute), want: "5 minutes ago"},
-		{name: "one hour", t: now.Add(-time.Hour), want: "1 hour ago"},
-		{name: "hours", t: now.Add(-3 * time.Hour), want: "3 hours ago"},
-		{name: "one day", t: now.Add(-24 * time.Hour), want: "1 day ago"},
-		{name: "days", t: now.Add(-5 * 24 * time.Hour), want: "5 days ago"},
-		{name: "one month", t: now.Add(-30 * 24 * time.Hour), want: "1 month ago"},
-		{name: "months", t: now.Add(-60 * 24 * time.Hour), want: "2 months ago"},
-		{name: "one year", t: now.Add(-365 * 24 * time.Hour), want: "1 year ago"},
-		{name: "years", t: now.Add(-3 * 365 * 24 * time.Hour), want: "3 years ago"},
+		{name: "future", t: now.Add(time.Minute), want: "now"},
+		{name: "seconds", t: now.Add(-30 * time.Second), want: "now"},
+		{name: "one minute", t: now.Add(-time.Minute), want: "1m"},
+		{name: "minutes", t: now.Add(-5 * time.Minute), want: "5m"},
+		{name: "one hour", t: now.Add(-time.Hour), want: "1h"},
+		{name: "hours", t: now.Add(-3 * time.Hour), want: "3h"},
+		{name: "one day", t: now.Add(-24 * time.Hour), want: "1d"},
+		{name: "days", t: now.Add(-5 * 24 * time.Hour), want: "5d"},
+		{name: "one month", t: now.Add(-30 * 24 * time.Hour), want: "1mo"},
+		{name: "months", t: now.Add(-60 * 24 * time.Hour), want: "2mo"},
+		{name: "one year", t: now.Add(-365 * 24 * time.Hour), want: "1y"},
+		{name: "years", t: now.Add(-3 * 365 * 24 * time.Hour), want: "3y"},
 	}
 
 	for _, test := range tests {

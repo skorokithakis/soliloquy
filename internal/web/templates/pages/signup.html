@@ -1,16 +1,43 @@
 {{define "content"}}
-<h1>Sign up</h1>
-{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
-{{if .Valid}}
-<form method="post" action="/invite/{{.Token}}">
-	<label>Username
-		<input name="username" value="{{.Username}}" autocomplete="username" required autofocus>
-	</label>
-	<p class="hint">3 to 20 characters using a-z, 0-9, _ and -. Usernames are case-insensitive.</p>
-	<label>Password
-		<input type="password" name="password" autocomplete="new-password" required>
-	</label>
-	<button type="submit">Create account</button>
-</form>
-{{end}}
+<div class="auth-page auth-join">
+	{{if .Valid}}
+	<form class="card auth-card" method="post" action="/invite/{{.Token}}" aria-label="Create your account">
+		<div class="auth-fields">
+			<div class="inv">
+				<div><b>{{.Inviter}}</b> invited you. This link works once and expires in {{.DaysLeft}} {{if eq .DaysLeft 1}}day{{else}}days{{end}}.</div>
+				<pre class="tree">{{range .Chain}}{{.Prefix}}{{if .You}}<b>{{.Name}}</b>{{else}}{{.Name}}{{end}}
+{{end}}</pre>
+			</div>
+
+			{{if .Error}}<div class="err" role="alert"><span aria-hidden="true">!</span><span>{{.Error}}</span></div>{{end}}
+
+			<div class="field">
+				<label for="username">pick a username</label>
+				<input id="username" class="inp" name="username" value="{{.Username}}" autocomplete="username" required autofocus data-username-check data-check-url="/invite/{{.Token}}/check">
+				<ul class="checks">
+					<li data-check="length">· 3 to 20 characters</li>
+					<li data-check="chars">· only a-z, 0-9, _ and -</li>
+					<li data-check="available">· available</li>
+					<li>· you cannot change it later</li>
+				</ul>
+			</div>
+			<div class="field">
+				<label for="password">password</label>
+				<input id="password" class="inp" type="password" name="password" autocomplete="new-password" required>
+			</div>
+			<div class="field">
+				<label for="password-again">password again</label>
+				<input id="password-again" class="inp" type="password" name="confirm_password" autocomplete="new-password" required>
+			</div>
+			<button class="btn" type="submit">create account</button>
+			<p class="auth-note">There is no email here. If you lose your password, an admin can give you a reset link.</p>
+		</div>
+	</form>
+	{{else}}
+	<div class="card auth-card">
+		<div class="err" role="alert"><span aria-hidden="true">!</span><span>{{.Error}}</span></div>
+		<p class="auth-note"><a href="/login">Go to log in</a></p>
+	</div>
+	{{end}}
+</div>
 {{end}}

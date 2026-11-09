@@ -9,59 +9,104 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/db"
 )
 
-type inviteNodeView struct {
-	ID       int64
-	Name     string
-	IsAdmin  bool
-	Disabled bool
-	CanAdmin bool
-	Joined   string
-	Children []*inviteNodeView
+type adminUserView struct {
+	ID        int64
+	Username  string
+	IsAdmin   bool
+	IsYou     bool
+	Disabled  bool
+	InvitedBy string
+	Joined    string
+	Status    string
 }
 
-type inviteTreePageData struct {
+type adminPageData struct {
 	PageData
-	Nodes    []*inviteNodeView
-	ResetURL string
-	ResetFor string
+	Users       []adminUserView
+	Accounts    int
+	Admins      int
+	Disabled    int
+	ResetURL    string
+	ResetFor    string
+	ResetUserID int64
 }
 
-func (s *Server) handleInviteTree(w http.ResponseWriter, r *http.Request) {
-	s.renderInviteTree(w, r, http.StatusOK, "", "")
+func (s *Server) handleAdminUsersPage(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	s.renderAdminUsers(w, r, http.StatusOK, "", "", 0)
 }
 
-// renderInviteTree renders the tree and, after an admin creates a reset link,
-// the one-time URL for it.
-func (s *Server) renderInviteTree(w http.ResponseWriter, r *http.Request, status int, resetURL, resetFor string) {
+func (s *Server) renderAdminUsers(w http.ResponseWriter, r *http.Request, status int, resetURL, resetFor string, resetUserID int64) {
 	users, err := s.db.ListUsers(r.Context())
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
 
-	s.renderStatus(w, status, "tree", inviteTreePageData{
-		PageData: s.pageData(r, "Invite tree"),
-		Nodes:    inviteNodeViews(db.BuildInviteTree(users), currentUser(r)),
-		ResetURL: resetURL,
-		ResetFor: resetFor,
+	byID := make(map[int64]db.User, len(users))
+	for _, user := range users {
+		byID[user.ID] = user
+	}
+
+	viewer := currentUser(r)
+	views := make([]adminUserView, 0, len(users))
+	accounts := 0
+	admins := 0
+	disabled := 0
+	for _, user := range users {
+		if user.DeletedAt != nil {
+			continue
+		}
+
+		accounts++
+		if user.IsAdmin {
+			admins++
+		}
+		if user.DisabledAt != nil {
+			disabled++
+		}
+
+		invitedBy := "(root)"
+		if user.InvitedBy != nil {
+			invitedBy = "[deleted user]"
+			if inviter, ok := byID[*user.InvitedBy]; ok && inviter.DeletedAt == nil {
+				invitedBy = inviter.Username
+			}
+		}
+
+		statusText := "active"
+		if user.DisabledAt != nil {
+			statusText = "disabled"
+		}
+
+		views = append(views, adminUserView{
+			ID:        user.ID,
+			Username:  user.Username,
+			IsAdmin:   user.IsAdmin,
+			IsYou:     viewer != nil && viewer.ID == user.ID,
+			Disabled:  user.DisabledAt != nil,
+			InvitedBy: invitedBy,
+			Joined:    user.CreatedAt.Format("2006-01-02"),
+			Status:    statusText,
+		})
+	}
+
+	s.renderStatus(w, status, "admin_users", adminPageData{
+		PageData:    s.pageData(r, "Admin users"),
+		Users:       views,
+		Accounts:    accounts,
+		Admins:      admins,
+		Disabled:    disabled,
+		ResetURL:    resetURL,
+		ResetFor:    resetFor,
+		ResetUserID: resetUserID,
 	})
 }
 
-func inviteNodeViews(nodes []*db.InviteNode, viewer *db.User) []*inviteNodeView {
-	views := make([]*inviteNodeView, len(nodes))
-	for i, node := range nodes {
-		user := node.User
-		views[i] = &inviteNodeView{
-			ID:       user.ID,
-			Name:     user.DisplayName(),
-			IsAdmin:  user.IsAdmin,
-			Disabled: user.DisabledAt != nil,
-			CanAdmin: viewer != nil && viewer.IsAdmin && user.ID != viewer.ID && user.DeletedAt == nil,
-			Joined:   user.CreatedAt.Format("2006-01-02"),
-			Children: inviteNodeViews(node.Children, viewer),
-		}
-	}
-	return views
+func (s *Server) handleInviteTree(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/invites", http.StatusSeeOther)
 }
 
 func (s *Server) handleAdminDisableUser(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +131,7 @@ func (s *Server) handleAdminDisableUser(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, err)
 		return
 	}
-	http.Redirect(w, r, "/tree", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 }
 
 func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +163,7 @@ func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	s.renderInviteTree(w, r, http.StatusOK, s.cfg.BaseURL+"/reset/"+token, target.DisplayName())
+	s.renderAdminUsers(w, r, http.StatusOK, s.cfg.BaseURL+"/reset/"+token, target.DisplayName(), target.ID)
 }
 
 func (s *Server) handleAdminGrantAdmin(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +206,7 @@ func (s *Server) setAdmin(w http.ResponseWriter, r *http.Request, isAdmin bool) 
 		s.serverError(w, err)
 		return
 	}
-	http.Redirect(w, r, "/tree", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 }
 
 func pathUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {

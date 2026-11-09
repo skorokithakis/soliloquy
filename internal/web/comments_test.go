@@ -60,6 +60,43 @@ func TestThreadPageRendersCommentTree(t *testing.T) {
 	}
 }
 
+func TestThreadPageCommentControls(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	root := createCommentDirect(t, server, thread, alice, nil, "from the author", server.now().Add(time.Minute))
+	reply := createCommentDirect(t, server, thread, bob, &root.ID, "a reply", server.now().Add(2*time.Minute))
+
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "").Body.String()
+
+	for _, want := range []string{
+		`id="comment-form"`,
+		`action="` + threadPath(thread.ID) + `/comments"`,
+		"2 comments · best first",
+		`class="live" data-live hidden`,
+		`class="op"`,
+		`<a class="par" href="#c` + strconv.FormatInt(root.ID, 10) + `">parent</a>`,
+		`action="/comments/` + strconv.FormatInt(root.ID, 10) + `/vote"`,
+		`class="tog" type="button" hidden`,
+		`<a class="reply-link" href="/comments/` + strconv.FormatInt(root.ID, 10) + `/reply">reply</a>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("thread page does not contain %q", want)
+		}
+	}
+
+	if formIndex, commentsIndex := strings.Index(body, `id="comment-form"`), strings.Index(body, `id="comments"`); formIndex < 0 || commentsIndex < 0 || formIndex > commentsIndex {
+		t.Error("the comment box is not above the comment list")
+	}
+
+	// The viewer's own comment has no vote form, but the score is still shown.
+	if strings.Contains(body, `action="/comments/`+strconv.FormatInt(reply.ID, 10)+`/vote"`) {
+		t.Error("the viewer's own comment has a vote form")
+	}
+}
+
 func TestDeletedCommentVisibility(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)
@@ -302,7 +339,7 @@ func TestVotes(t *testing.T) {
 	}
 
 	page := doRequest(t, server, http.MethodGet, threadPath(thread.ID), nil, bobCookie, "")
-	if !strings.Contains(page.Body.String(), `<span class="score">2 points</span>`) {
+	if !strings.Contains(page.Body.String(), `data-score-format="number">2</span>`) {
 		t.Error("thread page does not show the voted score")
 	}
 

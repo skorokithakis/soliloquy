@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -23,38 +24,44 @@ const (
 )
 
 type threadView struct {
-	ID           int64
-	Title        string
-	URL          string
-	Domain       string
-	Author       string
-	ScoreText    string
-	CommentText  string
-	LastActivity string
+	ID            int64
+	Title         string
+	URL           string
+	Domain        string
+	Author        string
+	AuthorDeleted bool
+	Score         int64
+	CommentText   string
+	LastActivity  string
+	Voted         bool
+	CanVote       bool
 }
 
 type indexPageData struct {
 	PageData
-	Threads  []threadView
-	HasPrev  bool
-	HasNext  bool
-	PrevPage int
-	NextPage int
+	Threads    []threadView
+	Page       int
+	TotalPages int
+	HasPrev    bool
+	HasNext    bool
+	PrevPage   int
+	NextPage   int
 }
 
 type threadPageData struct {
 	PageData
-	Thread       threadView
-	Body         template.HTML
-	CreatedAt    string
-	Edited       bool
-	IsAuthor     bool
-	CanDelete    bool
-	Voted        bool
-	CanVote      bool
-	Comments     []commentView
-	CommentBody  string
-	CommentError string
+	Thread        threadView
+	Body          template.HTML
+	CreatedAt     string
+	Edited        bool
+	IsAuthor      bool
+	CanDelete     bool
+	Voted         bool
+	CanVote       bool
+	Comments      []commentView
+	CommentBody   string
+	CommentLength int
+	CommentError  string
 }
 
 type threadFormPageData struct {
@@ -62,14 +69,29 @@ type threadFormPageData struct {
 	Heading     string
 	Action      string
 	SubmitLabel string
+	CancelURL   string
 	FormTitle   string
 	FormURL     string
 	FormBody    string
+	TitleLength int
+	BodyLength  int
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
 	page := threadPageNumber(r)
-	threads, err := s.db.ListThreads(r.Context(), threadsPerPage+1, (page-1)*threadsPerPage)
+
+	total, err := s.db.CountThreads(r.Context())
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	totalPages := int((total + threadsPerPage - 1) / threadsPerPage)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	threads, err := s.db.ListThreads(r.Context(), user.ID, threadsPerPage+1, (page-1)*threadsPerPage)
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -84,26 +106,65 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	views := make([]threadView, len(threads))
 	for i, thread := range threads {
 		views[i] = threadViewFor(thread, now)
+		views[i].Voted = thread.Voted
+		views[i].CanVote = thread.AuthorID != user.ID
 	}
 
 	s.render(w, "index", indexPageData{
-		PageData: s.pageData(r, "Home"),
-		Threads:  views,
-		HasPrev:  page > 1,
-		HasNext:  hasNext,
-		PrevPage: page - 1,
-		NextPage: page + 1,
+		PageData:   s.pageData(r, "Home"),
+		Threads:    views,
+		Page:       page,
+		TotalPages: totalPages,
+		HasPrev:    page > 1,
+		HasNext:    hasNext,
+		PrevPage:   page - 1,
+		NextPage:   page + 1,
 	})
 }
 
+type previewResponse struct {
+	HTML     string   `json:"html"`
+	Mentions []string `json:"mentions"`
+}
+
+// handlePreview renders Markdown with the same renderer used when saving and
+// reports which mentioned users would receive a notification.
+func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
+	body := r.FormValue("body")
+	rendered, err := renderThreadBody(body)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	user := currentUser(r)
+	mentions := []string{}
+	for _, name := range markdown.Mentions(body) {
+		mentioned, err := s.db.UserByUsername(r.Context(), name)
+		if err != nil {
+			s.serverError(w, err)
+			return
+		}
+		if mentioned == nil || !mentioned.Active() || mentioned.ID == user.ID {
+			continue
+		}
+		mentions = append(mentions, name)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(previewResponse{HTML: rendered, Mentions: mentions}); err != nil {
+		s.serverError(w, err)
+	}
+}
+
 func (s *Server) handleNewThreadPage(w http.ResponseWriter, r *http.Request) {
-	s.renderThreadForm(w, r, http.StatusOK, "New thread", "/threads", "Post thread", threadFormValues{}, "")
+	s.renderThreadForm(w, r, http.StatusOK, "threads/new", "/threads", "post thread", threadFormValues{}, "")
 }
 
 func (s *Server) handleCreateThread(w http.ResponseWriter, r *http.Request) {
 	values, err := readThreadForm(r)
 	if err != nil {
-		s.renderThreadForm(w, r, http.StatusBadRequest, "New thread", "/threads", "Post thread", values, err.Error())
+		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/new", "/threads", "post thread", values, err.Error())
 		return
 	}
 
@@ -155,18 +216,19 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 	}
 
 	data := threadPageData{
-		PageData:     s.pageData(r, thread.Title),
-		Thread:       threadViewFor(*thread, now),
-		Body:         template.HTML(thread.BodyHTML),
-		CreatedAt:    relativeTime(thread.CreatedAt, now),
-		Edited:       thread.EditedAt != nil,
-		IsAuthor:     user.ID == thread.AuthorID,
-		CanDelete:    user.ID == thread.AuthorID || user.IsAdmin,
-		Voted:        voted,
-		CanVote:      user.ID != thread.AuthorID,
-		Comments:     commentViews(db.BuildCommentTree(comments), user, now),
-		CommentBody:  commentBody,
-		CommentError: commentError,
+		PageData:      s.pageData(r, thread.Title),
+		Thread:        threadViewFor(*thread, now),
+		Body:          template.HTML(thread.BodyHTML),
+		CreatedAt:     relativeTime(thread.CreatedAt, now),
+		Edited:        thread.EditedAt != nil,
+		IsAuthor:      user.ID == thread.AuthorID,
+		CanDelete:     user.ID == thread.AuthorID || user.IsAdmin,
+		Voted:         voted,
+		CanVote:       user.ID != thread.AuthorID,
+		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now),
+		CommentBody:   commentBody,
+		CommentLength: utf8.RuneCountInString(commentBody),
+		CommentError:  commentError,
 	}
 	data.EventThreadID = thread.ID
 	s.renderStatus(w, status, "thread", data)
@@ -182,7 +244,7 @@ func (s *Server) handleEditThreadPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderThreadForm(w, r, http.StatusOK, "Edit thread", threadPath(thread.ID)+"/edit", "Save changes", threadFormValues{
+	s.renderThreadForm(w, r, http.StatusOK, "threads/"+strconv.FormatInt(thread.ID, 10)+"/edit", threadPath(thread.ID)+"/edit", "save changes", threadFormValues{
 		Title: thread.Title,
 		URL:   thread.URL,
 		Body:  thread.Body,
@@ -203,7 +265,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	values, err := readThreadForm(r)
 	if err != nil {
-		s.renderThreadForm(w, r, http.StatusBadRequest, "Edit thread", action, "Save changes", values, err.Error())
+		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/"+strconv.FormatInt(thread.ID, 10)+"/edit", action, "save changes", values, err.Error())
 		return
 	}
 
@@ -273,14 +335,22 @@ func (s *Server) visibleThread(w http.ResponseWriter, r *http.Request) (*db.Thre
 }
 
 func (s *Server) renderThreadForm(w http.ResponseWriter, r *http.Request, status int, heading, action, submitLabel string, values threadFormValues, message string) {
+	cancelURL := "/"
+	if strings.HasSuffix(action, "/edit") {
+		cancelURL = strings.TrimSuffix(action, "/edit")
+	}
+
 	data := threadFormPageData{
 		PageData:    s.pageData(r, heading),
 		Heading:     heading,
 		Action:      action,
 		SubmitLabel: submitLabel,
+		CancelURL:   cancelURL,
 		FormTitle:   values.Title,
 		FormURL:     values.URL,
 		FormBody:    values.Body,
+		TitleLength: utf8.RuneCountInString(values.Title),
+		BodyLength:  utf8.RuneCountInString(values.Body),
 	}
 	data.Error = message
 	s.renderStatus(w, status, "thread_form", data)
@@ -366,14 +436,15 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 	}
 
 	return threadView{
-		ID:           thread.ID,
-		Title:        thread.Title,
-		URL:          thread.URL,
-		Domain:       domain,
-		Author:       thread.AuthorName(),
-		ScoreText:    pointsText(thread.Score),
-		CommentText:  commentsText(thread.CommentCount),
-		LastActivity: relativeTime(thread.LastActivityAt, now),
+		ID:            thread.ID,
+		Title:         thread.Title,
+		URL:           thread.URL,
+		Domain:        domain,
+		Author:        thread.AuthorName(),
+		AuthorDeleted: thread.AuthorDeletedAt != nil,
+		Score:         thread.Score,
+		CommentText:   commentsText(thread.CommentCount),
+		LastActivity:  relativeTime(thread.LastActivityAt, now),
 	}
 }
 
@@ -409,26 +480,19 @@ func commentsText(comments int64) string {
 func relativeTime(t, now time.Time) string {
 	elapsed := now.Sub(t)
 	if elapsed < time.Minute {
-		return "just now"
+		return "now"
 	}
 
 	switch {
 	case elapsed < time.Hour:
-		return agoText(int(elapsed/time.Minute), "minute")
+		return fmt.Sprintf("%dm", int(elapsed/time.Minute))
 	case elapsed < 24*time.Hour:
-		return agoText(int(elapsed/time.Hour), "hour")
+		return fmt.Sprintf("%dh", int(elapsed/time.Hour))
 	case elapsed < 30*24*time.Hour:
-		return agoText(int(elapsed/(24*time.Hour)), "day")
+		return fmt.Sprintf("%dd", int(elapsed/(24*time.Hour)))
 	case elapsed < 365*24*time.Hour:
-		return agoText(int(elapsed/(30*24*time.Hour)), "month")
+		return fmt.Sprintf("%dmo", int(elapsed/(30*24*time.Hour)))
 	default:
-		return agoText(int(elapsed/(365*24*time.Hour)), "year")
+		return fmt.Sprintf("%dy", int(elapsed/(365*24*time.Hour)))
 	}
-}
-
-func agoText(count int, unit string) string {
-	if count == 1 {
-		return "1 " + unit + " ago"
-	}
-	return fmt.Sprintf("%d %ss ago", count, unit)
 }

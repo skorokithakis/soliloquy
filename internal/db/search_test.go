@@ -39,6 +39,9 @@ func TestSearchFindsThreadsAndComments(t *testing.T) {
 	if results[0].Title != thread.Title {
 		t.Errorf("thread result title = %q, want %q", results[0].Title, thread.Title)
 	}
+	if results[0].Author != "alice" || results[0].CommentCount != 1 || !results[0].CreatedAt.Equal(thread.CreatedAt) {
+		t.Errorf("thread result metadata = %+v", results[0])
+	}
 	if !strings.Contains(results[0].Snippet, SearchSnippetStart) {
 		t.Errorf("thread snippet %q has no highlight marker", results[0].Snippet)
 	}
@@ -55,6 +58,51 @@ func TestSearchFindsThreadsAndComments(t *testing.T) {
 	}
 	if !strings.Contains(results[0].Snippet, SearchSnippetStart+"pipeline"+SearchSnippetEnd) {
 		t.Errorf("comment snippet %q does not highlight the match", results[0].Snippet)
+	}
+	if results[0].Author != "alice" || results[0].CreatedAt.IsZero() {
+		t.Errorf("comment result metadata = %+v", results[0])
+	}
+}
+
+func TestSearchAuthorFieldsFollowResultKind(t *testing.T) {
+	database := migratedTestDB(t)
+	ctx := context.Background()
+	base := time.Unix(1_700_000_000, 0).UTC()
+
+	alice, err := database.CreateUser(ctx, "alice", "hash", false, nil, base)
+	if err != nil {
+		t.Fatalf("create alice: %v", err)
+	}
+	bob, err := database.CreateUser(ctx, "bob", "hash", false, nil, base)
+	if err != nil {
+		t.Fatalf("create bob: %v", err)
+	}
+	thread, err := database.CreateThread(ctx, alice.ID, "Threadneedle", "", "thread body", "<p>thread body</p>", base)
+	if err != nil {
+		t.Fatalf("CreateThread: %v", err)
+	}
+	if _, err := database.CreateComment(ctx, thread.ID, nil, bob.ID, "commentneedle", "<p>commentneedle</p>", base.Add(time.Minute)); err != nil {
+		t.Fatalf("CreateComment: %v", err)
+	}
+
+	if err := database.DeleteAccount(ctx, alice.ID, base.Add(2*time.Minute)); err != nil {
+		t.Fatalf("DeleteAccount: %v", err)
+	}
+
+	results, err := database.Search(ctx, "commentneedle")
+	if err != nil {
+		t.Fatalf("Search commentneedle: %v", err)
+	}
+	if len(results) != 1 || results[0].Author != "bob" || results[0].AuthorDeleted {
+		t.Errorf("comment result author = %+v, want active bob", results)
+	}
+
+	results, err = database.Search(ctx, "threadneedle")
+	if err != nil {
+		t.Fatalf("Search threadneedle: %v", err)
+	}
+	if len(results) != 1 || !results[0].AuthorDeleted {
+		t.Errorf("thread result author = %+v, want deleted author", results)
 	}
 }
 

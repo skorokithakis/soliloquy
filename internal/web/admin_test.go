@@ -14,11 +14,12 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/db"
 )
 
-func TestInviteTreeShowsHierarchyAndAdminControls(t *testing.T) {
+func TestAdminUsersPage(t *testing.T) {
 	server := newTestServer(t)
 	admin := createTestUser(t, server, "admin", true)
 	bob := createInvitedTestUser(t, server, "bob", false, admin)
 	carol := createInvitedTestUser(t, server, "carol", false, bob)
+	dave := createInvitedTestUser(t, server, "dave", false, carol)
 	cookie := signIn(t, server, admin)
 
 	if _, err := server.db.DisableUser(context.Background(), bob.ID, server.now()); err != nil {
@@ -28,53 +29,49 @@ func TestInviteTreeShowsHierarchyAndAdminControls(t *testing.T) {
 		t.Fatalf("delete carol: %v", err)
 	}
 
-	response := doRequest(t, server, http.MethodGet, "/tree", nil, cookie, "")
+	response := doRequest(t, server, http.MethodGet, "/admin/users", nil, cookie, "")
 	if response.Code != http.StatusOK {
-		t.Fatalf("tree status = %d, want %d", response.Code, http.StatusOK)
+		t.Fatalf("admin users status = %d, want %d", response.Code, http.StatusOK)
 	}
 	body := response.Body.String()
 	for _, want := range []string{
-		"Invite tree",
-		"admin",
+		"admin/users",
+		"3 accounts · 1 admin · 1 disabled",
 		"bob",
 		"disabled",
 		"[deleted user]",
-		"joined",
-		fmt.Sprintf(`action="/admin/users/%d/reset"`, bob.ID),
+		"dave",
+		`data-username="dave"`,
+		fmt.Sprintf(`action="/admin/users/%d/reset"`, dave.ID),
+		fmt.Sprintf(`action="/admin/users/%d/grant-admin"`, dave.ID),
+		fmt.Sprintf(`action="/admin/users/%d/disable"`, dave.ID),
+		`title="You cannot remove your own admin rights"`,
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("tree does not contain %q", want)
+			t.Errorf("admin page does not contain %q", want)
 		}
 	}
 	for _, unwanted := range []string{
-		fmt.Sprintf(`action="/admin/users/%d/disable"`, bob.ID), // already disabled
-		fmt.Sprintf(`action="/admin/users/%d/disable"`, admin.ID),
-		fmt.Sprintf(`action="/admin/users/%d/reset"`, carol.ID), // deleted
+		fmt.Sprintf(`action="/admin/users/%d/reset"`, bob.ID), // disabled users have no actions
+		fmt.Sprintf(`action="/admin/users/%d/disable"`, bob.ID),
+		fmt.Sprintf(`action="/admin/users/%d/disable"`, admin.ID), // cannot disable self
+		fmt.Sprintf(`action="/admin/users/%d/reset"`, admin.ID),   // self row only shows the disabled admin button
+		`data-username="carol"`,                                   // deleted accounts are omitted
 	} {
 		if strings.Contains(body, unwanted) {
-			t.Errorf("tree contains unexpected control %q", unwanted)
+			t.Errorf("admin page contains unexpected control %q", unwanted)
 		}
 	}
 }
 
-func TestInviteTreeHidesAdminControlsFromNormalUsers(t *testing.T) {
+func TestAdminUsersPageRequiresAdmin(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)
-	bob := createInvitedTestUser(t, server, "bob", false, alice)
-	cookie := signIn(t, server, bob)
+	cookie := signIn(t, server, alice)
 
-	response := doRequest(t, server, http.MethodGet, "/tree", nil, cookie, "")
-	if response.Code != http.StatusOK {
-		t.Fatalf("tree status = %d, want %d", response.Code, http.StatusOK)
-	}
-	body := response.Body.String()
-	for _, want := range []string{"alice", "bob", "joined"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("tree does not contain %q", want)
-		}
-	}
-	if strings.Contains(body, "/admin/users/") {
-		t.Error("normal user sees admin controls")
+	response := doRequest(t, server, http.MethodGet, "/admin/users", nil, cookie, "")
+	if response.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", response.Code, http.StatusForbidden)
 	}
 }
 
@@ -117,7 +114,7 @@ func TestAdminDisablesUser(t *testing.T) {
 	}
 
 	response := postForm(t, server, fmt.Sprintf("/admin/users/%d/disable", bob.ID), nil, adminCookie)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/tree" {
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/users" {
 		t.Fatalf("disable status = %d, Location = %q", response.Code, response.Header().Get("Location"))
 	}
 
@@ -253,7 +250,7 @@ func TestDeleteOwnAccount(t *testing.T) {
 	admin := createTestUser(t, server, "admin", true)
 	cookie := signIn(t, server, admin)
 
-	response := postForm(t, server, "/account/delete", url.Values{"password": {"wrong"}}, cookie)
+	response := postForm(t, server, "/account/delete", url.Values{"username": {"wrong"}}, cookie)
 	if response.Code != http.StatusBadRequest {
 		t.Errorf("wrong password status = %d, want %d", response.Code, http.StatusBadRequest)
 	}
@@ -262,7 +259,7 @@ func TestDeleteOwnAccount(t *testing.T) {
 		t.Fatalf("account deleted with a wrong password: user = %+v, err = %v", stored, err)
 	}
 
-	response = postForm(t, server, "/account/delete", url.Values{"password": {testPassword}}, cookie)
+	response = postForm(t, server, "/account/delete", url.Values{"username": {"admin"}}, cookie)
 	if response.Code != http.StatusBadRequest {
 		t.Errorf("last admin delete status = %d, want %d", response.Code, http.StatusBadRequest)
 	}
@@ -274,7 +271,7 @@ func TestDeleteOwnAccount(t *testing.T) {
 	if secondAdmin == nil {
 		t.Fatal("failed to create second admin")
 	}
-	response = postForm(t, server, "/account/delete", url.Values{"password": {testPassword}}, cookie)
+	response = postForm(t, server, "/account/delete", url.Values{"username": {"admin"}}, cookie)
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/login" {
 		t.Fatalf("delete status = %d, Location = %q", response.Code, response.Header().Get("Location"))
 	}
@@ -304,6 +301,9 @@ func TestPasswordResetLinkFlow(t *testing.T) {
 		t.Fatalf("create reset status = %d, want %d", response.Code, http.StatusOK)
 	}
 	token := resetTokenFromPage(t, response.Body.String())
+	if !strings.Contains(response.Body.String(), `class="notice"`) || !strings.Contains(response.Body.String(), `class="highlight"`) {
+		t.Error("admin page does not show the reset banner or highlighted row")
+	}
 
 	page := doRequest(t, server, http.MethodGet, "/reset/"+token, nil, nil, "")
 	if page.Code != http.StatusOK {

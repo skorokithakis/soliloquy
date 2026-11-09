@@ -32,6 +32,7 @@ type Server struct {
 	commentTemplate *template.Template
 	static          http.Handler
 	baseOrigin      string
+	baseHost        string
 	throttle        *auth.Throttle
 	hub             *hub.Hub
 	now             func() time.Time
@@ -45,6 +46,13 @@ type PageData struct {
 	CurrentUser         *db.User
 	Error               string
 	UnreadNotifications int64
+	// Theme is the palette class on the root element: auto, light or dark.
+	// Empty means auto, so handlers that build PageData by hand still follow
+	// the operating system preference.
+	Theme string
+	// Nav is the main navigation item to mark as current: threads, invites
+	// or admin.
+	Nav string
 	// SearchQuery keeps the header search box filled in on the search page.
 	SearchQuery string
 	// EventThreadID tells the layout which thread's live comment stream the
@@ -88,6 +96,7 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		commentTemplate: commentTemplate,
 		static:          http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))),
 		baseOrigin:      base.Scheme + "://" + base.Host,
+		baseHost:        base.Host,
 		throttle:        auth.NewThrottle(),
 		hub:             hub.New(),
 		now:             time.Now,
@@ -100,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /threads/new", s.handleNewThreadPage)
 	mux.HandleFunc("POST /threads", s.handleCreateThread)
+	mux.HandleFunc("POST /preview", s.handlePreview)
 	mux.HandleFunc("GET /threads/{id}", s.handleThreadPage)
 	mux.HandleFunc("GET /threads/{id}/edit", s.handleEditThreadPage)
 	mux.HandleFunc("POST /threads/{id}/edit", s.handleUpdateThread)
@@ -116,15 +126,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /login", s.handleLogin)
 	mux.HandleFunc("POST /logout", s.handleLogout)
 	mux.HandleFunc("GET /invite/{token}", s.handleSignupPage)
+	mux.HandleFunc("GET /invite/{token}/check", s.handleInviteUsernameCheck)
 	mux.HandleFunc("POST /invite/{token}", s.handleSignup)
 	mux.HandleFunc("GET /invites", s.handleInvitesPage)
 	mux.HandleFunc("POST /invites", s.handleCreateInvite)
+	mux.HandleFunc("GET /admin/users", s.handleAdminUsersPage)
 	mux.HandleFunc("GET /tree", s.handleInviteTree)
 	mux.HandleFunc("POST /admin/users/{id}/disable", s.handleAdminDisableUser)
 	mux.HandleFunc("POST /admin/users/{id}/reset", s.handleAdminResetPassword)
 	mux.HandleFunc("POST /admin/users/{id}/grant-admin", s.handleAdminGrantAdmin)
 	mux.HandleFunc("POST /admin/users/{id}/revoke-admin", s.handleAdminRevokeAdmin)
 	mux.HandleFunc("POST /account/delete", s.handleDeleteAccount)
+	mux.HandleFunc("GET /account", s.handleAccountPage)
+	mux.HandleFunc("POST /account/theme", s.handleSetTheme)
 	mux.HandleFunc("GET /reset/{token}", s.handleResetPage)
 	mux.HandleFunc("POST /reset/{token}", s.handlePasswordReset)
 	mux.HandleFunc("GET /password", s.handlePasswordPage)
@@ -138,8 +152,16 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) pageData(r *http.Request, title string) PageData {
-	data := PageData{Title: title, CurrentUser: currentUser(r)}
+	data := PageData{
+		Title:       title,
+		CurrentUser: currentUser(r),
+		Theme:       "auto",
+		Nav:         navSection(r.URL.Path),
+	}
 	if data.CurrentUser != nil {
+		if data.CurrentUser.Theme != "" {
+			data.Theme = data.CurrentUser.Theme
+		}
 		count, err := s.db.CountUnreadNotifications(r.Context(), data.CurrentUser.ID)
 		if err != nil {
 			slog.Error("count unread notifications", "error", err)
@@ -148,6 +170,20 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 		}
 	}
 	return data
+}
+
+// navSection maps a request path to the main navigation item it belongs to.
+func navSection(path string) string {
+	switch {
+	case path == "/" || strings.HasPrefix(path, "/threads/") || strings.HasPrefix(path, "/comments/"):
+		return "threads"
+	case path == "/invites" || path == "/tree":
+		return "invites"
+	case strings.HasPrefix(path, "/admin/"):
+		return "admin"
+	default:
+		return ""
+	}
 }
 
 func (s *Server) render(w http.ResponseWriter, page string, data any) {

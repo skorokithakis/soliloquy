@@ -1,0 +1,73 @@
+{{define "content"}}
+<div class="account-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>account</h1>
+		<span class="sp"></span>
+		<form class="inline-form" method="post" action="/logout">
+			<button class="btn" type="submit">log out</button>
+		</form>
+	</div>
+
+	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
+
+	<div class="term" role="group" aria-label="Your account">
+		<div><span class="ps">$</span> whoami</div>
+		<dl class="kv">
+			<dt>username</dt><dd>{{.CurrentUser.Username}} <span class="muted">(fixed, you cannot change it)</span></dd>
+			<dt>role</dt><dd{{if eq .Role "admin"}} class="accent"{{end}}>{{.Role}}</dd>
+			<dt>joined</dt><dd>{{.Joined}}</dd>
+			<dt>invited by</dt><dd><a class="underline" href="/invites">{{.InvitedBy}}</a></dd>
+			<dt>invited</dt><dd>{{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} · <a class="accent" href="/invites">see the tree ›</a></dd>
+			<dt>session</dt><dd>this browser · {{.SessionEnds}}</dd>
+		</dl>
+	</div>
+
+	<p class="account-note">Forgot your password? There is no email here, ask an admin for a reset link.</p>
+
+	<section class="panel account-section" aria-labelledby="theme-heading">
+		<h2 class="label" id="theme-heading">theme</h2>
+		<form class="theme-form" method="post" action="/account/theme">
+			<label><input type="radio" name="theme" value="auto"{{if eq .Theme "auto"}} checked{{end}}> system</label>
+			<label><input type="radio" name="theme" value="light"{{if eq .Theme "light"}} checked{{end}}> light</label>
+			<label><input type="radio" name="theme" value="dark"{{if eq .Theme "dark"}} checked{{end}}> dark</label>
+			<button class="btn" type="submit">save theme</button>
+		</form>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="password-heading">
+		<h2 class="label" id="password-heading">change password</h2>
+		<form class="account-form" method="post" action="/password">
+			<div class="field">
+				<label for="current-password">current password</label>
+				<input id="current-password" class="inp" type="password" name="current_password" autocomplete="current-password" required>
+			</div>
+			<div class="field">
+				<label for="new-password">new password</label>
+				<input id="new-password" class="inp" type="password" name="new_password" autocomplete="new-password" required>
+			</div>
+			<div class="field">
+				<label for="confirm-password">confirm new password</label>
+				<input id="confirm-password" class="inp" type="password" name="confirm_password" autocomplete="new-password" required>
+			</div>
+			<button class="btn pri" type="submit">change password</button>
+			<p class="hint">Changing your password signs out all of your other sessions.</p>
+		</form>
+	</section>
+
+	<section class="dz account-section" aria-labelledby="delete-heading">
+		<h2 id="delete-heading">delete my account</h2>
+		<p>This cannot be undone. When you delete your account:</p>
+		<ul>
+			<li>Your threads, comments and votes stay. Your name on them changes to <span class="gone">[deleted user]</span>.</li>
+			<li>Your sessions, notifications and unused invite links are removed.</li>
+			<li>Nobody can register the name <b>{{.CurrentUser.Username}}</b> again.</li>
+			<li>The {{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} you invited keep their accounts and their place in the tree.</li>
+		</ul>
+		<form class="delete-form" method="post" action="/account/delete">
+			<label for="confirm-username">type your username to confirm</label>
+			<input id="confirm-username" class="inp" name="username" autocomplete="off" placeholder="{{.CurrentUser.Username}}" data-confirm-username="{{.CurrentUser.Username}}">
+			<button class="btn danger" type="submit" data-delete-account>delete account</button>
+		</form>
+	</section>
+</div>
+{{end}}

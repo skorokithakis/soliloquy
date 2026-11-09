@@ -1,0 +1,81 @@
+{{define "content"}}
+<div class="admin-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>admin/users</h1>
+		<span class="sp"></span>
+		<span class="label">{{.Accounts}} {{if eq .Accounts 1}}account{{else}}accounts{{end}} · {{.Admins}} {{if eq .Admins 1}}admin{{else}}admins{{end}} · {{.Disabled}} disabled</span>
+	</div>
+
+	{{if .ResetURL}}
+	<div class="notice" role="status">
+		<span class="notice-title">reset link for <b>{{.ResetFor}}</b></span>
+		<code>{{.ResetURL}}</code>
+		<button class="btn" type="button" data-copy="{{.ResetURL}}">copy</button>
+		<span class="notice-note">Send it to them yourself. It works once and expires in 7 days. When they use it, all their sessions end.</span>
+	</div>
+	{{end}}
+
+	<div class="admin-tools">
+		<label class="search admin-filter">
+			<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg>
+			<input type="search" placeholder="filter users" aria-label="Filter users" data-user-filter>
+		</label>
+	</div>
+
+	<div class="tbox">
+		<table>
+			<thead>
+				<tr>
+					<th scope="col">user</th>
+					<th scope="col">role</th>
+					<th scope="col">invited by</th>
+					<th scope="col">joined</th>
+					<th scope="col">status</th>
+					<th scope="col" class="actions-head">actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .Users}}
+				<tr class="{{if .Disabled}}off {{end}}{{if eq .ID $.ResetUserID}}highlight{{end}}" data-username="{{.Username}}">
+					<td class="u">{{.Username}}{{if .IsYou}} <span class="flag you">you</span>{{end}}</td>
+					<td class="m">{{if .IsAdmin}}<span class="flag a">admin</span>{{else}}user{{end}}</td>
+					<td class="m">{{.InvitedBy}}</td>
+					<td class="m">{{.Joined}}</td>
+					<td class="{{if .Disabled}}st-off{{else}}st-ok{{end}}">{{.Status}}</td>
+					<td>
+						{{if .Disabled}}
+						<div class="acts"><span class="x">no actions</span></div>
+						{{else if .IsYou}}
+						<div class="acts"><button class="x" type="button" disabled title="You cannot remove your own admin rights">remove admin</button></div>
+						{{else}}
+						<div class="acts">
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/reset">
+								<button class="x" type="submit">reset link</button>
+							</form>
+							{{if .IsAdmin}}
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/revoke-admin">
+								<button class="x" type="submit">remove admin</button>
+							</form>
+							{{else}}
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/grant-admin">
+								<button class="x" type="submit">make admin</button>
+							</form>
+							{{end}}
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable">
+								<button class="x d" type="submit">disable</button>
+							</form>
+						</div>
+						{{end}}
+					</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+	</div>
+
+	<p class="admin-note">
+		disable: ends their sessions, blocks login and cancels their unused invites. People they invited keep their accounts.<br>
+		Admins delete threads and comments from the thread page.
+	</p>
+</div>
+{{end}}

@@ -204,7 +204,17 @@ func (s *Server) publishBadgeCounts(ctx context.Context, recipientIDs []int64) {
 // HTML is rendered without viewer-specific controls because it is shown to
 // other users, whose permissions and votes differ.
 func (s *Server) publishNewComment(threadID int64, comment *db.Comment) {
-	view := commentViewFor(&db.CommentNode{Comment: *comment}, nil, s.now())
+	thread, err := s.db.ThreadByID(context.Background(), threadID)
+	if err != nil {
+		slog.Error("load thread for live comment", "thread_id", threadID, "error", err)
+		return
+	}
+	threadAuthorID := int64(0)
+	if thread != nil {
+		threadAuthorID = thread.AuthorID
+	}
+
+	view := commentViewFor(&db.CommentNode{Comment: *comment}, nil, threadAuthorID, s.now())
 	html, err := s.renderCommentHTML(view)
 	if err != nil {
 		slog.Error("render live comment", "comment_id", comment.ID, "error", err)
