@@ -2,6 +2,8 @@
 
 A small, lightweight, private forum for work discussions and friendly chats.
 
+<a href="docs/images/front-page.png"><img src="docs/images/front-page.png" alt="Soliloquy front page" width="400"></a>
+
 - Invite-only. Any member can invite others, and everyone can see who invited whom.
 - Private by default. An admin can make the forum public, so visitors can read
   threads and search without an account. Visitors cannot post, vote or comment.
