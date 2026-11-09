@@ -1060,17 +1060,8 @@ a.btn.pri:hover {
 	max-width: 72ch;
 }
 
-.thread-actions {
-	display: flex;
-	align-items: center;
-	gap: 14px;
-	margin-top: 8px;
-	color: var(--muted);
-	font: 12px var(--font-mono);
-}
-
-.thread-actions a,
-.thread-actions button {
+.meta .inline-form button {
+	height: auto;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -1079,8 +1070,7 @@ a.btn.pri:hover {
 	cursor: pointer;
 }
 
-.thread-actions a:hover,
-.thread-actions button:hover {
+.meta .inline-form button:hover {
 	color: var(--accent);
 }
 
@@ -2334,12 +2324,6 @@ a.btn.pri:hover {
 		grid-row: 3;
 		align-self: center;
 		margin-top: 0;
-	}
-
-	.thread-actions {
-		grid-column: 1 / -1;
-		grid-row: 4;
-		margin-top: 8px;
 	}
 
 	.comment-form {

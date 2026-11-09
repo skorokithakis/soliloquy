@@ -54,7 +54,7 @@ type threadPageData struct {
 	Body          template.HTML
 	CreatedAt     string
 	Edited        bool
-	IsAuthor      bool
+	CanEdit       bool
 	CanDelete     bool
 	Voted         bool
 	CanVote       bool
@@ -231,7 +231,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		Body:          template.HTML(thread.BodyHTML),
 		CreatedAt:     relativeTime(thread.CreatedAt, now),
 		Edited:        thread.EditedAt != nil,
-		IsAuthor:      user != nil && user.ID == thread.AuthorID,
+		CanEdit:       user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		CanDelete:     user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		Voted:         voted,
 		CanVote:       user != nil && user.ID != thread.AuthorID,
@@ -250,7 +250,8 @@ func (s *Server) handleEditThreadPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if currentUser(r).ID != thread.AuthorID {
+	user := currentUser(r)
+	if user.ID != thread.AuthorID && !user.IsAdmin {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -269,7 +270,8 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	action := threadPath(thread.PublicID) + "/edit"
-	if currentUser(r).ID != thread.AuthorID {
+	user := currentUser(r)
+	if user.ID != thread.AuthorID && !user.IsAdmin {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}

@@ -157,8 +157,9 @@ func (db *DB) threadBy(ctx context.Context, where string, value any) (*Thread, e
 }
 
 // UpdateThread edits a thread and marks it edited. It only updates a live
-// thread owned by authorID, so a request cannot edit another user's thread
-// even if an authorization check is missed. It reports whether a row changed.
+// thread owned by authorID; callers pass the thread's owner, so an admin may
+// edit another user's thread after checking that they are allowed to. It
+// reports whether a row changed.
 func (db *DB) UpdateThread(ctx context.Context, id, authorID int64, title, rawURL, body, bodyHTML string, now time.Time) (bool, error) {
 	result, err := db.ExecContext(ctx, `
 		UPDATE threads

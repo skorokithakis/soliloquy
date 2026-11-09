@@ -277,6 +277,86 @@ func TestAuthorEditsThread(t *testing.T) {
 	}
 }
 
+func TestAdminEditsThread(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	admin := createTestUser(t, server, "admin", true)
+	adminCookie := signIn(t, server, admin)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Original", "", "old body", server.now())
+	editPath := threadPath(thread.PublicID) + "/edit"
+
+	response := doRequest(t, server, http.MethodGet, editPath, nil, adminCookie, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("admin edit page status = %d, want %d", response.Code, http.StatusOK)
+	}
+	for _, want := range []string{"Original", "old body", `action="` + editPath + `"`} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("admin edit page does not contain %q", want)
+		}
+	}
+
+	response = postForm(t, server, editPath, url.Values{
+		"title": {"Admin edit"},
+		"body":  {"new **body**"},
+	}, adminCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("admin edit status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	stored, err := server.db.ThreadByID(context.Background(), thread.ID)
+	if err != nil || stored == nil {
+		t.Fatalf("ThreadByID: thread = %v, err = %v", stored, err)
+	}
+	if stored.Title != "Admin edit" || stored.Body != "new **body**" || stored.EditedAt == nil {
+		t.Errorf("admin edit not stored: %+v", stored)
+	}
+	if stored.AuthorID != alice.ID {
+		t.Errorf("admin edit changed the author: got %d, want %d", stored.AuthorID, alice.ID)
+	}
+
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, adminCookie, "")
+	if page.Code != http.StatusOK {
+		t.Fatalf("thread page as admin: status = %d, want %d", page.Code, http.StatusOK)
+	}
+	body := page.Body.String()
+	meta := metaLine(t, body)
+	for _, want := range []string{`href="` + editPath + `">edit</a>`, `action="/threads/` + thread.PublicID + `/delete"`, "edited"} {
+		if !strings.Contains(meta, want) {
+			t.Errorf("admin meta line does not contain %q: %q", want, meta)
+		}
+	}
+	editedAt, editAt, deleteAt := strings.Index(meta, "edited"), strings.Index(meta, `>edit</a>`), strings.Index(meta, "delete")
+	if !(editedAt < editAt && editAt < deleteAt) {
+		t.Errorf("admin meta line is not ordered 'edited · edit · delete': %q", meta)
+	}
+	if strings.Contains(body, "thread-actions") {
+		t.Error("thread page still has a thread-actions row")
+	}
+
+	bobMeta := metaLine(t, doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String())
+	if strings.Contains(bobMeta, editPath) || strings.Contains(bobMeta, "/delete") {
+		t.Errorf("non-author sees thread controls: %q", bobMeta)
+	}
+}
+
+// metaLine returns the contents of a thread page's meta line.
+func metaLine(t *testing.T, body string) string {
+	t.Helper()
+
+	start := strings.Index(body, `<div class="meta">`)
+	if start == -1 {
+		t.Fatal("thread page has no meta line")
+	}
+	meta := body[start:]
+	end := strings.Index(meta, "</div>")
+	if end == -1 {
+		t.Fatal("thread page meta line is not closed")
+	}
+	return meta[:end]
+}
+
 func TestThreadWritesRequireAuthor(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)
