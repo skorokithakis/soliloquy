@@ -87,6 +87,39 @@ func TestInvitesPageShowsTreeAndLinkStates(t *testing.T) {
 	}
 }
 
+func TestInvitesPageSingleColumnOrder(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+
+	body := doRequest(t, server, http.MethodGet, "/invites", nil, cookie, "").Body.String()
+
+	// The invite panel sits above the tree, which sits above the links panel.
+	order := []string{
+		"Everyone here was invited by someone.",
+		`id="invite-heading"`,
+		`aria-label="Invite tree"`,
+		`id="links-heading"`,
+	}
+	last := -1
+	for _, marker := range order {
+		index := strings.Index(body, marker)
+		if index < 0 {
+			t.Fatalf("invites page does not contain %q", marker)
+		}
+		if index < last {
+			t.Errorf("%q appears before the previous block; want intro, invite panel, tree, links", marker)
+		}
+		last = index
+	}
+
+	for _, want := range []string{"invites-layout", "invites-side"} {
+		if strings.Contains(body, want) {
+			t.Errorf("invites page still uses the old side-by-side layout class %q", want)
+		}
+	}
+}
+
 func TestInvitesOlderLinksRemainReachable(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

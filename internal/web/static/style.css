@@ -1599,28 +1599,16 @@ a.btn.pri:hover {
 
 /* Invites ----------------------------------------------------------- */
 
-.invites-layout {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 32px;
-	align-items: flex-start;
+.invites-page .panel {
+	margin-top: 22px;
+}
+
+.invites-page .panel > .label {
+	margin: 0;
 }
 
 .invites-tree {
-	flex: 999 1 520px;
-	min-width: 0;
-}
-
-.invites-side {
-	display: flex;
-	flex: 1 1 320px;
-	flex-direction: column;
-	gap: 14px;
-	min-width: 0;
-}
-
-.invites-side .panel {
-	min-width: 0;
+	margin-top: 26px;
 }
 
 .invites-intro {
@@ -2207,11 +2195,6 @@ a.btn.pri:hover {
 	.notifications-page .nl {
 		margin-left: -16px;
 		margin-right: -16px;
-	}
-
-	.invites-tree,
-	.invites-side {
-		flex-basis: 100%;
 	}
 
 	.invites-page .tree {
