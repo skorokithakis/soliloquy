@@ -27,6 +27,35 @@ docker run -d -p 8080:8080 -v soliloquy-data:/data \
   -e SOLILOQUY_BASE_URL=https://forum.example.com soliloquy
 ```
 
+### Docker Compose and Harbormaster
+
+The repository has a `compose.yaml` file. It builds the image, keeps the
+database in a named volume called `data`, and publishes the app on
+`127.0.0.1:53684`. Only a reverse proxy on the same host can reach that
+address. To run it by hand:
+
+```sh
+SOLILOQUY_BASE_URL=https://forum.example.com docker compose up -d --build
+```
+
+The file works with [Harbormaster](https://harbormaster.readthedocs.io/). Add
+the app to your `harbormaster.yml`:
+
+```yaml
+apps:
+  soliloquy:
+    url: https://github.com/skorokithakis/soliloquy.git
+    branch: master
+    manage_volumes: true
+    environment:
+      SOLILOQUY_BASE_URL: https://forum.example.com
+```
+
+With `manage_volumes: true`, the database is in
+`data/soliloquy/data/soliloquy.db` under the Harbormaster working directory.
+Back up that directory (see [Backups](#backups)). To get the first admin invite
+URL, run `docker compose logs` in `repos/soliloquy/`.
+
 ### Settings
 
 Each setting is a flag or an environment variable. A flag wins over the
@@ -67,6 +96,8 @@ forum.example.com {
 	reverse_proxy localhost:8080
 }
 ```
+
+If you run the app with `compose.yaml`, use `localhost:53684` instead.
 
 With nginx, live updates need the response to go through without buffering.
 The app sends `X-Accel-Buffering: no`, so no extra nginx setting is needed for

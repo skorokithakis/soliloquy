@@ -1,0 +1,15 @@
+services:
+  soliloquy:
+    build: .
+    restart: unless-stopped
+    # An uncommon high host port, so it does not clash with other apps on the
+    # host. Bound to localhost because a reverse proxy does TLS in front of it.
+    ports:
+      - 127.0.0.1:53684:8080
+    environment:
+      - SOLILOQUY_BASE_URL
+    volumes:
+      - data:/data
+
+volumes:
+  data:
