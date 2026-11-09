@@ -74,23 +74,15 @@ func (s *Server) handlePasswordReset(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) renderReset(w http.ResponseWriter, r *http.Request, status int, token, message string) {
 	s.renderStatus(w, status, "reset", resetPageData{
-		PageData: PageData{
-			Title:       "Reset password",
-			CurrentUser: currentUser(r),
-			Error:       message,
-		},
-		Token: token,
-		Valid: true,
+		PageData: s.pageDataWithError(r, "Reset password", message),
+		Token:    token,
+		Valid:    true,
 	})
 }
 
 func (s *Server) renderInvalidReset(w http.ResponseWriter, r *http.Request, token string) {
 	s.renderStatus(w, http.StatusNotFound, "reset", resetPageData{
-		PageData: PageData{
-			Title:       "Reset password",
-			CurrentUser: currentUser(r),
-			Error:       "This password reset link is invalid or has expired.",
-		},
-		Token: token,
+		PageData: s.pageDataWithError(r, "Reset password", "This password reset link is invalid or has expired."),
+		Token:    token,
 	})
 }

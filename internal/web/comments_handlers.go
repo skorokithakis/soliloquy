@@ -39,7 +39,10 @@ type commentView struct {
 	Voted         bool
 	CanVote       bool
 	IsOP          bool
-	Replies       []commentView
+	// LoggedIn says whether the viewer has an account. Visitors get no vote,
+	// reply, edit or delete controls, and no account link on the author name.
+	LoggedIn bool
+	Replies  []commentView
 }
 
 type commentFormPageData struct {
@@ -96,6 +99,7 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		Voted:         comment.Voted,
 		CanVote:       viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
 		IsOP:          comment.AuthorID == threadAuthorID,
+		LoggedIn:      viewer != nil,
 		Replies:       commentViews(node.Replies, viewer, threadAuthorID, now),
 	}
 	if comment.ParentID != nil {

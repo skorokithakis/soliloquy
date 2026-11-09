@@ -215,6 +215,8 @@ func (s *Server) publishNewComment(threadID int64, comment *db.Comment) {
 	}
 
 	view := commentViewFor(&db.CommentNode{Comment: *comment}, nil, threadAuthorID, s.now())
+	// Only logged-in users have a live stream, so they also get the reply link.
+	view.LoggedIn = true
 	html, err := s.renderCommentHTML(view)
 	if err != nil {
 		slog.Error("render live comment", "comment_id", comment.ID, "error", err)

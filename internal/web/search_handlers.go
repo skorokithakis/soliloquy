@@ -73,6 +73,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Results:  views,
 	}
 	data.SearchQuery = query
+	data.Visitor = currentUser(r) == nil
 	s.render(w, "search", data)
 }
 

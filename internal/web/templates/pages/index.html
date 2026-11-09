@@ -20,7 +20,7 @@
 						<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 					</button>
 				</form>
-				{{else}}
+				{{else if not $.Visitor}}
 				<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
 				{{end}}
 				<span class="sc{{if .Voted}} on{{end}}">{{.Score}}</span>
@@ -38,7 +38,7 @@
 		{{end}}
 	</ol>
 	{{else}}
-	<p>No threads yet. <a href="/threads/new">Start the first one.</a></p>
+	<p>No threads yet.{{if not .Visitor}} <a href="/threads/new">Start the first one.</a>{{end}}</p>
 	{{end}}
 
 	<nav class="pagination" aria-label="Pages">

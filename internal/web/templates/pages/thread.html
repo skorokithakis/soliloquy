@@ -10,7 +10,7 @@
 					<svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 				</button>
 			</form>
-			{{else}}
+			{{else if not .Visitor}}
 			<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
 			{{end}}
 			<span class="score{{if .Voted}} on{{end}}" data-score-format="number">{{.Thread.Score}}</span>
@@ -41,6 +41,9 @@
 		</div>
 	</article>
 
+	{{if .Visitor}}
+	<p class="login-prompt"><a class="btn" href="/login">Log in to comment</a></p>
+	{{else}}
 	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.ID}}/comments" aria-label="Add a comment">
 		{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
 		<div class="editor">
@@ -53,6 +56,7 @@
 			</div>
 		</div>
 	</form>
+	{{end}}
 
 	<div class="comments-head">
 		<span class="label">{{.Thread.CommentText}} · best first</span>
@@ -67,8 +71,10 @@
 		{{if not .Comments}}<p class="no-comments">No comments yet.</p>{{end}}
 	</section>
 
+	{{if not .Visitor}}
 	<div class="dock">
 		<a class="fake" href="#comment-form">add a comment…</a>
 	</div>
+	{{end}}
 </div>
 {{end}}

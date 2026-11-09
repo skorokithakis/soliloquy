@@ -79,6 +79,10 @@ type threadFormPageData struct {
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
+	viewerID := int64(0)
+	if user != nil {
+		viewerID = user.ID
+	}
 	page := threadPageNumber(r)
 
 	total, err := s.db.CountThreads(r.Context())
@@ -91,7 +95,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	threads, err := s.db.ListThreads(r.Context(), user.ID, threadsPerPage+1, (page-1)*threadsPerPage)
+	threads, err := s.db.ListThreads(r.Context(), viewerID, threadsPerPage+1, (page-1)*threadsPerPage)
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -107,10 +111,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	for i, thread := range threads {
 		views[i] = threadViewFor(thread, now)
 		views[i].Voted = thread.Voted
-		views[i].CanVote = thread.AuthorID != user.ID
+		views[i].CanVote = user != nil && thread.AuthorID != user.ID
 	}
 
-	s.render(w, "index", indexPageData{
+	data := indexPageData{
 		PageData:   s.pageData(r, "Home"),
 		Threads:    views,
 		Page:       page,
@@ -119,7 +123,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		HasNext:    hasNext,
 		PrevPage:   page - 1,
 		NextPage:   page + 1,
-	})
+	}
+	data.Visitor = user == nil
+	s.render(w, "index", data)
 }
 
 type previewResponse struct {
@@ -201,15 +207,19 @@ func (s *Server) handleThreadPage(w http.ResponseWriter, r *http.Request) {
 // and the submitted text when a comment is invalid.
 func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread *db.Thread, status int, commentBody, commentError string) {
 	user := currentUser(r)
+	viewerID := int64(0)
+	if user != nil {
+		viewerID = user.ID
+	}
 	now := s.now()
 
-	comments, err := s.db.ListComments(r.Context(), thread.ID, user.ID)
+	comments, err := s.db.ListComments(r.Context(), thread.ID, viewerID)
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
 
-	voted, err := s.db.ThreadVoted(r.Context(), user.ID, thread.ID)
+	voted, err := s.db.ThreadVoted(r.Context(), viewerID, thread.ID)
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -221,16 +231,17 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		Body:          template.HTML(thread.BodyHTML),
 		CreatedAt:     relativeTime(thread.CreatedAt, now),
 		Edited:        thread.EditedAt != nil,
-		IsAuthor:      user.ID == thread.AuthorID,
-		CanDelete:     user.ID == thread.AuthorID || user.IsAdmin,
+		IsAuthor:      user != nil && user.ID == thread.AuthorID,
+		CanDelete:     user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		Voted:         voted,
-		CanVote:       user.ID != thread.AuthorID,
+		CanVote:       user != nil && user.ID != thread.AuthorID,
 		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now),
 		CommentBody:   commentBody,
 		CommentLength: utf8.RuneCountInString(commentBody),
 		CommentError:  commentError,
 	}
 	data.EventThreadID = thread.ID
+	data.Visitor = user == nil
 	s.renderStatus(w, status, "thread", data)
 }
 

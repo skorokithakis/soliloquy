@@ -1,0 +1,30 @@
+{{define "content"}}
+<div class="admin-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>admin/settings</h1>
+		<span class="sp"></span>
+		<a class="btn" href="/admin/users">users</a>
+	</div>
+
+	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
+
+	<form class="account-form" method="post" action="/admin/settings">
+		<section class="panel account-section" aria-labelledby="forum-name-heading">
+			<h2 class="label" id="forum-name-heading">forum name</h2>
+			<div class="field">
+				<label for="forum-name">name</label>
+				<input id="forum-name" class="inp" type="text" name="forum_name" value="{{.ForumName}}" maxlength="40" required>
+			</div>
+			<p class="hint">Shown in the page title and the logo. Up to 40 characters.</p>
+		</section>
+
+		<section class="panel account-section" aria-labelledby="public-heading">
+			<h2 class="label" id="public-heading">visibility</h2>
+			<label><input type="checkbox" name="public"{{if .Public}} checked{{end}}> public forum</label>
+			<p class="hint">Turning this on makes all existing threads and comments visible to anyone without an account.</p>
+		</section>
+
+		<button class="btn pri" type="submit">save settings</button>
+	</form>
+</div>
+{{end}}

@@ -58,6 +58,12 @@ type PageData struct {
 	// EventThreadID tells the layout which thread's live comment stream the
 	// page should subscribe to. Zero means no thread stream.
 	EventThreadID int64
+	// ForumName is the site name shown in the title and logo.
+	ForumName string
+	// Visitor marks a public, read-only page rendered for someone without a
+	// session. Those pages use the full header but hide all controls that
+	// need an account.
+	Visitor bool
 }
 
 // NewServer parses the embedded templates and prepares the handlers.
@@ -131,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /invites", s.handleInvitesPage)
 	mux.HandleFunc("POST /invites", s.handleCreateInvite)
 	mux.HandleFunc("GET /admin/users", s.handleAdminUsersPage)
+	mux.HandleFunc("GET /admin/settings", s.handleAdminSettingsPage)
+	mux.HandleFunc("POST /admin/settings", s.handleAdminSettingsSave)
 	mux.HandleFunc("GET /tree", s.handleInviteTree)
 	mux.HandleFunc("POST /admin/users/{id}/disable", s.handleAdminDisableUser)
 	mux.HandleFunc("POST /admin/users/{id}/reset", s.handleAdminResetPassword)
@@ -157,6 +165,13 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 		CurrentUser: currentUser(r),
 		Theme:       "auto",
 		Nav:         navSection(r.URL.Path),
+		ForumName:   db.DefaultForumName,
+	}
+	settings, err := s.db.Settings(r.Context())
+	if err != nil {
+		slog.Error("load settings", "error", err)
+	} else {
+		data.ForumName = settings.ForumName
 	}
 	if data.CurrentUser != nil {
 		if data.CurrentUser.Theme != "" {
@@ -169,6 +184,14 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 			data.UnreadNotifications = count
 		}
 	}
+	return data
+}
+
+// pageDataWithError builds PageData for a page that re-renders after a form
+// error, so the site settings and navigation are still filled in.
+func (s *Server) pageDataWithError(r *http.Request, title, message string) PageData {
+	data := s.pageData(r, title)
+	data.Error = message
 	return data
 }
 

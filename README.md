@@ -3,6 +3,9 @@
 A small, private forum for work discussions and friendly chats.
 
 - Invite-only. Any member can invite others, and everyone can see who invited whom.
+- Private by default. An admin can make the forum public, so visitors can read
+  threads and search without an account. Visitors cannot post, vote or comment.
+- Admins can rename the forum.
 - Threads with nested comments, like Hacker News and Reddit.
 - New comments and notifications appear live, with no page reload.
 - Markdown, upvotes, @mentions, full-text search and dark mode.
@@ -85,6 +88,18 @@ URL to the log:
 Open that URL to create the first account. Each restart before then makes a
 new URL and the old one stops working. After the first account exists, members
 invite other people from the "My invites" page.
+
+### Site settings
+
+Admins open `/admin/settings` from the admin page. They can rename the forum
+and make it public.
+
+The forum is private by default. Visitors are sent to the login page.
+
+When the forum is public, visitors can read the front page, thread pages and
+search. They see scores but no vote buttons, and a "log in" link in place of
+the new-thread, notifications and account links. Every other page and every
+write sends them to the login page. They do not get live updates.
 
 ## Reverse proxy
 

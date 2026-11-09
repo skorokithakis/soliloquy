@@ -4,6 +4,7 @@
 		<h1 class="pt"><span class="p">~/</span>admin/users</h1>
 		<span class="sp"></span>
 		<span class="label">{{.Accounts}} {{if eq .Accounts 1}}account{{else}}accounts{{end}} · {{.Admins}} {{if eq .Admins 1}}admin{{else}}admins{{end}} · {{.Disabled}} disabled</span>
+		<a class="btn" href="/admin/settings">settings</a>
 	</div>
 
 	{{if .ResetURL}}

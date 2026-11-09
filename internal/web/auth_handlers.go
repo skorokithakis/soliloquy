@@ -55,11 +55,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		seconds := int((wait + time.Second - 1) / time.Second)
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", seconds))
 		s.renderStatus(w, http.StatusTooManyRequests, "login", loginPageData{
-			PageData: PageData{
-				Title:       "Log in",
-				CurrentUser: currentUser(r),
-				Error:       fmt.Sprintf("Too many attempts. Wait %d s before the next try. The wait doubles after each miss, up to one minute.", seconds),
-			},
+			PageData:    s.pageDataWithError(r, "Log in", fmt.Sprintf("Too many attempts. Wait %d s before the next try. The wait doubles after each miss, up to one minute.", seconds)),
 			Username:    username,
 			Host:        s.baseHost,
 			WaitSeconds: seconds,
@@ -78,11 +74,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !passwordOK || !user.Active() {
 		s.throttle.Fail(username)
 		s.renderStatus(w, http.StatusUnauthorized, "login", loginPageData{
-			PageData: PageData{
-				Title:       "Log in",
-				CurrentUser: currentUser(r),
-				Error:       "Login incorrect.",
-			},
+			PageData: s.pageDataWithError(r, "Log in", "Login incorrect."),
 			Username: username,
 			Host:     s.baseHost,
 		})
@@ -97,11 +89,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if !created {
 		s.renderStatus(w, http.StatusUnauthorized, "login", loginPageData{
-			PageData: PageData{
-				Title:       "Log in",
-				CurrentUser: currentUser(r),
-				Error:       "Login incorrect.",
-			},
+			PageData: s.pageDataWithError(r, "Log in", "Login incorrect."),
 			Username: username,
 			Host:     s.baseHost,
 		})
@@ -229,22 +217,14 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) renderInvalidInvite(w http.ResponseWriter, r *http.Request, token string) {
 	s.renderStatus(w, http.StatusNotFound, "signup", signupPageData{
-		PageData: PageData{
-			Title:       "Sign up",
-			CurrentUser: currentUser(r),
-			Error:       "This invite link is invalid or has expired.",
-		},
-		Token: token,
+		PageData: s.pageDataWithError(r, "Sign up", "This invite link is invalid or has expired."),
+		Token:    token,
 	})
 }
 
 func (s *Server) renderSignup(w http.ResponseWriter, r *http.Request, status int, token, username, message string) {
 	data := signupPageData{
-		PageData: PageData{
-			Title:       "Sign up",
-			CurrentUser: currentUser(r),
-			Error:       message,
-		},
+		PageData: s.pageDataWithError(r, "Sign up", message),
 		Token:    token,
 		Valid:    true,
 		Username: username,

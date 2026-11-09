@@ -2,7 +2,7 @@
 <li class="c" id="c{{.ID}}" data-comment-id="{{.ID}}">
 	<div class="ch">
 		{{if .Deleted}}
-		<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
+		{{if .LoggedIn}}<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>{{else}}<span class="vote none" aria-hidden="true"></span>{{end}}
 		<span class="gone">[deleted]</span>
 		<span>{{.CreatedAt}}</span>
 		{{else}}
@@ -12,10 +12,12 @@
 				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 			</button>
 		</form>
-		{{else}}
+		{{else if .LoggedIn}}
 		<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
+		{{else}}
+		<span class="vote none" aria-hidden="true"></span>
 		{{end}}
-		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<a class="u" href="/account">{{.Author}}</a>{{end}}
+		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if .LoggedIn}}<a class="u" href="/account">{{.Author}}</a>{{else}}<span class="u">{{.Author}}</span>{{end}}
 		{{if .IsOP}}<span class="op">op</span>{{end}}
 		<span>{{.CreatedAt}}</span>
 		<span>·</span>
@@ -30,7 +32,7 @@
 	</div>
 	{{if not .Deleted}}
 	<div class="ca">
-		<a class="reply-link" href="/comments/{{.ID}}/reply">reply</a>
+		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.ID}}/reply">reply</a>{{end}}
 		<a href="#c{{.ID}}">link</a>
 		{{if .IsAuthor}}<a href="/comments/{{.ID}}/edit">edit</a>{{end}}
 		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.ID}}/delete"><button type="submit">delete</button></form>{{end}}

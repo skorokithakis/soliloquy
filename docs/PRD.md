@@ -6,15 +6,18 @@ Licence: AGPL-3.0.
 
 ## 1. Summary
 
-Soliloquy is a small, private forum for work discussions and friendly chats. It is easy to
-deploy: you copy one binary, run it, and put a reverse proxy in front of it.
-Threads have nested comments, like Reddit and Hacker News. New comments and
-notifications show up live, with no page reload.
+Soliloquy is a small forum for work discussions and friendly chats. It is
+private by default, but an admin can make it public and read-only for
+visitors. It is easy to deploy: you copy one binary, run it, and put a reverse
+proxy in front of it. Threads have nested comments, like Reddit and Hacker
+News. New comments and notifications show up live, with no page reload.
 
 ## 2. Users and scale
 
 - Fewer than 100 users.
 - Access is by invitation only. There is no public signup.
+- The forum is private by default. An admin can make it readable by visitors
+  without an account.
 - Two roles: **user** and **admin**.
 
 ## 3. Functional requirements
@@ -148,10 +151,28 @@ An admin can:
 - make another user an admin, or remove admin rights from another user. An
   admin cannot remove their own admin rights, so there is always at least one
   admin.
+- rename the forum and make it public or private.
 - An admin cannot disable themselves. The last active admin cannot delete their
   own account.
 
-### 3.10 Appearance
+### 3.10 Public read-only mode
+
+- The forum is private by default. Visitors are sent to the login page.
+- An admin can make the forum public on the admin settings page.
+- When it is public, a visitor can read the front page, thread pages and
+  search. Paging works as it does for members.
+- Visitors cannot write. Every POST redirects them to the login page.
+- Account, notifications, invites, the invite tree, admin pages, the thread
+  form, edit and reply pages, and live updates are for logged-in users only.
+  Visitors who open them are sent to the login page.
+- Visitors see the usual header with the forum name, the "threads" link and
+  the search box. They see a "log in" link instead of the new-thread,
+  notifications and account links.
+- Visitors see scores but no vote buttons. They see no comment form, and no
+  reply, edit or delete links. In place of the comment form, the thread page
+  shows a "Log in to comment" link.
+
+### 3.11 Appearance
 
 - Server-rendered pages that work on desktop and mobile.
 - Each account can choose system, light or dark on the account page. The default follows the system setting.
@@ -200,6 +221,8 @@ Flags or environment variables:
   browsers.
 - Permission checks are on the server for every write: edit and delete own
   posts only, admin actions for admins only.
+- Public mode is read-only. The server allows only the front page, thread
+  pages and search for visitors, and sends every write to the login page.
 - Invite and reset tokens are random, single-use and expire.
 - Known trade-off: per-username throttling lets an attacker lock a known user
   out for about a minute at a time. This is acceptable for a private forum.
@@ -220,8 +243,10 @@ Flags or environment variables:
 ## 7. Non-goals (version 1)
 
 - Public signup, email of any kind, SSO.
+- Public write access, user profile pages and a public invite tree.
 - Downvotes, karma, categories, tags.
-- Live updates for edits, deletes and vote counts.
+- Live updates for edits, deletes and vote counts, and live updates for
+  visitors.
 - Typing indicators and online presence.
 - Image or file uploads.
 - Locked threads.
@@ -230,6 +255,5 @@ Flags or environment variables:
 - Disabling a whole invite subtree in one action.
 - Vote-based ranking of the front page.
 - Running more than one instance.
-- User profile pages.
 - Cancelling invites.
 - A global dark mode toggle; themes are per account.

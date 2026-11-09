@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,7 +63,7 @@ func (s *Server) originCheck(next http.Handler) http.Handler {
 
 // loadUser loads the session's user into the request context. It refreshes
 // sliding session expiry and requires a logged-in user for every route except
-// login and sign-up.
+// login, sign-up and, when the forum is public, the read-only pages.
 func (s *Server) loadUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Static assets must be available on the login page.
@@ -104,6 +105,18 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 		}
 
 		if currentUser(r) == nil {
+			if readOnlyPath(r) {
+				settings, err := s.db.Settings(r.Context())
+				if err != nil {
+					s.serverError(w, err)
+					return
+				}
+				if settings.Public {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -116,6 +129,21 @@ func publicPath(r *http.Request) bool {
 	return r.URL.Path == "/login" ||
 		strings.HasPrefix(r.URL.Path, "/invite/") ||
 		strings.HasPrefix(r.URL.Path, "/reset/")
+}
+
+// readOnlyPath reports whether a request is one visitors may make when the
+// forum is public: the front page, a thread page and search. Everything else,
+// including every write, still needs a logged-in user.
+func readOnlyPath(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	if r.URL.Path == "/" || r.URL.Path == "/search" {
+		return true
+	}
+
+	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/threads/"), 10, 64)
+	return err == nil && id > 0 && strings.HasPrefix(r.URL.Path, "/threads/")
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
