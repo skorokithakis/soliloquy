@@ -981,9 +981,7 @@ a.btn.pri:hover {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	margin-top: 18px;
-	padding: 14px 0;
-	border-top: 1px solid var(--line);
+	padding: 14px 0 0;
 }
 
 /* Thread page ------------------------------------------------------- */
@@ -2191,13 +2189,6 @@ a.btn.pri:hover {
 
 	.front-page .tt {
 		font-size: 15.5px;
-	}
-
-	.front-page .pagination {
-		margin-left: -16px;
-		margin-right: -16px;
-		padding-left: 16px;
-		padding-right: 16px;
 	}
 
 	.notifications-page {
