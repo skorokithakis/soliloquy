@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1>{{.Heading}}</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+<form method="post" action="{{.Action}}">
+	<label>Comment
+		<textarea name="body" rows="8" maxlength="20000" required autofocus>{{.FormBody}}</textarea>
+	</label>
+	<button type="submit">{{.SubmitLabel}}</button>
+</form>
+<p><a href="{{.CancelURL}}">Cancel</a></p>
+{{end}}

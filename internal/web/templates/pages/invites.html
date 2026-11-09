@@ -1,0 +1,20 @@
+{{define "content"}}
+<h1>My invites</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+<p>Each link works once and expires after seven days.</p>
+<form method="post" action="/invites">
+	<button type="submit">Create invite link</button>
+</form>
+{{if .Invites}}
+<ul class="invite-list">
+	{{range .Invites}}
+	<li>
+		<a href="{{.URL}}">{{.URL}}</a>
+		<span class="hint">Created {{.CreatedAt.Format "2006-01-02"}}, expires {{.ExpiresAt.Format "2006-01-02"}}</span>
+	</li>
+	{{end}}
+</ul>
+{{else}}
+<p>You have no unused invite links.</p>
+{{end}}
+{{end}}

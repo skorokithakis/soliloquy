@@ -1,0 +1,18 @@
+{{define "content"}}
+<h1>{{.Heading}}</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+<form method="post" action="{{.Action}}">
+	<label>Title
+		<input name="title" value="{{.FormTitle}}" maxlength="200" required autofocus>
+	</label>
+	<label>URL
+		<input name="url" type="url" value="{{.FormURL}}" placeholder="https://example.com/">
+	</label>
+	<p class="hint">Optional. Must start with http:// or https://.</p>
+	<label>Body
+		<textarea name="body" rows="12" maxlength="20000">{{.FormBody}}</textarea>
+	</label>
+	<p class="hint">Optional Markdown. Add a URL, a body, or both.</p>
+	<button type="submit">{{.SubmitLabel}}</button>
+</form>
+{{end}}

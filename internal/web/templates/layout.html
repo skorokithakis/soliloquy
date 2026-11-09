@@ -1,0 +1,36 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{.Title}} · Soliloquy</title>
+	<link rel="stylesheet" href="/static/style.css">
+	<script src="/static/app.js" defer></script>
+</head>
+<body{{if .CurrentUser}} data-sse-url="/events{{if .EventThreadID}}?thread_id={{.EventThreadID}}{{end}}"{{end}}>
+	<header class="site-header">
+		<a class="site-title" href="/">Soliloquy</a>
+		{{with .CurrentUser}}
+		<nav class="site-nav">
+			<form class="header-search" method="get" action="/search" role="search">
+				<input type="search" name="q" value="{{$.SearchQuery}}" placeholder="Search" aria-label="Search threads and comments">
+				<button type="submit">Search</button>
+			</form>
+			<span class="site-user">{{.Username}}</span>
+			<a class="notifications-link" href="/notifications">Notifications{{if $.UnreadNotifications}} <span class="badge">{{$.UnreadNotifications}}</span>{{end}}</a>
+			<a href="/threads/new">New thread</a>
+			<a href="/invites">My invites</a>
+			<a href="/tree">Invite tree</a>
+			<a href="/password">Change password</a>
+			<form class="inline-form" method="post" action="/logout">
+				<button type="submit">Log out</button>
+			</form>
+		</nav>
+		{{end}}
+	</header>
+	<main class="site-main">
+		{{template "content" .}}
+	</main>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,60 @@
+#!/bin/bash
+# Build and run Soliloquy for manual QA on 0.0.0.0:8000.
+#
+# The database persists in .symphony-cache/qa.db between runs. Delete that file
+# to start again from an empty forum.
+#
+# On an empty database the app logs a one-time admin invite URL. This script
+# uses it to create the QA admin account, username "admin" and password
+# "admin". The log also goes to .symphony-cache/serve.log.
+#
+# The server runs with -allow-any-origin, so forms work at any address. Links
+# that the app builds (invites, password resets) still use the base URL. Set
+# SOLILOQUY_BASE_URL if you open the app at an address other than
+# http://localhost:8000 and want those links to match.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+export GOMODCACHE="$PWD/.symphony-cache/gomod"
+export GOFLAGS=-modcacherw
+export GOTOOLCHAIN=local
+
+base_url="${SOLILOQUY_BASE_URL:-http://localhost:8000}"
+log=.symphony-cache/serve.log
+
+mkdir -p .symphony-cache
+go build -o .symphony-cache/soliloquy .
+
+# Remember where this run's log output starts, so an invite from an earlier
+# run is not used.
+touch "$log"
+start_line=$(($(wc -l < "$log") + 1))
+
+.symphony-cache/soliloquy \
+  -listen 0.0.0.0:8000 \
+  -db .symphony-cache/qa.db \
+  -base-url "$base_url" \
+  -allow-any-origin \
+  >> "$log" 2>&1 &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null' EXIT INT TERM
+
+# Wait until the server is listening.
+for _ in $(seq 50); do
+  tail -n +"$start_line" "$log" | grep -q 'INFO listening' && break
+  kill -0 "$server_pid" 2>/dev/null || { cat "$log" >&2; exit 1; }
+  sleep 0.2
+done
+
+invite_url=$(tail -n +"$start_line" "$log" | grep -o 'first admin invite url=[^ ]*' | tail -n 1 | cut -d= -f2- || true)
+if [ -n "$invite_url" ]; then
+  curl -fsS -o /dev/null \
+    -H "Origin: $base_url" \
+    --data-urlencode username=admin \
+    --data-urlencode password=admin \
+    "http://127.0.0.1:8000${invite_url#"$base_url"}"
+  echo "Created QA admin account admin/admin." | tee -a "$log"
+fi
+
+wait "$server_pid"

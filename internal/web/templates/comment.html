@@ -1,0 +1,27 @@
+{{define "comment"}}
+<li class="comment" id="c{{.ID}}" data-comment-id="{{.ID}}">
+	{{if .Deleted}}
+	<p class="comment-deleted">[deleted]</p>
+	{{else}}
+	<div class="comment-body">{{.Body}}</div>
+	<p class="comment-meta">by {{.Author}} · <span class="score">{{.ScoreText}}</span> · {{.CreatedAt}}{{if .Edited}} · edited{{end}}</p>
+	<div class="comment-actions">
+		{{if .CanVote}}
+		<form class="vote-form" method="post" action="/comments/{{.ID}}/vote">
+			<button type="submit" data-voted="{{if .Voted}}true{{else}}false{{end}}">{{if .Voted}}Unvote{{else}}Upvote{{end}}</button>
+		</form>
+		{{end}}
+		<a href="/comments/{{.ID}}/reply">Reply</a>
+		{{if .IsAuthor}}<a href="/comments/{{.ID}}/edit">Edit</a>{{end}}
+		{{if .CanDelete}}
+		<form class="inline-form" method="post" action="/comments/{{.ID}}/delete">
+			<button type="submit">Delete</button>
+		</form>
+		{{end}}
+	</div>
+	{{end}}
+	<ol class="comment-replies" data-parent-id="{{.ID}}">
+		{{range .Replies}}{{template "comment" .}}{{end}}
+	</ol>
+</li>
+{{end}}

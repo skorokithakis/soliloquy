@@ -1,0 +1,27 @@
+{{define "content"}}
+<h1>Search</h1>
+<form class="search-form" method="get" action="/search" role="search">
+	<label>Search threads and comments
+		<input type="search" name="q" value="{{.Query}}" autofocus>
+	</label>
+	<button type="submit">Search</button>
+</form>
+{{if .Searched}}
+	{{if .Results}}
+	<p class="hint">{{len .Results}} {{if eq (len .Results) 1}}result{{else}}results{{end}} for “{{.Query}}”.</p>
+	<ul class="search-results">
+		{{range .Results}}
+		<li class="search-result">
+			<a class="search-result-title" href="{{.Link}}">{{.Title}}</a>
+			<span class="search-result-kind">{{.Kind}}</span>
+			{{if .Snippet}}<p class="search-result-snippet">{{.Snippet}}</p>{{end}}
+		</li>
+		{{end}}
+	</ul>
+	{{else}}
+	<p>No results for “{{.Query}}”.</p>
+	{{end}}
+{{else}}
+	<p class="hint">Search thread titles, thread bodies and comments.</p>
+{{end}}
+{{end}}

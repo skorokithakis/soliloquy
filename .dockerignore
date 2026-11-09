@@ -1,0 +1,6 @@
+.git
+.tickets
+*.db
+*.db-shm
+*.db-wal
+soliloquy

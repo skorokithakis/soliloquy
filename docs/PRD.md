@@ -1,6 +1,6 @@
 # Soliloquy: Product Requirements Document
 
-Status: draft, waiting for approval.
+Status: approved.
 
 Licence: AGPL-3.0.
 
@@ -25,7 +25,11 @@ notifications show up live, with no page reload.
   email sending.
 - Usernames are 3 to 20 characters from `a-z`, `0-9`, `_` and `-`. They are
   case-insensitive and unique. Users cannot change their username.
-- Sessions last 30 days.
+- Sessions last one year. The year starts again each time the user uses the
+  site. The new expiry is written at most once a day.
+- Users can log out.
+- **Change password:** a user can change their own password. They must give
+  their current password. Their other sessions end.
 - **Delete own account:** a user can delete their own account.
   - Their threads and comments stay. The author shows as "[deleted user]".
   - Their votes stay.
@@ -37,6 +41,8 @@ notifications show up live, with no page reload.
   - Each link works once.
   - Each link expires 7 days after it is created.
   - There is no limit on how many invites a user can create.
+  - A page lists the user's unused, unexpired invite links. Users cannot
+    cancel invites.
 - The system records who invited each user.
 - **First admin:** when the app starts with an empty database, it prints a
   one-time admin invite URL to the log.
@@ -46,7 +52,9 @@ notifications show up live, with no page reload.
 - **Login throttling:** after each failed login for a username, the next try
   for that username must wait longer. The wait doubles each time, up to about
   one minute. A successful login resets the wait. This state is kept in memory
-  only.
+  only. Tries made during a wait are rejected and do not count as failures.
+  An entry is removed when the username has had no failed login for a few
+  minutes, so the memory use stays small.
 
 ### 3.2 Invite tree
 
@@ -81,11 +89,16 @@ notifications show up live, with no page reload.
 - Authors can delete their own comments and threads.
   - A deleted comment that has replies shows as "[deleted]", so the tree keeps
     its shape.
-  - A deleted comment with no replies is hidden.
+  - A deleted comment is hidden when it has no visible replies under it. This
+    is decided when the page renders.
+- A deleted thread does not show on the front page or in search. Its page
+  returns 404. Its rows stay in the database.
 
 ### 3.5 Upvotes
 
 - Users can upvote threads and comments.
+- A new thread or comment starts with a score of 1, for the author's own
+  implicit vote.
 - One vote per user per item. Clicking again removes the vote.
 - Users cannot upvote their own posts.
 - There are no downvotes and no karma totals.
@@ -95,6 +108,12 @@ notifications show up live, with no page reload.
 - When a user has a thread open, new comments in that thread appear in the
   correct place in the tree with no reload.
 - The notification badge updates live.
+- Each page opens one Server-Sent Events stream. It carries the user's badge
+  updates and, on a thread page, that thread's new comments.
+- A new comment always has the lowest score (1) and is the newest, so it goes
+  last under its parent. The browser does not need to sort.
+- All forms work as plain POST requests with a redirect, so pages work with no
+  JavaScript. JavaScript adds live updates and votes with no reload.
 - Edits, deletes and vote counts do **not** update live. They show on reload.
 
 ### 3.7 Notifications
@@ -105,6 +124,9 @@ In-app only. A user gets a notification when:
 2. someone posts a top-level comment on their thread,
 3. someone mentions them as `@username` in a thread or comment. When a post
    is edited, only users who are newly mentioned get a notification.
+   Mentions are found in normal text only, not in code spans or code blocks.
+   Only existing, active users get a notification. Mentions show as plain
+   text, not links.
 
 Users do not get notifications for their own actions. There is a
 notifications page and an unread count badge in the header.
@@ -126,6 +148,8 @@ An admin can:
 - make another user an admin, or remove admin rights from another user. An
   admin cannot remove their own admin rights, so there is always at least one
   admin.
+- An admin cannot disable themselves. The last active admin cannot delete their
+  own account.
 
 ### 3.10 Appearance
 
@@ -145,7 +169,7 @@ An admin can:
 | Search | SQLite FTS5, kept up to date on save | Built in, no extra service | External search engine |
 | Sessions | Random token in an HttpOnly, SameSite=Lax cookie, stored in the database | Simple, can be revoked | JWT: hard to revoke |
 | Passwords | bcrypt | Standard | |
-| CSRF | SameSite cookies plus an Origin header check on POST | No token plumbing | Per-form CSRF tokens |
+| CSRF | SameSite cookies plus an Origin header check on POST. The Origin must match the base URL. A POST with no Origin is rejected | No token plumbing | Per-form CSRF tokens |
 | Login throttling | Per username, in memory | No need to trust proxy headers | Per IP: needs a correct `X-Forwarded-For` setup |
 | TLS | Reverse proxy (Caddy, nginx, Traefik) | Less code in the app | Built-in Let's Encrypt |
 
@@ -206,4 +230,6 @@ Flags or environment variables:
 - Disabling a whole invite subtree in one action.
 - Vote-based ranking of the front page.
 - Running more than one instance.
+- User profile pages.
+- Cancelling invites.
 - A dark mode toggle.

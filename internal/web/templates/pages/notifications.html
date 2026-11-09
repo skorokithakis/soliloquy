@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Notifications</h1>
+{{if .Notifications}}
+<ul class="notification-list">
+	{{range .Notifications}}
+	<li class="notification{{if .Unread}} notification-unread{{end}}">
+		<a class="notification-link" href="{{.Link}}">{{if eq .Kind "reply"}}{{.Actor}} replied to your comment{{else if eq .Kind "thread_comment"}}{{.Actor}} commented on your thread{{else}}{{.Actor}} mentioned you{{end}}</a>
+		<span class="notification-meta">in {{.ThreadTitle}} · {{.CreatedAt}}</span>
+	</li>
+	{{end}}
+</ul>
+{{else}}
+<p>No notifications yet.</p>
+{{end}}
+{{end}}

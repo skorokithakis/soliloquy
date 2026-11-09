@@ -1,0 +1,44 @@
+{{define "content"}}
+<h1>Invite tree</h1>
+{{if .ResetURL}}
+<p class="notice" role="status">Password reset link for {{.ResetFor}}. It is shown only once: <a href="{{.ResetURL}}">{{.ResetURL}}</a></p>
+{{end}}
+<ul class="invite-tree">
+	{{range .Nodes}}{{template "inviteNode" .}}{{end}}
+</ul>
+{{end}}
+
+{{define "inviteNode"}}
+<li class="invite-node">
+	<span class="invite-name">{{.Name}}</span>
+	{{if .IsAdmin}}<span class="hint">admin</span>{{end}}
+	{{if .Disabled}}<span class="hint">disabled</span>{{end}}
+	<span class="hint">joined {{.Joined}}</span>
+	{{if .CanAdmin}}
+	<div class="invite-admin">
+		{{if not .Disabled}}
+		<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable">
+			<button type="submit">Disable</button>
+		</form>
+		{{end}}
+		{{if .IsAdmin}}
+		<form class="inline-form" method="post" action="/admin/users/{{.ID}}/revoke-admin">
+			<button type="submit">Remove admin</button>
+		</form>
+		{{else}}
+		<form class="inline-form" method="post" action="/admin/users/{{.ID}}/grant-admin">
+			<button type="submit">Make admin</button>
+		</form>
+		{{end}}
+		<form class="inline-form" method="post" action="/admin/users/{{.ID}}/reset">
+			<button type="submit">Create reset link</button>
+		</form>
+	</div>
+	{{end}}
+	{{if .Children}}
+	<ul class="invite-children">
+		{{range .Children}}{{template "inviteNode" .}}{{end}}
+	</ul>
+	{{end}}
+</li>
+{{end}}

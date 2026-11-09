@@ -1,0 +1,16 @@
+#!/bin/bash
+# Download Go modules and check that the app builds.
+#
+# The sandbox mounts ~/go/pkg/mod read-only, so the module cache lives in
+# .symphony-cache/ in the repo (ignored by git). .symphony/serve uses the same
+# cache.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+export GOMODCACHE="$PWD/.symphony-cache/gomod"
+export GOFLAGS=-modcacherw
+export GOTOOLCHAIN=local
+
+go mod download
+go build -o .symphony-cache/soliloquy .

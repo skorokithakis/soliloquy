@@ -1,0 +1,5 @@
+-- Initial schema.
+--
+-- The skeleton has no feature tables yet. Later migrations add the users,
+-- sessions, invites, threads, comments, votes, notifications and search
+-- tables.

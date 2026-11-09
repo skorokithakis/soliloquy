@@ -1,0 +1,40 @@
+{{define "content"}}
+<article class="thread" id="t{{.Thread.ID}}">
+	<h1 class="thread-title">
+		{{if .Thread.URL}}<a href="{{.Thread.URL}}" rel="nofollow noopener">{{.Thread.Title}}</a> <span class="thread-domain">{{.Thread.Domain}}</span>{{else}}{{.Thread.Title}}{{end}}
+	</h1>
+	<p class="thread-meta">by {{.Thread.Author}} · <span class="score">{{.Thread.ScoreText}}</span> · {{.CreatedAt}}{{if .Edited}} · edited{{end}}</p>
+	{{if .Body}}<div class="thread-body">{{.Body}}</div>{{end}}
+	<div class="thread-actions">
+		{{if .CanVote}}
+		<form class="vote-form" method="post" action="/threads/{{.Thread.ID}}/vote">
+			<button type="submit" data-voted="{{if .Voted}}true{{else}}false{{end}}">{{if .Voted}}Unvote{{else}}Upvote{{end}}</button>
+		</form>
+		{{end}}
+		{{if .IsAuthor}}<a href="/threads/{{.Thread.ID}}/edit">Edit</a>{{end}}
+		{{if .CanDelete}}
+		<form class="inline-form" method="post" action="/threads/{{.Thread.ID}}/delete">
+			<button type="submit">Delete</button>
+		</form>
+		{{end}}
+	</div>
+</article>
+<nav class="thread-nav"><a href="/">Back to all threads</a></nav>
+<section class="comments">
+	<h2>Comments</h2>
+	<ol class="comment-list" id="comments" data-parent-id="">
+		{{range .Comments}}{{template "comment" .}}{{end}}
+	</ol>
+	{{if not .Comments}}<p class="no-comments">No comments yet.</p>{{end}}
+</section>
+<section class="comment-form">
+	<h2>Add a comment</h2>
+	{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
+	<form method="post" action="/threads/{{.Thread.ID}}/comments">
+		<label>Comment
+			<textarea name="body" rows="8" maxlength="20000" required>{{.CommentBody}}</textarea>
+		</label>
+		<button type="submit">Post comment</button>
+	</form>
+</section>
+{{end}}

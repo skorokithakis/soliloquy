@@ -1,0 +1,16 @@
+{{define "content"}}
+<h1>Sign up</h1>
+{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+{{if .Valid}}
+<form method="post" action="/invite/{{.Token}}">
+	<label>Username
+		<input name="username" value="{{.Username}}" autocomplete="username" required autofocus>
+	</label>
+	<p class="hint">3 to 20 characters using a-z, 0-9, _ and -. Usernames are case-insensitive.</p>
+	<label>Password
+		<input type="password" name="password" autocomplete="new-password" required>
+	</label>
+	<button type="submit">Create account</button>
+</form>
+{{end}}
+{{end}}

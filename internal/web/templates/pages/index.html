@@ -1,0 +1,22 @@
+{{define "content"}}
+<h1>Soliloquy</h1>
+<p><a class="new-thread" href="/threads/new">Start a thread</a></p>
+{{if .Threads}}
+<ul class="thread-list">
+	{{range .Threads}}
+	<li class="thread-row">
+		<h2 class="thread-title">
+			{{if .URL}}<a href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="thread-domain">{{.Domain}}</span>{{else}}<a href="/threads/{{.ID}}">{{.Title}}</a>{{end}}
+		</h2>
+		<p class="thread-meta">by {{.Author}} · {{.ScoreText}} · <a href="/threads/{{.ID}}">{{.CommentText}}</a> · {{.LastActivity}}</p>
+	</li>
+	{{end}}
+</ul>
+<nav class="pagination">
+	{{if .HasPrev}}<a href="/?page={{.PrevPage}}" rel="prev">Newer</a>{{end}}
+	{{if .HasNext}}<a href="/?page={{.NextPage}}" rel="next">Older</a>{{end}}
+</nav>
+{{else}}
+<p>No threads yet. <a href="/threads/new">Start the first one.</a></p>
+{{end}}
+{{end}}
