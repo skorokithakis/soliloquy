@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy: admin, users</title>
+<script src="7082851e-bef6-4605-8235-f06c3b9385a3"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq a{color:inherit;text-decoration:none}
+.sq a:hover{color:var(--accent)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.top{background:var(--panel);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;min-height:52px;flex-wrap:wrap}
+.logo{font:600 16px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--ink)}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.nav{display:flex;gap:16px;font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.nav a.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:6px}
+.sp{flex:1}
+.search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--muted);width:210px}
+.search input{border:0;background:none;outline:0;font:13px 'IBM Plex Mono',monospace;color:var(--ink);width:100%;padding:0}
+.search input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.btn.pri,.sq a.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0}
+.badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
+.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.pt{font:600 18px 'IBM Plex Mono',monospace;margin:0}
+.pt .p{color:var(--accent)}
+.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tbox{overflow-x:auto;border-top:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;min-width:720px;font:13px 'IBM Plex Mono',monospace}
+th{text-align:left;font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:9px 10px 7px 0;border-bottom:1px solid var(--line)}
+td{padding:6px 10px 6px 0;border-bottom:1px solid var(--line2);vertical-align:middle;white-space:nowrap}
+td.u{font-weight:600}
+td.m{color:var(--muted)}
+.acts{display:flex;gap:4px;justify-content:flex-end}
+.x{font:12px 'IBM Plex Mono',monospace;background:none;border:1px solid transparent;border-radius:3px;color:var(--muted);padding:3px 7px;cursor:pointer}
+.x:hover{border-color:var(--line);color:var(--ink)}
+.x.d{color:var(--danger)}
+.x:disabled{opacity:.45;cursor:not-allowed}
+.flag{font:500 10.5px/15px 'IBM Plex Mono',monospace;border:1px solid currentColor;border-radius:3px;padding:0 4px;color:var(--muted)}
+.flag.a{color:var(--accent)}
+.flag.you{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.st-ok{color:var(--live)}
+.st-off{color:var(--danger)}
+tr.off td{color:var(--muted)}
+.notice{border:1px solid var(--accent);background:var(--soft);border-radius:6px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.notice code{font:12.5px 'IBM Plex Mono',monospace;background:var(--card);border:1px solid var(--line);border-radius:3px;padding:5px 8px;flex:1;min-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:640px){.search,.me{display:none}.nav{order:3;width:100%;padding-bottom:10px}}
+</style>
+</helmet>
+<div class="sq {{theme}}">
+<header class="top"><div class="wrap">
+<a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+<nav class="nav" aria-label="Main"><a href="Main.dc.html">threads</a><a href="Invites.dc.html">invites</a><a class="on" href="Admin.dc.html">admin</a></nav>
+<div class="sp"></div>
+<label class="search"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label>
+<a class="btn pri" href="Submit.dc.html">+ new thread</a>
+<a class="ib" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
+<a class="me" href="Account.dc.html">mira</a>
+</div></header>
+
+<main class="wrap" style="padding-top: 18px">
+<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px">
+<h1 class="pt"><span class="p">~/</span>admin/users</h1>
+<span class="sp"></span>
+<span class="label">14 accounts · 2 admins · 1 disabled</span>
+</div>
+
+<div class="notice" role="status">
+<span style="font: 500 13px 'IBM Plex Mono', monospace">reset link for <b>k_tanaka</b></span>
+<code>https://forum.example.org/reset/w9e2hq7cnx0p5v</code>
+<button class="btn" type="button">copy</button>
+<span style="width: 100%; font: 12px 'IBM Plex Mono', monospace; color: var(--muted)">Send it to them yourself. It works once and expires in 7 days. When they use it, all their sessions end.</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 10px; margin: 20px 0 8px">
+<label class="search" style="width: 260px"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="filter users" aria-label="Filter users"></label>
+</div>
+
+<div class="tbox">
+<sc-raw-table>
+<sc-raw-thead><sc-raw-tr><sc-raw-th scope="col">user</sc-raw-th><sc-raw-th scope="col">role</sc-raw-th><sc-raw-th scope="col">invited by</sc-raw-th><sc-raw-th scope="col">joined</sc-raw-th><sc-raw-th scope="col">status</sc-raw-th><sc-raw-th scope="col" style="text-align: right; padding-right: 0">actions</sc-raw-th></sc-raw-tr></sc-raw-thead>
+<sc-raw-tbody>
+<sc-raw-tr><sc-raw-td class="u">nadia</sc-raw-td><sc-raw-td><span class="flag a">admin</span></sc-raw-td><sc-raw-td class="m">(root)</sc-raw-td><sc-raw-td class="m">2025-03-02</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">remove admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">mira <span class="flag you">you</span></sc-raw-td><sc-raw-td><span class="flag a">admin</span></sc-raw-td><sc-raw-td class="m">nadia</sc-raw-td><sc-raw-td class="m">2025-03-02</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button" disabled="" title="You cannot remove your own admin rights">remove admin</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">pvh</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">nadia</sc-raw-td><sc-raw-td class="m">2025-03-03</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">jules</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">mira</sc-raw-td><sc-raw-td class="m">2025-03-04</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">dvorak</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">nadia</sc-raw-td><sc-raw-td class="m">2025-03-05</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr style="background: var(--soft)"><sc-raw-td class="u">k_tanaka</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">mira</sc-raw-td><sc-raw-td class="m">2025-03-09</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button" style="color: var(--accent)">reset link ✓</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">bea</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">[deleted user]</sc-raw-td><sc-raw-td class="m">2025-05-01</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">theo</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">jules</sc-raw-td><sc-raw-td class="m">2025-06-11</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr class="off"><sc-raw-td class="u" style="text-decoration: line-through">ostrich</sc-raw-td><sc-raw-td>user</sc-raw-td><sc-raw-td>pvh</sc-raw-td><sc-raw-td>2025-07-14</sc-raw-td><sc-raw-td class="st-off">disabled</sc-raw-td><sc-raw-td><div class="acts"><span class="x" style="cursor: default">no actions</span></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">rafa</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">ostrich</sc-raw-td><sc-raw-td class="m">2025-07-15</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">anna-l</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">pvh</sc-raw-td><sc-raw-td class="m">2025-08-02</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">sam_r</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">dvorak</sc-raw-td><sc-raw-td class="m">2025-09-18</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">lin</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">dvorak</sc-raw-td><sc-raw-td class="m">2026-01-07</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+<sc-raw-tr><sc-raw-td class="u">quill</sc-raw-td><sc-raw-td class="m">user</sc-raw-td><sc-raw-td class="m">nadia</sc-raw-td><sc-raw-td class="m">2026-10-30</sc-raw-td><sc-raw-td class="st-ok">active</sc-raw-td><sc-raw-td><div class="acts"><button class="x" type="button">reset link</button><button class="x" type="button">make admin</button><button class="x d" type="button">disable</button></div></sc-raw-td></sc-raw-tr>
+</sc-raw-tbody>
+</sc-raw-table>
+</div>
+<p style="margin: 12px 0 0; font: 12px/1.6 'IBM Plex Mono', monospace; color: var(--muted)">disable: ends their sessions, blocks login and cancels their unused invites. People they invited keep their accounts.<br>Admins delete threads and comments from the thread page.</p>
+
+<footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a href="Invites.dc.html">invite tree</a></footer>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1020}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+
+
+</body></html>

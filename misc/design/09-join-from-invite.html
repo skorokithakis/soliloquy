@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy: join from invite</title>
+<script src="0d941e38-bd34-4449-996e-0bbb830830ea"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq a{color:inherit;text-decoration:none}
+.logo{font:600 22px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:11px;height:21px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.card{width:100%;max-width:420px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:22px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font:500 12px 'IBM Plex Mono',monospace}
+.inp{height:40px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:14px 'IBM Plex Mono',monospace;padding:0 11px;width:100%}
+.inp.f{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:42px;border:1px solid var(--accent);border-radius:4px;background:var(--accent);color:var(--on-accent);font:500 14px 'IBM Plex Mono',monospace;cursor:pointer;width:100%}
+.checks{list-style:none;margin:2px 0 0;padding:0;font:12px/1.7 'IBM Plex Mono',monospace;color:var(--muted)}
+.checks .ok{color:var(--live)}
+.inv{border:1px dashed var(--accent);border-radius:6px;padding:10px 12px;font:12.5px/1.6 'IBM Plex Mono',monospace;background:var(--soft)}
+.tree{font:12.5px/1.6 'IBM Plex Mono',monospace;color:var(--muted);white-space:pre;margin:6px 0 0}
+.tree b{color:var(--accent);font-weight:600}
+</style>
+</helmet>
+<div class="sq {{theme}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 16px">
+<div style="width: 100%; max-width: 420px; margin-bottom: 16px">
+<div class="logo"><span class="p">›</span>soliloquy<span class="cur"></span></div>
+</div>
+<form class="card" aria-label="Create your account">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div class="inv">
+<div><b style="color: var(--ink)">pvh</b> invited you. This link works once and expires in 6 days.</div>
+<pre class="tree">nadia
+└── pvh
+    └── <b>you</b></pre>
+</div>
+<div class="field"><label for="u">pick a username</label><input id="u" class="inp f" value="marek_k" autocomplete="username">
+<ul class="checks">
+<li class="ok">✓ 3 to 20 characters</li>
+<li class="ok">✓ only a-z, 0-9, _ and -</li>
+<li class="ok">✓ available</li>
+<li>· you cannot change it later</li>
+</ul></div>
+<div class="field"><label for="p">password</label><input id="p" class="inp" type="password" value="correct horse battery" autocomplete="new-password"></div>
+<div class="field"><label for="p2">password again</label><input id="p2" class="inp" type="password" autocomplete="new-password"></div>
+<button class="btn" type="submit">create account</button>
+<p style="margin: 0; font: 12px/1.6 'IBM Plex Mono', monospace; color: var(--muted)">There is no email here. If you lose your password, an admin can give you a reset link.</p>
+</div>
+</form>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:760}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+
+
+</body></html>

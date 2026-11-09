@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy mobile: front page</title>
+<script src="f655dd16-f5ed-4bc5-b823-ffccfce03255"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq a{color:inherit;text-decoration:none}
+.top{background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;height:52px;padding:0 6px 0 16px}
+.logo{font:600 16px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--ink)}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.sp{flex:1}
+.ib{position:relative;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--ink);background:none;border:0}
+.ib.pri{background:var(--accent);color:var(--on-accent);width:40px;height:40px;margin-left:4px}
+.badge{position:absolute;top:5px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
+.sub{display:flex;gap:18px;padding:0 16px;height:40px;align-items:center;border-bottom:1px solid var(--line);font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.sub a{display:flex;align-items:center;height:40px}
+.sub a.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.list{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:0 6px;padding:9px 14px 9px 4px;border-bottom:1px solid var(--line2)}
+.vc{display:flex;flex-direction:column;align-items:center}
+.vote{width:40px;height:30px;border:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:0}
+.vote.on{color:var(--accent)}
+.vote.none{visibility:hidden}
+.sc{font:500 12px 'IBM Plex Mono',monospace;color:var(--muted);margin-top:-4px}
+.sc.on{color:var(--accent)}
+.tt{font:500 15.5px/1.35 'IBM Plex Sans',sans-serif;color:var(--ink)}
+.dom{font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.meta{font:12px/1.5 'IBM Plex Mono',monospace;color:var(--muted);margin-top:3px;display:flex;gap:0 6px;flex-wrap:wrap}
+.meta b{font-weight:500;color:var(--ink)}
+.act{font:12px 'IBM Plex Mono',monospace;color:var(--muted);padding-top:3px}
+</style>
+</helmet>
+<div class="sq {{theme}}" style="width: 390px; height: 844px; overflow: hidden">
+<header class="top">
+<a class="logo" href="M-Front.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+<span class="sp"></span>
+<a class="ib" href="Search.dc.html" aria-label="Search"><svg width="19" height="19" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg></a>
+<a class="ib" href="M-Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="20" height="20" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
+<a class="ib pri" href="Submit.dc.html" aria-label="New thread"><svg width="18" height="18" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg></a>
+</header>
+<nav class="sub" aria-label="Main"><a class="on" href="M-Front.dc.html">threads</a><a href="M-Invites.dc.html">invites</a><a href="Admin.dc.html">admin</a><span class="sp"></span><a href="Account.dc.html">mira</a></nav>
+<div style="display: flex; justify-content: space-between; padding: 10px 16px 6px"><span class="label">latest activity</span><span class="label">page 1</span></div>
+<ol class="list" style="border-top: 1px solid var(--line)">
+<li class="row"><div class="vc"><button class="vote on" aria-label="Remove upvote" aria-pressed="true"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc on">24</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Postgres 18 async I/O: real-world numbers?</a> <span class="dom">(postgresql.org)</span><div class="meta"><span>pvh</span><span>·</span><a href="M-Thread.dc.html">14 comments</a></div></div><span class="act">1m</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">9</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Friday: what are you building this weekend?</a><div class="meta"><span>theo</span><span>·</span><a href="M-Thread.dc.html">31 comments</a></div></div><span class="act">6m</span></li>
+<li class="row"><div class="vc"><button class="vote none" aria-hidden="true" tabindex="-1"></button><span class="sc">17</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">RFC: move the standup to async posts here?</a><div class="meta"><b>mira</b><span>·</span><a href="M-Thread.dc.html">22 comments</a></div></div><span class="act">14m</span></li>
+<li class="row"><div class="vc"><button class="vote on" aria-label="Remove upvote" aria-pressed="true"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc on">41</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Show: a tiny SSE hub in about 120 lines of Go</a> <span class="dom">(github.com)</span><div class="meta"><span>jules</span><span>·</span><a href="M-Thread.dc.html">18 comments</a></div></div><span class="act">38m</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">33</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">The 3 a.m. clock skew bug: a postmortem</a><div class="meta"><span>k_tanaka</span><span>·</span><a href="M-Thread.dc.html">12 comments</a></div></div><span class="act">1h</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">12</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Why I still use a 2012 ThinkPad</a><div class="meta"><span>dvorak</span><span>·</span><a href="M-Thread.dc.html">27 comments</a></div></div><span class="act">2h</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">8</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Reading club: The Soul of a New Machine, chapters 4 to 6</a><div class="meta"><span>anna-l</span><span>·</span><a href="M-Thread.dc.html">9 comments</a></div></div><span class="act">3h</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">29</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">SQLite is not a toy database</a> <span class="dom">(sqlite.org)</span><div class="meta"><span>sam_r</span><span>·</span><a href="M-Thread.dc.html">16 comments</a></div></div><span class="act">4h</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">5</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Lunch near the office that is not the usual place</a><div class="meta"><span>bea</span><span>·</span><a href="M-Thread.dc.html">19 comments</a></div></div><span class="act">5h</span></li>
+<li class="row"><div class="vc"><button class="vote" aria-label="Upvote"><svg width="11" height="11" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="sc">14</span></div>
+<div style="min-width: 0"><a class="tt" href="M-Thread.dc.html">Ask: how do you keep runbooks from going stale?</a><div class="meta"><span>lin</span><span>·</span><a href="M-Thread.dc.html">11 comments</a></div></div><span class="act">7h</span></li>
+</ol>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+
+
+</body></html>

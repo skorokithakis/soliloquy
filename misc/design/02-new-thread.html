@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy: new thread</title>
+<script src="55a55d9e-f3a5-4399-9fae-e7a0ff6c154f"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq a{color:inherit;text-decoration:none}
+.sq a:hover{color:var(--accent)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.top{background:var(--panel);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;min-height:52px;flex-wrap:wrap}
+.logo{font:600 16px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--ink)}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.nav{display:flex;gap:16px;font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.nav a.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:6px}
+.sp{flex:1}
+.search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--muted);width:210px}
+.search input{border:0;background:none;outline:0;font:13px 'IBM Plex Mono',monospace;color:var(--ink);width:100%;padding:0}
+.search input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.btn.pri,.sq a.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0}
+.badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
+.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.pt{font:600 18px 'IBM Plex Mono',monospace;margin:0}
+.pt .p{color:var(--accent)}
+.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font:500 12px 'IBM Plex Mono',monospace;color:var(--ink)}
+.field label span{color:var(--muted);font-weight:400}
+.inp{height:38px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:14.5px 'IBM Plex Sans',sans-serif;padding:0 11px;width:100%}
+.inp::placeholder{color:var(--muted)}
+.inp:focus,.editor:focus-within{outline:0;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.hint{font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.editor{border:1px solid var(--line);border-radius:4px;background:var(--card);overflow:hidden}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line2);background:var(--panel);font:12px 'IBM Plex Mono',monospace}
+.tabs button{font:inherit;background:none;border:0;padding:8px 12px;color:var(--muted);cursor:pointer}
+.tabs button.on{color:var(--ink);background:var(--card);box-shadow:inset 0 2px 0 var(--accent)}
+.editor textarea{display:block;width:100%;border:0;outline:0;background:none;resize:vertical;min-height:240px;padding:10px 12px;font:13px/1.6 'IBM Plex Mono',monospace;color:var(--ink)}
+.cheat{font:12px/1.9 'IBM Plex Mono',monospace;color:var(--muted);margin:0;white-space:pre}
+.cheat b{color:var(--ink);font-weight:500}
+.foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:640px){.search,.me{display:none}.nav{order:3;width:100%;padding-bottom:10px}}
+</style>
+</helmet>
+<div class="sq {{theme}}">
+<header class="top"><div class="wrap">
+<a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+<nav class="nav" aria-label="Main"><a class="on" href="Main.dc.html">threads</a><a href="Invites.dc.html">invites</a><a href="Admin.dc.html">admin</a></nav>
+<div class="sp"></div>
+<label class="search"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label>
+<a class="btn pri" href="Submit.dc.html">+ new thread</a>
+<a class="ib" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
+<a class="me" href="Account.dc.html">mira</a>
+</div></header>
+
+<main class="wrap" style="padding-top: 18px">
+<h1 class="pt"><span class="p">~/</span>threads/new</h1>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; margin-top: 16px; align-items: flex-start">
+<form style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px" aria-label="New thread">
+<div class="field">
+<label for="t">title</label>
+<input id="t" class="inp" value="Ask: what do you keep in your dotfiles repo?">
+<div class="hint"><span></span><span>44 / 200</span></div>
+</div>
+<div class="field">
+<label for="u">url <span>(optional)</span></label>
+<input id="u" class="inp" placeholder="https://" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">
+</div>
+<div class="field">
+<label for="b">body <span>(optional, markdown)</span></label>
+<div class="editor">
+<div class="tabs" role="tablist"><button type="button" class="on" role="tab" aria-selected="true">write</button><button type="button" role="tab" aria-selected="false">preview</button></div>
+<textarea id="b">I am cleaning up mine and I want to steal good ideas.
+
+Mine is mostly `.zshrc`, a tmux config and a small `bin/` folder. What is in yours, and what did you remove after a year?
+
+cc @dvorak, I know you have opinions.</textarea>
+</div>
+<div class="hint"><span>you need a url, a body, or both</span><span>229 / 20000</span></div>
+</div>
+<div style="display: flex; gap: 10px; align-items: center">
+<button class="btn pri" type="button" style="height: 36px; padding: 0 16px">post thread</button>
+<a class="btn ghost" href="Main.dc.html" style="height: 36px">cancel</a>
+<span class="sp"></span>
+<span style="font: 12px 'IBM Plex Mono', monospace; color: var(--muted)">@dvorak will get a notification</span>
+</div>
+</form>
+
+<aside style="flex: 1 1 220px; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; background: var(--card)">
+<div class="label" style="margin-bottom: 8px">markdown</div>
+<pre class="cheat"><b>**bold**</b>      <b>_italic_</b>
+<b>`code`</b>        <b>```</b> block
+<b>[text](url)</b>   link
+<b>&gt; quote</b>       <b>- list</b>
+<b>@name</b>         mention</pre>
+<div class="label" style="margin: 14px 0 6px">how it shows</div>
+<p style="margin: 0; font-size: 13px; color: var(--muted)">With a url, the title links to it and the domain shows next to it. New threads go to the top of the front page.</p>
+</aside>
+</div>
+
+<footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a href="Invites.dc.html">invite tree</a></footer>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+
+
+</body></html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy: invites</title>
+<script src="319b0709-95d0-49a3-84de-19900fa213ef"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq a{color:inherit;text-decoration:none}
+.sq a:hover{color:var(--accent)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.top{background:var(--panel);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;min-height:52px;flex-wrap:wrap}
+.logo{font:600 16px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--ink)}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.nav{display:flex;gap:16px;font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.nav a.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:6px}
+.sp{flex:1}
+.search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--muted);width:210px}
+.search input{border:0;background:none;outline:0;font:13px 'IBM Plex Mono',monospace;color:var(--ink);width:100%;padding:0}
+.search input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.btn.pri,.sq a.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0}
+.badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
+.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.pt{font:600 18px 'IBM Plex Mono',monospace;margin:0}
+.pt .p{color:var(--accent)}
+.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tree{font:13px/1 'IBM Plex Mono',monospace;margin:0;padding:12px 0;list-style:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tr{display:flex;align-items:center;height:27px;white-space:pre}
+.tr .pre{color:var(--muted)}
+.tr .nm{font-weight:500;color:var(--ink)}
+.tr .lead{flex:1;border-bottom:1px dotted var(--line);margin:0 10px;align-self:center;height:1px;min-width:16px}
+.tr .dt{color:var(--muted)}
+.flag{font:500 10.5px/15px 'IBM Plex Mono',monospace;border:1px solid currentColor;border-radius:3px;padding:0 4px;margin-left:8px;color:var(--muted)}
+.flag.a{color:var(--accent)}
+.flag.you{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.gone{font-style:italic;color:var(--muted)}
+.off{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--muted)}
+.panel{border:1px solid var(--line);border-radius:6px;background:var(--card);padding:14px 16px}
+.linkbox{display:flex;align-items:center;gap:6px;border:1px solid var(--accent);border-radius:4px;background:var(--soft);padding:4px 4px 4px 10px;font:12.5px 'IBM Plex Mono',monospace;margin-top:10px}
+.linkbox code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.il{list-style:none;margin:12px 0 0;padding:0;font:12px/1.5 'IBM Plex Mono',monospace}
+.il li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--line2)}
+.il .k{color:var(--ink)}
+.il .s{color:var(--muted);text-align:right}
+.ok{color:var(--live)}
+.foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:640px){.search,.me{display:none}.nav{order:3;width:100%;padding-bottom:10px}.tree{font-size:12px}}
+</style>
+</helmet>
+<div class="sq {{theme}}">
+<header class="top"><div class="wrap">
+<a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+<nav class="nav" aria-label="Main"><a href="Main.dc.html">threads</a><a class="on" href="Invites.dc.html">invites</a><a href="Admin.dc.html">admin</a></nav>
+<div class="sp"></div>
+<label class="search"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label>
+<a class="btn pri" href="Submit.dc.html">+ new thread</a>
+<a class="ib" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
+<a class="me" href="Account.dc.html">mira</a>
+</div></header>
+
+<main class="wrap" style="padding-top: 18px">
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<section style="flex: 999 1 520px; min-width: 0" aria-labelledby="treeh">
+<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px">
+<h1 class="pt" id="treeh"><span class="p">~/</span>invites</h1>
+<span class="sp"></span>
+<span class="label">15 people · who invited whom</span>
+</div>
+<p style="margin: 0 0 12px; color: var(--muted); font-size: 13.5px">Everyone here was invited by someone. This tree is visible to all members.</p>
+<ul class="tree" aria-label="Invite tree">
+<li class="tr"><a class="nm" href="Main.dc.html">nadia</a><span class="flag a">admin</span><span class="lead"></span><span class="dt">2025-03-02</span></li>
+<li class="tr"><span class="pre">├── </span><a class="nm" href="Account.dc.html">mira</a><span class="flag a">admin</span><span class="flag you">you</span><span class="lead"></span><span class="dt">2025-03-02</span></li>
+<li class="tr"><span class="pre">│   ├── </span><a class="nm" href="Main.dc.html">jules</a><span class="lead"></span><span class="dt">2025-03-04</span></li>
+<li class="tr"><span class="pre">│   │   └── </span><a class="nm" href="Main.dc.html">theo</a><span class="lead"></span><span class="dt">2025-06-11</span></li>
+<li class="tr"><span class="pre">│   ├── </span><a class="nm" href="Main.dc.html">k_tanaka</a><span class="lead"></span><span class="dt">2025-03-09</span></li>
+<li class="tr"><span class="pre">│   └── </span><span class="gone">[deleted user]</span><span class="lead"></span><span class="dt">2025-04-20</span></li>
+<li class="tr"><span class="pre">│       └── </span><a class="nm" href="Main.dc.html">bea</a><span class="lead"></span><span class="dt">2025-05-01</span></li>
+<li class="tr"><span class="pre">├── </span><a class="nm" href="Main.dc.html">pvh</a><span class="lead"></span><span class="dt">2025-03-03</span></li>
+<li class="tr"><span class="pre">│   ├── </span><a class="nm off" href="Main.dc.html">ostrich</a><span class="flag">disabled</span><span class="lead"></span><span class="dt">2025-07-14</span></li>
+<li class="tr"><span class="pre">│   │   └── </span><a class="nm" href="Main.dc.html">rafa</a><span class="lead"></span><span class="dt">2025-07-15</span></li>
+<li class="tr"><span class="pre">│   └── </span><a class="nm" href="Main.dc.html">anna-l</a><span class="lead"></span><span class="dt">2025-08-02</span></li>
+<li class="tr"><span class="pre">├── </span><a class="nm" href="Main.dc.html">dvorak</a><span class="lead"></span><span class="dt">2025-03-05</span></li>
+<li class="tr"><span class="pre">│   ├── </span><a class="nm" href="Main.dc.html">sam_r</a><span class="lead"></span><span class="dt">2025-09-18</span></li>
+<li class="tr"><span class="pre">│   └── </span><a class="nm" href="Main.dc.html">lin</a><span class="lead"></span><span class="dt">2026-01-07</span></li>
+<li class="tr"><span class="pre">└── </span><a class="nm" href="Main.dc.html">quill</a><span class="lead"></span><span class="dt">2026-10-30</span></li>
+</ul>
+<p style="margin: 10px 0 0; font: 12px 'IBM Plex Mono', monospace; color: var(--muted)">14 accounts, 1 deleted · 1 disabled</p>
+</section>
+
+<aside style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 14px" aria-label="Your invites">
+<div class="panel">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 class="label" style="margin: 0">invite someone</h2>
+<button class="btn pri" type="button">+ new invite link</button>
+</div>
+<div class="linkbox"><code>https://forum.example.org/invite/7f3k9q2xwd4mz8</code><button class="btn" type="button" style="height: 28px">copy</button></div>
+<p style="margin: 8px 0 0; font: 12px/1.5 'IBM Plex Mono', monospace; color: var(--muted)">Works once. Expires in 7 days. You show as their inviter in the tree.</p>
+</div>
+<div class="panel">
+<h2 class="label" style="margin: 0">your links</h2>
+<ul class="il">
+<li><span class="k">…/7f3k9q2x</span><span class="s">unused · 7d left</span></li>
+<li><span class="k">…/q8zp1mn4</span><span class="s">unused · 4d left</span></li>
+<li><span class="k">…/c2rt8vhe</span><span class="s">expired 2026-10-12</span></li>
+<li><span class="k">…/m4ka0d9s</span><span class="s"><span class="ok">used</span> by [deleted user]</span></li>
+<li><span class="k">…/b7yx3lqp</span><span class="s"><span class="ok">used</span> by k_tanaka</span></li>
+<li><span class="k">…/a1jw5ret</span><span class="s"><span class="ok">used</span> by jules</span></li>
+</ul>
+</div>
+</aside>
+</div>
+
+<footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a href="Invites.dc.html">invite tree</a></footer>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1080}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+
+
+</body></html>
