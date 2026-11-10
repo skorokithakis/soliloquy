@@ -1,0 +1,106 @@
+name: Release
+
+# Release Please tags releases with GITHUB_TOKEN, and GitHub does not start
+# workflows for events caused by GITHUB_TOKEN. So the tag push cannot trigger a
+# separate release workflow: building and publishing must happen in this same
+# run, gated on the release-please output.
+on:
+  push:
+    branches:
+      - master
+
+# Deny by default and grant each job only what it needs.
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Release Please finds and updates its pull request through the issues
+      # API (labels and comments), which needs this in addition to the pull
+      # request permission.
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  test:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+
+  goreleaser:
+    needs:
+      - release-please
+      - test
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          # GoReleaser needs the full history and the tag to build.
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    needs:
+      - release-please
+      - test
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      # No QEMU: the build stage runs natively on BUILDPLATFORM and cross
+      # compiles, and the scratch runtime stage only copies files, so nothing
+      # has to execute arm64 code during the build.
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # release-please's `version` output has no leading "v".
+          tags: |
+            ghcr.io/skorokithakis/soliloquy:${{ needs.release-please.outputs.version }}
+            ghcr.io/skorokithakis/soliloquy:latest

@@ -1,0 +1,40 @@
+# GoReleaser v2 configuration. The release workflow runs it against the tag
+# that Release Please created, so it only has to attach artifacts to the
+# release notes that Release Please already wrote. Hence no changelog
+# generation and `keep-existing` release notes.
+version: 2
+
+project_name: soliloquy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    # The same flags as the Dockerfile, so the archive binaries are built the
+    # same way as the container image.
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+    binary: soliloquy
+
+archives:
+  - formats:
+      - tar.gz
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  mode: keep-existing

@@ -23,14 +23,29 @@ See [docs/PRD.md](docs/PRD.md) for the full requirements.
 
 ## Running
 
-Build the binary (Go 1.24 or later, no CGO needed):
+Each [release](https://github.com/skorokithakis/soliloquy/releases) has
+prebuilt binaries for Linux and macOS, on amd64 and arm64. Download the archive
+for your platform, unpack it and run `./soliloquy`.
+
+Each release also has a Docker image for Linux on amd64 and arm64:
+
+```sh
+docker run -d -p 8080:8080 -v soliloquy-data:/data \
+  -e SOLILOQUY_BASE_URL=https://forum.example.com \
+  ghcr.io/skorokithakis/soliloquy:latest
+```
+
+Use a version tag, such as `ghcr.io/skorokithakis/soliloquy:0.1.0`, instead of
+`latest` to pin a release.
+
+To build the binary yourself (Go 1.24 or later, no CGO needed):
 
 ```sh
 CGO_ENABLED=0 go build -o soliloquy .
 ./soliloquy -base-url https://forum.example.com
 ```
 
-Or use Docker:
+Or build the Docker image yourself:
 
 ```sh
 docker build -t soliloquy .
