@@ -136,6 +136,9 @@ Access works like the feeds. A logged-in browser session works, and so does the
 feed token from the account page as `?token=...`. On a public forum no token is
 needed. A refused request gets a 404.
 
+Members can find the full API reference, with their own tokenized links, at
+`/account/api`. The account page links to it.
+
 ## Reverse proxy
 
 The app does not do TLS. Put a reverse proxy in front of it. With Caddy, this

@@ -179,6 +179,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/users/{id}/revoke-admin", s.handleAdminRevokeAdmin)
 	mux.HandleFunc("POST /account/delete", s.handleDeleteAccount)
 	mux.HandleFunc("GET /account", s.handleAccountPage)
+	mux.HandleFunc("GET /account/api", s.handleAPIDocsPage)
 	mux.HandleFunc("POST /account/theme", s.handleSetTheme)
 	mux.HandleFunc("GET /reset/{token}", s.handleResetPage)
 	mux.HandleFunc("POST /reset/{token}", s.handlePasswordReset)

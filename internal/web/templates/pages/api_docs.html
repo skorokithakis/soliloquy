@@ -1,0 +1,117 @@
+{{define "content"}}
+<div class="api-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>account/api</h1>
+	</div>
+
+	<section class="panel account-section" aria-labelledby="links-heading">
+		<h2 class="label" id="links-heading">your links</h2>
+		<p class="hint">Anyone with these links can read the forum, even when it is private. Keep them secret.</p>
+		<dl class="kv feed-links">
+			<dt>threads</dt><dd><a class="underline" href="{{.ThreadsURL}}">{{.ThreadsURL}}</a></dd>
+			<dt>thread</dt><dd>{{.ThreadPattern}}</dd>
+		</dl>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="endpoints-heading">
+		<h2 class="label" id="endpoints-heading">endpoints</h2>
+		<dl class="kv feed-links">
+			<dt>threads</dt><dd>GET /api/threads · the front page, newest activity first</dd>
+			<dt>thread</dt><dd>GET /api/threads/{id} · one thread and its comments</dd>
+		</dl>
+		<p class="hint">The thread list returns threads, page and has_next. Each page has 30 threads. Add page=2, page=3 and so on to get more. has_next is true when another page exists.</p>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="thread-list-fields-heading">
+		<h2 class="label" id="thread-list-fields-heading">thread list fields</h2>
+		<dl class="kv">
+			<dt>id</dt><dd>short public ID</dd>
+			<dt>title</dt><dd>the title</dd>
+			<dt>url</dt><dd>the page the thread links to; empty for a text post</dd>
+			<dt>link</dt><dd>absolute URL of the thread page</dd>
+			<dt>author</dt><dd>username, or [deleted user]</dd>
+			<dt>score</dt><dd>net votes</dd>
+			<dt>comment_count</dt><dd>number of visible comments</dd>
+			<dt>created_at</dt><dd>RFC 3339, UTC</dd>
+			<dt>last_activity_at</dt><dd>RFC 3339, UTC</dd>
+		</dl>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="thread-detail-fields-heading">
+		<h2 class="label" id="thread-detail-fields-heading">thread detail fields</h2>
+		<dl class="kv">
+			<dt>body</dt><dd>the markdown source</dd>
+			<dt>body_html</dt><dd>the rendered, sanitized HTML</dd>
+			<dt>edited_at</dt><dd>RFC 3339, UTC, or null</dd>
+		</dl>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="comment-fields-heading">
+		<h2 class="label" id="comment-fields-heading">comment fields</h2>
+		<dl class="kv">
+			<dt>id</dt><dd>short public ID</dd>
+			<dt>author</dt><dd>username, or an empty string on a deleted comment</dd>
+			<dt>score</dt><dd>net votes</dd>
+			<dt>created_at</dt><dd>RFC 3339, UTC</dd>
+			<dt>edited_at</dt><dd>RFC 3339, UTC, or null</dd>
+			<dt>body</dt><dd>the markdown source</dd>
+			<dt>body_html</dt><dd>the rendered, sanitized HTML</dd>
+			<dt>deleted</dt><dd>true on a placeholder for a deleted comment</dd>
+			<dt>replies</dt><dd>the comment's nested replies</dd>
+		</dl>
+		<p class="hint">A deleted comment with replies stays in the tree, so its replies keep their place. It has deleted: true and an empty author, body and body_html. A deleted comment with no replies is left out.</p>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="example-heading">
+		<h2 class="label" id="example-heading">example</h2>
+		<p class="hint">One thread with one comment and one nested reply. The values are placeholders.</p>
+		<pre class="api-example">{
+  "thread": {
+    "id": "abcd1234",
+    "title": "Example thread",
+    "url": "https://example.com/article",
+    "link": "https://forum.example/threads/abcd1234",
+    "author": "alice",
+    "score": 3,
+    "comment_count": 2,
+    "created_at": "2026-01-02T03:04:05Z",
+    "last_activity_at": "2026-01-02T04:05:06Z",
+    "body": "The markdown source.",
+    "body_html": "&lt;p&gt;The markdown source.&lt;/p&gt;",
+    "edited_at": null
+  },
+  "comments": [
+    {
+      "id": "efgh5678",
+      "author": "bob",
+      "score": 1,
+      "created_at": "2026-01-02T04:05:06Z",
+      "edited_at": null,
+      "body": "A comment.",
+      "body_html": "&lt;p&gt;A comment.&lt;/p&gt;",
+      "deleted": false,
+      "replies": [
+        {
+          "id": "ijkl9012",
+          "author": "carol",
+          "score": 0,
+          "created_at": "2026-01-02T04:06:07Z",
+          "edited_at": null,
+          "body": "A reply.",
+          "body_html": "&lt;p&gt;A reply.&lt;/p&gt;",
+          "deleted": false,
+          "replies": []
+        }
+      ]
+    }
+  ]
+}</pre>
+	</section>
+
+	<section class="panel account-section" aria-labelledby="access-heading">
+		<h2 class="label" id="access-heading">access</h2>
+		<p>A request needs one of these: your browser session, your token as ?token=..., or a public forum.</p>
+		<p class="hint">A request with no access gets a JSON 404, not the login page. Your token is the same as your feed token. To replace it, use the reset button on your <a class="underline" href="/account">account page</a>. The reset also changes your feed links.</p>
+	</section>
+</div>
+{{end}}

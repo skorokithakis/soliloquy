@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/skorokithakis/soliloquy/internal/auth"
+	"github.com/skorokithakis/soliloquy/internal/db"
 )
 
 type accountPageData struct {
@@ -16,6 +17,14 @@ type accountPageData struct {
 	InvitedBy    string
 	InvitedCount int64
 	SessionEnds  string
+}
+
+// apiDocsPageData is the API documentation page. Its links carry the member's
+// feed token, created on first view like the account page's.
+type apiDocsPageData struct {
+	PageData
+	ThreadsURL    string
+	ThreadPattern string
 }
 
 func (s *Server) handleAccountPage(w http.ResponseWriter, r *http.Request) {
@@ -31,18 +40,8 @@ func (s *Server) accountPageData(r *http.Request) (accountPageData, error) {
 	user := currentUser(r)
 	// The page always shows the feed URLs, so the token is created the first
 	// time the account page is opened.
-	if user.FeedToken == "" {
-		token, err := auth.GenerateToken()
-		if err != nil {
-			return accountPageData{}, err
-		}
-		// Only the first view stores a token; a concurrent one reuses the
-		// stored value so both pages show the same link.
-		stored, err := s.db.SetFeedTokenIfEmpty(r.Context(), user.ID, token)
-		if err != nil {
-			return accountPageData{}, err
-		}
-		user.FeedToken = stored
+	if _, err := s.ensureFeedToken(r, user); err != nil {
+		return accountPageData{}, err
 	}
 
 	data := accountPageData{
@@ -77,6 +76,43 @@ func (s *Server) accountPageData(r *http.Request) (accountPageData, error) {
 	}
 
 	return data, nil
+}
+
+// ensureFeedToken returns the user's feed token, creating one on first use. A
+// concurrent request may store a token first; the stored value is returned so
+// every page shows the same link.
+func (s *Server) ensureFeedToken(r *http.Request, user *db.User) (string, error) {
+	if user.FeedToken != "" {
+		return user.FeedToken, nil
+	}
+	token, err := auth.GenerateToken()
+	if err != nil {
+		return "", err
+	}
+	stored, err := s.db.SetFeedTokenIfEmpty(r.Context(), user.ID, token)
+	if err != nil {
+		return "", err
+	}
+	user.FeedToken = stored
+	return stored, nil
+}
+
+// handleAPIDocsPage shows the member their tokenized API URLs and documents the
+// endpoints. The page needs a session like the rest of /account, so it never
+// appears for visitors.
+func (s *Server) handleAPIDocsPage(w http.ResponseWriter, r *http.Request) {
+	token, err := s.ensureFeedToken(r, currentUser(r))
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	data := apiDocsPageData{
+		PageData:      s.pageData(r, "API"),
+		ThreadsURL:    s.feedURL("/api/threads", token),
+		ThreadPattern: s.feedURL("/api/threads/{id}", token),
+	}
+	s.render(w, "api_docs", data)
 }
 
 // renderAccountError re-renders the account page with a message, so password

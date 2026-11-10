@@ -1523,6 +1523,24 @@ a.btn.pri:hover {
 	overflow-wrap: anywhere;
 }
 
+/* API documentation ------------------------------------------------- */
+
+/* The field names are longest here, so the shared kv column is a little wider
+   than on the account page. */
+.api-page .kv {
+	grid-template-columns: 140px minmax(0, 1fr);
+}
+
+.api-example {
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	background: var(--panel);
+	font: 12.5px/1.5 var(--font-mono);
+	overflow-x: auto;
+}
+
 .account-form {
 	display: flex;
 	flex-direction: column;
