@@ -1528,6 +1528,12 @@ a.btn.pri:hover {
 	max-width: 280px;
 }
 
+/* Panels inside the form (admin settings) take the full width; the
+   flex-start alignment above would shrink each one to its content. */
+.account-form > .panel {
+	align-self: stretch;
+}
+
 .theme-form {
 	display: flex;
 	flex-wrap: wrap;
