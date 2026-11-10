@@ -26,11 +26,13 @@
 
 	<section class="panel account-section" aria-labelledby="theme-heading">
 		<h2 class="label" id="theme-heading">theme</h2>
-		<form class="theme-form" method="post" action="/account/theme">
-			<label><input type="radio" name="theme" value="auto"{{if eq .Theme "auto"}} checked{{end}}> system</label>
-			<label><input type="radio" name="theme" value="light"{{if eq .Theme "light"}} checked{{end}}> light</label>
-			<label><input type="radio" name="theme" value="dark"{{if eq .Theme "dark"}} checked{{end}}> dark</label>
-			<button class="btn" type="submit">save theme</button>
+		<form class="account-form" method="post" action="/account/theme">
+			<div class="checkbox-row">
+				<label><input type="radio" name="theme" value="auto"{{if eq .Theme "auto"}} checked{{end}}> system</label>
+				<label><input type="radio" name="theme" value="light"{{if eq .Theme "light"}} checked{{end}}> light</label>
+				<label><input type="radio" name="theme" value="dark"{{if eq .Theme "dark"}} checked{{end}}> dark</label>
+			</div>
+			<button class="btn pri" type="submit">save theme</button>
 		</form>
 	</section>
 

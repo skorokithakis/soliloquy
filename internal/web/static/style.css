@@ -1591,14 +1591,15 @@ a.btn.pri:hover {
 	align-items: flex-start;
 }
 
-.account-form .inp {
-	max-width: 280px;
+/* Fields use the full width of their panel, so a long value such as a URL is
+   not cut off. The flex-start alignment above would shrink a field to its
+   content, and text inputs have a general 32rem cap. */
+.account-form > .field {
+	align-self: stretch;
 }
 
-/* Admin settings fields use the full width of their panel; the account page
-   keeps its narrower inputs. */
-.account-form.admin-settings-form .inp,
-.account-form.admin-settings-form textarea {
+.account-form .inp,
+.account-form textarea {
 	max-width: none;
 }
 
@@ -1623,7 +1624,7 @@ a.btn.pri:hover {
 	gap: 10px;
 }
 
-.theme-form,
+/* A row of checkboxes or radio buttons. */
 .checkbox-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -1632,7 +1633,6 @@ a.btn.pri:hover {
 }
 
 /* Reset the stacked-form spacing from "form > label" and its input. */
-.theme-form label,
 .checkbox-row label {
 	display: inline-flex;
 	align-items: center;
@@ -1641,7 +1641,6 @@ a.btn.pri:hover {
 	font: 12px var(--font-mono);
 }
 
-.theme-form input,
 .checkbox-row input {
 	margin: 0;
 }
