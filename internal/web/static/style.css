@@ -1544,6 +1544,18 @@ a.btn.pri:hover {
 	align-self: stretch;
 }
 
+/* The Discord test result follows the webhook hint. */
+.account-form .panel > .notice {
+	margin-top: 10px;
+}
+
+.account-form-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
 .theme-form {
 	display: flex;
 	flex-wrap: wrap;

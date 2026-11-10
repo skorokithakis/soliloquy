@@ -24,7 +24,25 @@
 			<p class="hint">Turning this on makes all existing threads and comments visible to anyone without an account.</p>
 		</section>
 
-		<button class="btn pri" type="submit">save settings</button>
+		<section class="panel account-section" aria-labelledby="discord-heading">
+			<h2 class="label" id="discord-heading">discord webhooks</h2>
+			<div class="field">
+				<label for="discord-webhooks">webhook URLs, one per line</label>
+				<textarea id="discord-webhooks" name="discord_webhooks" rows="3" spellcheck="false" aria-describedby="discord-hint">{{.DiscordWebhooks}}</textarea>
+			</div>
+			<p class="hint" id="discord-hint">Every new thread is posted to these webhooks, including its title, link, author and the start of its body. That content leaves the forum even if the thread is private. Leave empty to turn this off.</p>
+			{{if .DiscordTestResult}}
+			<div class="notice" role="status">
+				<span class="notice-title">discord test</span>
+				<span>{{.DiscordTestResult}}</span>
+			</div>
+			{{end}}
+		</section>
+
+		<div class="account-form-actions">
+			<button class="btn pri" type="submit">save settings</button>
+			<button class="btn" type="submit" formaction="/admin/settings/discord-test">send test message</button>
+		</div>
 	</form>
 </div>
 {{end}}

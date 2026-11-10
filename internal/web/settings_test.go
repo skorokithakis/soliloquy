@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -131,5 +132,84 @@ func TestAdminSettingsRejectsInvalidForumName(t *testing.T) {
 	}, cookie)
 	if response.Code != http.StatusSeeOther {
 		t.Errorf("40-character name: status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+}
+
+func TestAdminSettingsDiscordWebhooks(t *testing.T) {
+	server := newTestServer(t)
+	admin := createTestUser(t, server, "admin", true)
+	cookie := signIn(t, server, admin)
+
+	page := doRequest(t, server, http.MethodGet, "/admin/settings", nil, cookie, "")
+	for _, want := range []string{
+		`name="discord_webhooks"`,
+		`formaction="/admin/settings/discord-test"`,
+		"leaves the forum even if the thread is private",
+	} {
+		if !strings.Contains(page.Body.String(), want) {
+			t.Errorf("settings page does not contain %q", want)
+		}
+	}
+
+	// Blank lines and surrounding spaces are ignored; the URLs are stored one
+	// per line.
+	response := postForm(t, server, "/admin/settings", url.Values{
+		"forum_name":       {db.DefaultForumName},
+		"discord_webhooks": {"\n  https://discord.com/api/webhooks/1/aaa  \n\nhttps://discord.com/api/webhooks/2/bbb\n"},
+	}, cookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("save status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	stored, err := server.db.Settings(context.Background())
+	if err != nil {
+		t.Fatalf("Settings: %v", err)
+	}
+	want := []string{"https://discord.com/api/webhooks/1/aaa", "https://discord.com/api/webhooks/2/bbb"}
+	if !reflect.DeepEqual(stored.DiscordWebhooks, want) {
+		t.Fatalf("discord webhooks = %v, want %v", stored.DiscordWebhooks, want)
+	}
+
+	page = doRequest(t, server, http.MethodGet, "/admin/settings", nil, cookie, "")
+	if !strings.Contains(page.Body.String(), strings.Join(want, "\n")) {
+		t.Error("settings page does not show the saved webhooks one per line")
+	}
+
+	// An invalid line is rejected, named by its position, and the saved
+	// webhooks stay as they were.
+	response = postForm(t, server, "/admin/settings", url.Values{
+		"forum_name":       {db.DefaultForumName},
+		"discord_webhooks": {"https://discord.com/api/webhooks/1/aaa\nhttp://discord.com/api/webhooks/2/bbb"},
+	}, cookie)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid webhook status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	for _, message := range []string{"Line 2", "not an https webhook URL"} {
+		if !strings.Contains(response.Body.String(), message) {
+			t.Errorf("invalid webhook error does not contain %q", message)
+		}
+	}
+	stored, err = server.db.Settings(context.Background())
+	if err != nil {
+		t.Fatalf("Settings after invalid save: %v", err)
+	}
+	if !reflect.DeepEqual(stored.DiscordWebhooks, want) {
+		t.Errorf("invalid save changed webhooks to %v, want %v", stored.DiscordWebhooks, want)
+	}
+
+	// An empty textarea turns the feature off.
+	response = postForm(t, server, "/admin/settings", url.Values{
+		"forum_name":       {db.DefaultForumName},
+		"discord_webhooks": {"  \n "},
+	}, cookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("empty save status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	stored, err = server.db.Settings(context.Background())
+	if err != nil {
+		t.Fatalf("Settings after empty save: %v", err)
+	}
+	if len(stored.DiscordWebhooks) != 0 {
+		t.Errorf("discord webhooks = %v after an empty save, want none", stored.DiscordWebhooks)
 	}
 }

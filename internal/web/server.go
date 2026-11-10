@@ -18,6 +18,7 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/auth"
 	"github.com/skorokithakis/soliloquy/internal/config"
 	"github.com/skorokithakis/soliloquy/internal/db"
+	"github.com/skorokithakis/soliloquy/internal/discord"
 	"github.com/skorokithakis/soliloquy/internal/hub"
 )
 
@@ -37,6 +38,9 @@ type Server struct {
 	throttle        *auth.Throttle
 	hub             *hub.Hub
 	now             func() time.Time
+	// webhooks posts new threads to Discord. It is an interface so tests can
+	// replace it and avoid the network.
+	webhooks webhookSender
 }
 
 // PageData is embedded in every page's template data. The layout uses
@@ -116,6 +120,7 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		throttle:        auth.NewThrottle(),
 		hub:             hub.New(),
 		now:             time.Now,
+		webhooks:        discord.NewClient(),
 	}, nil
 }
 
@@ -149,6 +154,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/users", s.handleAdminUsersPage)
 	mux.HandleFunc("GET /admin/settings", s.handleAdminSettingsPage)
 	mux.HandleFunc("POST /admin/settings", s.handleAdminSettingsSave)
+	mux.HandleFunc("POST /admin/settings/discord-test", s.handleAdminDiscordTest)
 	mux.HandleFunc("GET /tree", s.handleInviteTree)
 	mux.HandleFunc("POST /admin/users/{id}/disable", s.handleAdminDisableUser)
 	mux.HandleFunc("POST /admin/users/{id}/reset", s.handleAdminResetPassword)
