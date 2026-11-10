@@ -186,8 +186,9 @@ func (s *Server) writeFeed(w http.ResponseWriter, feed rssFeed) {
 	}
 }
 
-// feedPath reports whether a request is for an RSS feed. The feeds have their
-// own access rule: a secret token or a session instead of the login redirect.
+// feedPath reports whether a request uses the feed access rule rather than the
+// login redirect: the RSS feeds and the read-only JSON API. They accept a
+// session or a secret token, and are public only when the forum is.
 func feedPath(r *http.Request) bool {
-	return strings.HasPrefix(r.URL.Path, "/feeds/")
+	return strings.HasPrefix(r.URL.Path, "/feeds/") || apiPath(r)
 }

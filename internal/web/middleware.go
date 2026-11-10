@@ -133,11 +133,11 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 	})
 }
 
-// allowFeed applies the access rule for feed requests. A session, a token
-// belonging to an active user, or a public forum grants access. Anything else
-// is a plain 404: feed readers cannot follow a login redirect, so the request
-// must fail instead. The token is read-only and never creates a session or
-// sets a cookie.
+// allowFeed applies the access rule for feed and JSON API requests. A session,
+// a token belonging to an active user, or a public forum grants access.
+// Anything else is a plain 404: feed readers and API clients cannot follow a
+// login redirect, so the request must fail instead. The token is read-only and
+// never creates a session or sets a cookie.
 func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) bool {
 	if currentUser(r) != nil {
 		return true
@@ -146,7 +146,7 @@ func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) bool {
 	if token := r.URL.Query().Get("token"); token != "" {
 		user, err := s.db.UserByFeedToken(r.Context(), token)
 		if err != nil {
-			s.serverError(w, err)
+			s.feedAccessError(w, r, err)
 			return false
 		}
 		if user.Active() {
@@ -156,15 +156,29 @@ func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) bool {
 
 	settings, err := s.db.Settings(r.Context())
 	if err != nil {
-		s.serverError(w, err)
+		s.feedAccessError(w, r, err)
 		return false
 	}
 	if settings.Public {
 		return true
 	}
 
+	if apiPath(r) {
+		writeJSONError(w, http.StatusNotFound, "not found")
+		return false
+	}
 	http.NotFound(w, r)
 	return false
+}
+
+// feedAccessError reports an unexpected failure of the feed/API access check.
+// The JSON API gets a JSON error; the RSS feeds keep their plain-text one.
+func (s *Server) feedAccessError(w http.ResponseWriter, r *http.Request, err error) {
+	if apiPath(r) {
+		s.apiServerError(w, err)
+		return
+	}
+	s.serverError(w, err)
 }
 
 func publicPath(r *http.Request) bool {

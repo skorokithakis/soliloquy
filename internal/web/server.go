@@ -188,6 +188,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /feeds/threads", s.handleThreadsFeed)
 	mux.HandleFunc("GET /feeds/comments", s.handleCommentsFeed)
+	mux.HandleFunc("GET /api/threads", s.handleAPIThreads)
+	mux.HandleFunc("GET /api/threads/{id}", s.handleAPIThread)
 	mux.HandleFunc("POST /account/feeds/reset", s.handleResetFeedToken)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)

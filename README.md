@@ -12,6 +12,7 @@ A small, lightweight, private forum for work discussions and friendly chats.
 - New comments and notifications appear live, with no page reload.
 - RSS feeds for new threads and all new comments, with a secret link per member
   so feeds work on a private forum.
+- A small read-only JSON API for threads and comments.
 - Markdown, upvotes, @mentions, full-text search and dark mode.
 - One Go binary and one SQLite file, taking up 5 MB of RAM, to make Sam Altman livid.
   Put a reverse proxy in front of it and you are done.
@@ -119,6 +120,21 @@ secret token: members find their personal links in the "feeds" section of
 their account page, and can reset them there if a link leaks. The same token
 keeps working when the forum is switched between public and private. It grants
 read-only access and cannot be used to log in.
+
+### JSON API
+
+The forum has a small read-only JSON API:
+
+- `/api/threads?page=N` lists threads in front page order, 30 per page. The
+  response has `threads`, `page` and `has_next`.
+- `/api/threads/{id}` returns one thread, with its body as Markdown (`body`)
+  and as sanitized HTML (`body_html`), and its comments as a nested tree. Each
+  comment has its replies in `replies`. A deleted comment that still has
+  replies appears with `deleted: true` and no author or body.
+
+Access works like the feeds. A logged-in browser session works, and so does the
+feed token from the account page as `?token=...`. On a public forum no token is
+needed. A refused request gets a 404.
 
 ## Reverse proxy
 
