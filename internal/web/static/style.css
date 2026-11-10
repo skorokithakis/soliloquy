@@ -1891,6 +1891,12 @@ a.btn.pri:hover {
 	background: var(--card);
 }
 
+/* Without a "load older" button the last notification list ends the page, so
+   its last row drops its own border to avoid two lines above the footer. */
+.notifications-page .nl:last-child .n:last-child {
+	border-bottom: 0;
+}
+
 .n .dot-empty {
 	visibility: hidden;
 }
@@ -2015,6 +2021,12 @@ a.btn.pri:hover {
 	gap: 0 12px;
 	padding: 11px 0;
 	border-bottom: 1px solid var(--line2);
+}
+
+/* The result list ends the page, so its last row drops its border to avoid a
+   second line above the footer. */
+.search-page .rl:last-child .r:last-child {
+	border-bottom: 0;
 }
 
 .ty {
