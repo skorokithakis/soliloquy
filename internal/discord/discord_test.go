@@ -48,6 +48,9 @@ func TestSendPostsWebhookPayload(t *testing.T) {
 	if !ok || len(parse) != 0 {
 		t.Errorf("allowed_mentions.parse = %v, want an empty array", mentions["parse"])
 	}
+	if body["flags"] != float64(4) {
+		t.Errorf("flags = %v, want 4 (suppress embeds)", body["flags"])
+	}
 }
 
 func TestSendReportsStatusError(t *testing.T) {

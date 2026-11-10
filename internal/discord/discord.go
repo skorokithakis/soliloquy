@@ -22,6 +22,10 @@ const (
 	MaxBodyExcerpt = 300
 
 	requestTimeout = 10 * time.Second
+
+	// suppressEmbeds is Discord's SUPPRESS_EMBEDS message flag. Link previews
+	// add nothing to these messages, so every message turns them off.
+	suppressEmbeds = 1 << 2
 )
 
 // Client posts messages to webhook URLs.
@@ -127,18 +131,21 @@ func clamp(content string) string {
 type payload struct {
 	Content         string          `json:"content"`
 	AllowedMentions allowedMentions `json:"allowed_mentions"`
+	Flags           int             `json:"flags"`
 }
 
 type allowedMentions struct {
 	Parse []string `json:"parse"`
 }
 
-// Send posts content to a webhook URL. Long content is cut to Discord's limit.
+// Send posts content to a webhook URL without link previews. Long content is
+// cut to Discord's limit.
 // The returned error never contains the webhook URL.
 func (c *Client) Send(ctx context.Context, webhookURL, content string) error {
 	body, err := json.Marshal(payload{
 		Content:         clamp(content),
 		AllowedMentions: allowedMentions{Parse: []string{}},
+		Flags:           suppressEmbeds,
 	})
 	if err != nil {
 		return fmt.Errorf("encode webhook payload: %w", err)
