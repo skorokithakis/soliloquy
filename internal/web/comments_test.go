@@ -169,8 +169,17 @@ func TestCreateCommentAndReply(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("reply page status = %d, want %d", response.Code, http.StatusOK)
 	}
-	if !strings.Contains(response.Body.String(), `action="/comments/`+rootID+`/reply"`) {
+	replyPage := response.Body.String()
+	if !strings.Contains(replyPage, `action="/comments/`+rootID+`/reply"`) {
 		t.Error("reply page does not post to the reply route")
+	}
+	if !strings.Contains(replyPage, "<title>Reply · "+db.DefaultForumName+"</title>") {
+		t.Error("reply page browser title changed")
+	}
+	for _, want := range []string{"~/</span>reply", ">post reply</button>"} {
+		if !strings.Contains(replyPage, want) {
+			t.Errorf("reply page does not contain %q", want)
+		}
 	}
 
 	response = postForm(t, server, "/comments/"+rootID+"/reply", url.Values{
@@ -259,8 +268,17 @@ func TestEditAndDeleteCommentPermissions(t *testing.T) {
 	}
 
 	response = doRequest(t, server, http.MethodGet, commentAction(comment.PublicID, "edit"), nil, bobCookie, "")
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "original") {
-		t.Fatalf("author edit page: status = %d, body = %q", response.Code, response.Body.String())
+	editPage := response.Body.String()
+	if response.Code != http.StatusOK || !strings.Contains(editPage, "original") {
+		t.Fatalf("author edit page: status = %d, body = %q", response.Code, editPage)
+	}
+	if !strings.Contains(editPage, "<title>Edit comment · "+db.DefaultForumName+"</title>") {
+		t.Error("edit comment page browser title changed")
+	}
+	for _, want := range []string{"~/</span>edit comment", ">save changes</button>"} {
+		if !strings.Contains(editPage, want) {
+			t.Errorf("edit comment page does not contain %q", want)
+		}
 	}
 
 	response = postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{"body": {"edited **text**"}}, bobCookie)

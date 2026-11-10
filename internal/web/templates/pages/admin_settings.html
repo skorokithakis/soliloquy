@@ -20,7 +20,9 @@
 
 		<section class="panel account-section" aria-labelledby="public-heading">
 			<h2 class="label" id="public-heading">visibility</h2>
-			<label><input type="checkbox" name="public"{{if .Public}} checked{{end}}> public forum</label>
+			<div class="checkbox-row">
+				<label><input type="checkbox" name="public"{{if .Public}} checked{{end}}> public forum</label>
+			</div>
 			<p class="hint">Turning this on makes all existing threads and comments visible to anyone without an account.</p>
 		</section>
 

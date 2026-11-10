@@ -1278,7 +1278,7 @@ a.btn.pri:hover {
 	margin-bottom: 8px;
 }
 
-.thread-help .label + .label {
+.thread-help .cheat + .label {
 	margin-top: 14px;
 }
 
@@ -1511,12 +1511,56 @@ a.btn.pri:hover {
 	margin-top: 18px;
 }
 
-.account-section .label {
-	margin: 0 0 10px;
+/* Account, admin settings and API panels share one spacing rule. The panel
+   is a flex column, so every direct child is a block-level flex item and its
+   margins behave the same way. Spacing comes from adjacent-sibling margins,
+   not from a flex gap, because a hint takes 8px instead of 12px. */
+.panel.account-section {
+	display: flex;
+	flex-direction: column;
 }
 
-.feed-links {
-	margin-bottom: 12px;
+.panel.account-section > *,
+.panel.account-section > .account-form > * {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.panel.account-section > * + *,
+.panel.account-section > .account-form > * + * {
+	margin-top: 12px;
+}
+
+.panel.account-section > * + .hint,
+.panel.account-section > .account-form > * + .hint {
+	margin-top: 8px;
+}
+
+/* The heading keeps its 10px gap whatever follows it, even a hint. */
+.panel.account-section > .label + * {
+	margin-top: 10px;
+}
+
+/* Buttons and labels stay shrink-wrapped instead of stretching across the
+   panel as flex items. */
+.panel.account-section > .btn,
+.panel.account-section > label {
+	align-self: flex-start;
+}
+
+/* The reset-feed form is inline on its own; as a flex item it becomes a
+   block, and a block formatting context would add line-box space around the
+   button. Make it a shrink-wrapped flex row so the measured gaps are the
+   spacing gaps. */
+.panel.account-section > .inline-form {
+	display: flex;
+	align-self: flex-start;
+}
+
+/* The first panel on the admin settings and API pages starts at the pagehead,
+   whose own margin sets the 10px gap. */
+.pagehead + .panel.account-section {
+	margin-top: 0;
 }
 
 .feed-links dd {
@@ -1545,7 +1589,6 @@ a.btn.pri:hover {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 12px;
 }
 
 .account-form .inp {
@@ -1560,14 +1603,17 @@ a.btn.pri:hover {
 }
 
 /* Panels inside the form (admin settings) take the full width; the
-   flex-start alignment above would shrink each one to its content. */
+   flex-start alignment above would shrink each one to its content. Their
+   own margin is off, because the form gap spaces the panels. */
 .account-form > .panel {
 	align-self: stretch;
+	margin-top: 0;
 }
 
-/* The Discord test result follows the webhook hint. */
-.account-form .panel > .notice {
-	margin-top: 10px;
+/* Admin settings stacks panels 18px apart and puts the action row 18px
+   below the last panel. */
+.account-form.admin-settings-form {
+	gap: 18px;
 }
 
 .account-form-actions {
@@ -1639,6 +1685,7 @@ a.btn.pri:hover {
 }
 
 .delete-form label {
+	margin: 0;
 	color: var(--muted);
 	font: 12px var(--font-mono);
 }
@@ -1754,7 +1801,7 @@ a.btn.pri:hover {
 	height: 28px;
 }
 
-.panel .hint {
+.invites-page .panel .hint {
 	margin: 8px 0 0;
 }
 
@@ -2012,6 +2059,7 @@ a.btn.pri:hover {
 .bigsearch input {
 	flex: 1;
 	width: 100%;
+	max-width: none;
 	min-width: 0;
 	height: auto;
 	margin: 0;
@@ -2349,6 +2397,7 @@ a.btn.pri:hover {
 		align-self: center;
 		gap: 6px;
 		height: 32px;
+		margin-top: 10px;
 		padding: 0 10px;
 		border: 1px solid var(--line);
 		border-radius: 4px;
@@ -2365,7 +2414,7 @@ a.btn.pri:hover {
 		grid-column: 2;
 		grid-row: 3;
 		align-self: center;
-		margin-top: 0;
+		margin-top: 10px;
 	}
 
 	.comment-form {
