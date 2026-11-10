@@ -110,18 +110,16 @@ func TestSendTLSFailureExplainsReason(t *testing.T) {
 
 func TestNewThreadContent(t *testing.T) {
 	content := NewThreadContent(ThreadMessage{
-		Title:       "A thread",
-		Link:        "https://forum.test/threads/abc",
-		Author:      "alice",
-		ExternalURL: "https://example.com/page",
-		Body:        "Some **Markdown** body.",
+		Title:  "A thread",
+		Link:   "https://forum.test/threads/abc",
+		Author: "alice",
+		Body:   "Some **Markdown** body.",
 	})
 
 	for _, want := range []string{
 		"New thread: A thread",
 		"https://forum.test/threads/abc",
 		"by alice",
-		"https://example.com/page",
 		"Some **Markdown** body.",
 	} {
 		if !strings.Contains(content, want) {

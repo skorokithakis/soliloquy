@@ -76,13 +76,14 @@ func safeReason(err error) string {
 	return err.Error()
 }
 
-// ThreadMessage is the data in a new-thread notification.
+// ThreadMessage is the data in a new-thread notification. It deliberately has
+// no external URL for link threads: Discord members must visit the forum to
+// see the link and talk about it there.
 type ThreadMessage struct {
-	Title       string
-	Link        string
-	Author      string
-	ExternalURL string
-	Body        string
+	Title  string
+	Link   string
+	Author string
+	Body   string
 }
 
 // NewThreadContent builds the plain-text message for a new thread. It stays
@@ -95,10 +96,6 @@ func NewThreadContent(message ThreadMessage) string {
 	content.WriteString(message.Link)
 	content.WriteString("\nby ")
 	content.WriteString(message.Author)
-	if message.ExternalURL != "" {
-		content.WriteString("\n")
-		content.WriteString(message.ExternalURL)
-	}
 	if body := bodyExcerpt(message.Body); body != "" {
 		content.WriteString("\n\n")
 		content.WriteString(body)

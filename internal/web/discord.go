@@ -38,11 +38,10 @@ func (s *Server) notifyDiscordThread(thread *db.Thread) {
 	}
 
 	content := discord.NewThreadContent(discord.ThreadMessage{
-		Title:       thread.Title,
-		Link:        strings.TrimRight(s.cfg.BaseURL, "/") + threadPath(thread.PublicID),
-		Author:      thread.AuthorName(),
-		ExternalURL: thread.URL,
-		Body:        thread.Body,
+		Title:  thread.Title,
+		Link:   strings.TrimRight(s.cfg.BaseURL, "/") + threadPath(thread.PublicID),
+		Author: thread.AuthorName(),
+		Body:   thread.Body,
 	})
 	for index, webhook := range settings.DiscordWebhooks {
 		go func() {

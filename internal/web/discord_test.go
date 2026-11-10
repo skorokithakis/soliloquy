@@ -190,12 +190,14 @@ func TestCreateThreadPostsToDiscordWebhooks(t *testing.T) {
 			"New thread: Discord thread",
 			testBaseURL + location,
 			"by alice",
-			"https://example.com/story",
 			strings.Repeat("b", discord.MaxBodyExcerpt) + "…",
 		} {
 			if !strings.Contains(message.Content, want) {
 				t.Errorf("message for %s does not contain %q:\n%s", message.URL, want, message.Content)
 			}
+		}
+		if strings.Contains(message.Content, "https://example.com/story") {
+			t.Errorf("message for %s contains the external URL:\n%s", message.URL, message.Content)
 		}
 	}
 	for _, webhook := range webhooks {
