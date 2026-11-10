@@ -1217,10 +1217,6 @@ a.btn.pri:hover {
 	margin: 8px 0 4px 32px;
 }
 
-.comment-form-page {
-	max-width: 820px;
-}
-
 .comment-form-page .editor textarea {
 	min-height: 180px;
 }
@@ -1878,10 +1874,6 @@ a.btn.pri:hover {
 
 /* Notifications ----------------------------------------------------- */
 
-.notifications-page {
-	max-width: 820px;
-}
-
 .section-label {
 	margin: 0 0 6px;
 }
@@ -1967,11 +1959,6 @@ a.btn.pri:hover {
 }
 
 /* Search ------------------------------------------------------------ */
-
-.search-page {
-	max-width: 780px;
-	margin: 0 auto;
-}
 
 .bigsearch {
 	display: flex;
@@ -2195,10 +2182,6 @@ a.btn.pri:hover {
 
 	.front-page .tt {
 		font-size: 15.5px;
-	}
-
-	.notifications-page {
-		max-width: none;
 	}
 
 	.notifications-page .pt {
@@ -2441,10 +2424,6 @@ a.btn.pri:hover {
 	.thread-form,
 	.thread-help {
 		flex-basis: 100%;
-	}
-
-	.search-page {
-		max-width: none;
 	}
 
 	.search-summary {
