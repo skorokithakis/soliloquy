@@ -4,7 +4,8 @@
 <html lang="en" class="sq {{if .Theme}}{{.Theme}}{{else}}auto{{end}}">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+	{{/* Logged-out pages shrink with the on-screen keyboard so the centred login box stays above it. Logged-in pages keep the default, so the fixed comment dock on threads does not sit above the keyboard. */}}
+	<meta name="viewport" content="width=device-width, initial-scale=1{{if not (or .CurrentUser .Visitor)}}, interactive-widget=resizes-content{{end}}">
 	<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 	<link rel="icon" href="/favicon.ico" sizes="16x16 32x32" type="image/x-icon">
 	<link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
