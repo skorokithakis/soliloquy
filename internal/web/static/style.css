@@ -559,6 +559,15 @@ a.btn.pri:hover {
 	border-bottom: 1px solid var(--line2);
 }
 
+/* The last row of a list never has a bottom border. Whatever follows the list
+   (pagination, "load older", the footer) draws its own top border, so there
+   is never a double line. */
+.row:last-child,
+.n:last-child,
+.r:last-child {
+	border-bottom: 0;
+}
+
 .cozy .row {
 	padding: 13px 0;
 }
@@ -979,17 +988,12 @@ a.btn.pri:hover {
 	min-width: 0;
 }
 
-/* Without a pagination bar the footer's top border follows the list, so the
-   last row drops its own border to avoid two lines. */
-.front-page .list:last-child .row:last-child {
-	border-bottom: 0;
-}
-
 .pagination {
 	display: flex;
 	align-items: center;
 	gap: 10px;
 	padding: 14px 0 0;
+	border-top: 1px solid var(--line2);
 }
 
 /* Thread page ------------------------------------------------------- */
@@ -1891,12 +1895,6 @@ a.btn.pri:hover {
 	background: var(--card);
 }
 
-/* Without a "load older" button the last notification list ends the page, so
-   its last row drops its own border to avoid two lines above the footer. */
-.notifications-page .nl:last-child .n:last-child {
-	border-bottom: 0;
-}
-
 .n .dot-empty {
 	visibility: hidden;
 }
@@ -1946,6 +1944,7 @@ a.btn.pri:hover {
 	display: flex;
 	justify-content: center;
 	padding-top: 14px;
+	border-top: 1px solid var(--line2);
 }
 
 .dock {
@@ -2021,12 +2020,6 @@ a.btn.pri:hover {
 	gap: 0 12px;
 	padding: 11px 0;
 	border-bottom: 1px solid var(--line2);
-}
-
-/* The result list ends the page, so its last row drops its border to avoid a
-   second line above the footer. */
-.search-page .rl:last-child .r:last-child {
-	border-bottom: 0;
 }
 
 .ty {
@@ -2205,6 +2198,15 @@ a.btn.pri:hover {
 	.notifications-page .nl {
 		margin-left: -16px;
 		margin-right: -16px;
+	}
+
+	/* These draw the line under a full-bleed list, so they are full-bleed too. */
+	.front-page .pagination,
+	.notifications-page .load-more {
+		margin-left: -16px;
+		margin-right: -16px;
+		padding-left: 16px;
+		padding-right: 16px;
 	}
 
 	.invites-page .tree {
