@@ -91,6 +91,15 @@ func TestDeleteAccountRemovesPrivateDataAndKeepsContent(t *testing.T) {
 	if _, err := database.CreateNotification(ctx, bob.ID, alice.ID, NotificationReply, thread.ID, nil, now); err != nil {
 		t.Fatalf("create notification: %v", err)
 	}
+	if err := database.SetFeedToken(ctx, bob.ID, "bob-feed-token"); err != nil {
+		t.Fatalf("set bob feed token: %v", err)
+	}
+	if err := database.SetNtfySettings(ctx, bob.ID, "https://ntfy.sh/bob-secret", true, false); err != nil {
+		t.Fatalf("set bob ntfy settings: %v", err)
+	}
+	if err := database.SetFeedToken(ctx, alice.ID, "alice-feed-token"); err != nil {
+		t.Fatalf("set alice feed token: %v", err)
+	}
 
 	usedInvite := "used-invite"
 	if err := database.CreateInvite(ctx, usedInvite, &bob.ID, false, now); err != nil {
@@ -122,6 +131,21 @@ func TestDeleteAccountRemovesPrivateDataAndKeepsContent(t *testing.T) {
 	assertCount(t, database, `SELECT COUNT(*) FROM notifications WHERE recipient_id = ?`, bob.ID, 0)
 	assertCount(t, database, `SELECT COUNT(*) FROM invites WHERE created_by = ? AND used_at IS NULL`, bob.ID, 0)
 	assertCount(t, database, `SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND used_at IS NULL`, bob.ID, 0)
+
+	// The push URL and feed token are secrets and are cleared to their
+	// "not set" values; the feed token must be NULL, not an empty string,
+	// so a future SetFeedTokenIfEmpty still stores a token.
+	assertCount(t, database, `SELECT COUNT(*) FROM users WHERE id = ? AND ntfy_url = ''`, bob.ID, 1)
+	assertCount(t, database, `SELECT COUNT(*) FROM users WHERE id = ? AND feed_token IS NULL`, bob.ID, 1)
+
+	// Other users keep their own.
+	kept, err := database.UserByID(ctx, alice.ID)
+	if err != nil || kept == nil {
+		t.Fatalf("UserByID(alice): user = %v, err = %v", kept, err)
+	}
+	if kept.FeedToken != "alice-feed-token" {
+		t.Errorf("alice feed token = %q, want it unchanged", kept.FeedToken)
+	}
 
 	// Content and votes stay.
 	stored, err := database.ThreadByID(ctx, thread.ID)

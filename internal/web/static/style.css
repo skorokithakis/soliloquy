@@ -1460,12 +1460,11 @@ a.btn.pri:hover {
 
 /* Account ----------------------------------------------------------- */
 
+/* The whoami box sits inside the profile card, which supplies the border and
+   background. */
 .term {
 	margin: 0;
-	padding: 14px 16px;
-	border: 1px solid var(--line);
-	border-radius: 6px;
-	background: var(--card);
+	padding: 14px 18px;
 	font: 13px/1.7 var(--font-mono);
 }
 
@@ -1501,12 +1500,6 @@ a.btn.pri:hover {
 	text-underline-offset: 2px;
 }
 
-.account-note {
-	margin: 14px 0 26px;
-	color: var(--muted);
-	font: 12px/1.6 var(--font-mono);
-}
-
 .account-section {
 	margin-top: 18px;
 }
@@ -1520,19 +1513,16 @@ a.btn.pri:hover {
 	flex-direction: column;
 }
 
-.panel.account-section > *,
-.panel.account-section > .account-form > * {
+.panel.account-section > * {
 	margin-top: 0;
 	margin-bottom: 0;
 }
 
-.panel.account-section > * + *,
-.panel.account-section > .account-form > * + * {
+.panel.account-section > * + * {
 	margin-top: 12px;
 }
 
-.panel.account-section > * + .hint,
-.panel.account-section > .account-form > * + .hint {
+.panel.account-section > * + .hint {
 	margin-top: 8px;
 }
 
@@ -1545,15 +1535,6 @@ a.btn.pri:hover {
    panel as flex items. */
 .panel.account-section > .btn,
 .panel.account-section > label {
-	align-self: flex-start;
-}
-
-/* The reset-feed form is inline on its own; as a flex item it becomes a
-   block, and a block formatting context would add line-box space around the
-   button. Make it a shrink-wrapped flex row so the measured gaps are the
-   spacing gaps. */
-.panel.account-section > .inline-form {
-	display: flex;
 	align-self: flex-start;
 }
 
@@ -1645,53 +1626,353 @@ a.btn.pri:hover {
 	margin: 0;
 }
 
-/* Hints and the push test result are blocks of their own, not shrink-wrapped
-   labels. */
-.account-form > .hint,
-.account-form > .notice {
-	align-self: stretch;
+/* Account page layout. These class names come from the design; some of them
+   already mean something else in the app (.card on the auth pages, .sub in
+   the mobile nav, .checks for the password rules, .row in the thread list),
+   so every rule is scoped to the account page. */
+
+.account-page .layout {
+	display: grid;
+	grid-template-columns: 168px minmax(0, 1fr);
+	gap: 32px;
+	align-items: start;
 }
 
-.dz {
-	padding: 16px 18px;
-	border: 1px solid var(--danger);
-	border-radius: 6px;
+.account-page .toc {
+	position: sticky;
+	top: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font: 13px var(--font-mono);
 }
 
-.dz h2 {
-	margin: 0;
+.account-page .toc a {
+	display: flex;
+	align-items: center;
+	min-height: 34px;
+	padding: 0 10px;
+	border-radius: 4px;
+	color: var(--muted);
+}
+
+.account-page .toc a[aria-current] {
+	background: var(--panel);
+	color: var(--ink);
+	box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.account-page .toc a.red {
 	color: var(--danger);
+}
+
+.account-page .stack {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+/* A design card: one border and background around a header and a body. */
+.account-page .card {
+	width: auto;
+	max-width: none;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--card);
+}
+
+.account-page .card-h {
+	padding: 14px 18px 12px;
+	border-bottom: 1px solid var(--line2);
+}
+
+.account-page .card-h h2 {
+	margin: 0;
 	font: 600 14px var(--font-mono);
 }
 
-.dz p {
-	margin: 6px 0 0;
+.account-page .card-h p {
+	margin: 3px 0 0;
+	color: var(--muted);
+	font-size: 13px;
 }
 
-.dz ul {
-	margin: 8px 0 0;
-	padding: 0 0 0 18px;
-	font-size: 13.5px;
-	line-height: 1.6;
-}
-
-.delete-form {
+.account-page .card-b {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
+	gap: 14px;
+	padding: 16px 18px;
+}
+
+.account-page .card-b > form,
+.account-page .sub > form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+/* The form's controls stretch to the card width; a lone button does not. */
+.account-page .card-b > form > .btn,
+.account-page .sub > form > .btn {
+	align-self: flex-start;
+}
+
+.account-page .sub {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px 18px;
+	/* The mobile nav's .sub rule gives the element a fixed height and a
+	   mono font; neither belongs to a design card section. */
+	height: auto;
+	align-items: stretch;
+	border-bottom: 0;
+	color: var(--ink);
+	font: inherit;
+}
+
+.account-page .sub > form {
+	gap: 12px;
+}
+
+.account-page .sub + .sub {
+	border-top: 1px solid var(--line2);
+}
+
+.account-page .sub-h {
+	display: flex;
 	align-items: center;
 	gap: 10px;
-	margin-top: 14px;
+	flex-wrap: wrap;
 }
 
-.delete-form label {
+.account-page .sub-h h3 {
 	margin: 0;
+	font: 600 13px var(--font-mono);
+}
+
+.account-page .where {
 	color: var(--muted);
 	font: 12px var(--font-mono);
 }
 
-.delete-form .inp {
-	width: 220px;
-	max-width: 100%;
+.account-page .help {
+	margin: 0;
+	color: var(--muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.account-page .row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	padding: 0;
+	border-bottom: 0;
+}
+
+/* Form controls follow the design's sizing: a mono 36px input, 340px wide
+   unless it holds a URL or another long value. */
+.account-page .inp {
+	height: 36px;
+	max-width: 340px;
+	background: var(--bg);
+	font: 13px var(--font-mono);
+}
+
+.account-page .inp.wide {
+	max-width: none;
+}
+
+.account-page .inp[readonly] {
+	background: var(--panel);
+	color: var(--ink);
+}
+
+/* A radio group that looks like a segmented control. The radios are invisible
+   but still focusable and still submit the same values. */
+.account-page .seg {
+	display: inline-flex;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.account-page .seg label {
+	position: relative;
+	display: flex;
+}
+
+.account-page .seg input {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.account-page .seg span {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 34px;
+	padding: 0 14px;
+	background: var(--bg);
+	color: var(--muted);
+	font: 500 13px var(--font-mono);
+}
+
+.account-page .seg label + label span {
+	border-left: 1px solid var(--line);
+}
+
+.account-page .seg input:checked + span {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.account-page .seg input:focus-visible + span {
+	outline: 2px solid var(--accent);
+	outline-offset: -4px;
+}
+
+.account-page .pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 22px;
+	padding: 0 8px;
+	border-radius: 11px;
+	background: var(--panel);
+	color: var(--muted);
+	font: 500 11.5px var(--font-mono);
+}
+
+.account-page .pill.on {
+	color: var(--live);
+}
+
+.account-page .pill.on::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--live);
+}
+
+.account-page .checks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 20px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	color: var(--ink);
+}
+
+.account-page .checks legend {
+	margin-bottom: 6px;
+	padding: 0;
+	font: 500 12px var(--font-mono);
+}
+
+.account-page .checks label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 32px;
+	font: 13px var(--font-mono);
+}
+
+.account-page .checks input {
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+.account-page .feeds {
+	display: grid;
+	grid-template-columns: 104px minmax(0, 1fr) auto;
+	gap: 8px 10px;
+	align-items: center;
+}
+
+.account-page .feeds > span {
+	color: var(--muted);
+	font: 12px var(--font-mono);
+}
+
+.account-page .feeds-actions {
+	padding-top: 14px;
+	border-top: 1px solid var(--line2);
+}
+
+/* The reset form is a row like the design's, not the stacked form the other
+   cards use, so the explanation sits next to the button. */
+.account-page .card-b > .feeds-actions {
+	flex-direction: row;
+	gap: 10px;
+}
+
+.account-page .delete-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+@media (max-width: 760px) {
+	.account-page .layout {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 16px;
+	}
+
+	.account-page .toc {
+		position: static;
+		flex-direction: row;
+		gap: 4px;
+		padding-bottom: 4px;
+		overflow-x: auto;
+	}
+
+	.account-page .toc a {
+		white-space: nowrap;
+	}
+
+	.account-page .toc a[aria-current] {
+		box-shadow: inset 0 -2px 0 var(--accent);
+	}
+
+	.account-page .feeds {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.account-page .feeds > span {
+		grid-column: 1 / -1;
+		margin-top: 4px;
+	}
+}
+
+.dz {
+	border: 1px solid var(--danger);
+	border-radius: 6px;
+	background: var(--card);
+}
+
+.dz h2 {
+	color: var(--danger);
+}
+
+.dz ul {
+	margin: 0;
+	padding: 0 0 0 18px;
+	font-size: 13.5px;
+	line-height: 1.6;
 }
 
 /* Invites ----------------------------------------------------------- */

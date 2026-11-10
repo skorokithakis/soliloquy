@@ -1,15 +1,8 @@
-<!DOCTYPE html>
-<html lang="en"><head>
+<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8">
 <title>Soliloquy: account</title>
-<script src="d8a22240-1f5d-47dc-b28a-bd09cdc5bb6f"></script>
-</head>
-<body>
-<x-dc>
-<helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
-<style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"><style>
 body{margin:0}
 .sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
 .sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
@@ -24,93 +17,98 @@ body{margin:0}
 .logo .p{color:var(--accent)}
 .cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cur{animation:none}}
 .nav{display:flex;gap:16px;font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
 .sp{flex:1}
 .search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--muted);width:210px}
 .search input{border:0;background:none;outline:0;font:13px 'IBM Plex Mono',monospace;color:var(--ink);width:100%;padding:0}
 .search input::placeholder{color:var(--muted)}
-.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
 .btn.pri,.sq a.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .btn.danger{color:var(--danger);border-color:var(--danger);background:none}
+.btn.quiet{border-color:transparent;background:none;color:var(--muted);padding:0 8px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
+.sq :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0}
 .badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
 .me{font:13px 'IBM Plex Mono',monospace;color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:6px}
 .pt{font:600 18px 'IBM Plex Mono',monospace;margin:0}
 .pt .p{color:var(--accent)}
-.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.term{font:13px/1.7 'IBM Plex Mono',monospace;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin:0}
+
+.layout{display:grid;grid-template-columns:168px minmax(0,1fr);gap:32px;align-items:start}
+.toc{position:sticky;top:16px;display:flex;flex-direction:column;gap:2px;font:13px 'IBM Plex Mono',monospace}
+.toc a{display:flex;align-items:center;min-height:34px;padding:0 10px;border-radius:4px;color:var(--muted)}
+.toc a[aria-current]{background:var(--panel);color:var(--ink);box-shadow:inset 2px 0 0 var(--accent)}
+.toc a.red{color:var(--danger)}
+.stack{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px}
+.card-h{padding:14px 18px 12px;border-bottom:1px solid var(--line2)}
+.card-h h2{margin:0;font:600 14px 'IBM Plex Mono',monospace}
+.card-h p{margin:3px 0 0;font-size:13px;color:var(--muted)}
+.card-b{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.sub{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.sub + .sub{border-top:1px solid var(--line2)}
+.sub-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sub-h h3{margin:0;font:600 13px 'IBM Plex Mono',monospace}
+.where{font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.help{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.help a{text-decoration:underline;text-underline-offset:2px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+.term{font:13px/1.7 'IBM Plex Mono',monospace;padding:14px 18px;margin:0}
 .term .ps{color:var(--accent)}
-.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:2px 16px;margin-top:6px}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:2px 16px;margin:6px 0 0}
 .kv dt{color:var(--muted)}
 .kv dd{margin:0}
-.dz{border:1px solid var(--danger);border-radius:6px;padding:16px 18px}
-.dz ul{margin:8px 0 0;padding:0 0 0 18px;font-size:13.5px;line-height:1.6}
-.inp{height:36px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:13px 'IBM Plex Mono',monospace;padding:0 10px;width:220px}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field > span{font:500 12px 'IBM Plex Mono',monospace}
+.inp{height:36px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:13px 'IBM Plex Mono',monospace;padding:0 10px;width:100%;max-width:340px}
+.inp.wide{max-width:none}
 .inp::placeholder{color:var(--muted)}
+.inp[readonly]{background:var(--panel);color:var(--ink)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:11px;font:500 11.5px 'IBM Plex Mono',monospace;background:var(--panel);color:var(--muted)}
+.pill.on{color:var(--live)}
+.pill.on::before{content:"";width:6px;height:6px;border-radius:3px;background:var(--live)}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:0;padding:0}
+.seg label{position:relative;display:flex}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;font:500 13px 'IBM Plex Mono',monospace;color:var(--muted);background:var(--bg)}
+.seg label + label span{border-left:1px solid var(--line)}
+.seg input:checked + span{background:var(--accent);color:var(--on-accent)}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:-4px}
+
+.checks{display:flex;gap:6px 20px;flex-wrap:wrap;border:0;margin:0;padding:0}
+.checks legend{font:500 12px 'IBM Plex Mono',monospace;padding:0;margin-bottom:6px}
+.checks label{display:flex;align-items:center;gap:8px;min-height:32px;font:13px 'IBM Plex Mono',monospace}
+.checks input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+
+.feeds{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:8px 10px;align-items:center}
+.feeds > span{font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+
+.dz{border:1px solid var(--danger);border-radius:6px;background:var(--card)}
+.dz .card-h{border-bottom-color:var(--line2)}
+.dz h2{color:var(--danger)}
+.dz ul{margin:0;padding:0 0 0 18px;font-size:13.5px;line-height:1.6}
+
 .foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
-@media (max-width:640px){.search{display:none}.nav{order:3;width:100%;padding-bottom:10px}}
-</style>
-</helmet>
-<div class="sq {{theme}}">
-<header class="top"><div class="wrap">
-<a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
-<nav class="nav" aria-label="Main"><a href="Main.dc.html">threads</a><a href="Invites.dc.html">invites</a><a href="Admin.dc.html">admin</a></nav>
-<div class="sp"></div>
-<label class="search"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label>
-<a class="btn pri" href="Submit.dc.html">+ new thread</a>
-<a class="ib" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
-<a class="me" href="Account.dc.html" aria-current="page">mira</a>
-</div></header>
-
-<main class="wrap" style="padding-top: 18px; max-width: 720px">
-<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
-<h1 class="pt"><span class="p">~/</span>account</h1>
-<span class="sp"></span>
-<button class="btn" type="button">log out</button>
-</div>
-
-<div class="term" role="group" aria-label="Your account">
-<div><span class="ps">$</span> whoami</div>
-<dl class="kv">
-<dt>username</dt><dd>mira <span style="color: var(--muted)">(fixed, you cannot change it)</span></dd>
-<dt>role</dt><dd style="color: var(--accent)">admin</dd>
-<dt>joined</dt><dd>2025-03-02</dd>
-<dt>invited by</dt><dd><a href="Invites.dc.html" style="text-decoration: underline; text-underline-offset: 2px">nadia</a></dd>
-<dt>invited</dt><dd>3 people · <a href="Invites.dc.html" style="color: var(--accent)">see the tree ›</a></dd>
-<dt>session</dt><dd>this browser · ends in 23 days</dd>
-</dl>
-</div>
-
-<p style="margin: 14px 0 26px; font: 12px/1.6 'IBM Plex Mono', monospace; color: var(--muted)">Forgot your password? There is no email here. Ask an admin for a reset link.</p>
-
-<section class="dz" aria-labelledby="dzh">
-<h2 id="dzh" style="margin: 0; font: 600 14px 'IBM Plex Mono', monospace; color: var(--danger)">delete my account</h2>
-<p style="margin: 6px 0 0; font-size: 13.5px">This cannot be undone. When you delete your account:</p>
-<ul>
-<li>Your threads, comments and votes stay. Your name on them changes to <span style="font-style: italic">[deleted user]</span>.</li>
-<li>Your sessions, notifications and unused invite links are removed.</li>
-<li>Nobody can register the name <b>mira</b> again.</li>
-<li>The 3 people you invited keep their accounts and their place in the tree.</li>
-</ul>
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px">
-<label for="cf" style="font: 12px 'IBM Plex Mono', monospace; color: var(--muted)">type your username to confirm</label>
-<input id="cf" class="inp" placeholder="mira">
-<button class="btn danger" type="button" disabled="">delete account</button>
-</div>
-</section>
-
-<footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a href="Invites.dc.html">invite tree</a></footer>
-</main>
-</div>
-</x-dc>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860}}">
-class Component extends DCLogic {
-  renderVals() {
-    return { theme: this.props.theme ?? 'light' };
-  }
+@media (max-width:760px){
+.layout{grid-template-columns:minmax(0,1fr);gap:16px}
+.toc{position:static;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}
+.toc a{white-space:nowrap}
+.toc a[aria-current]{box-shadow:inset 0 -2px 0 var(--accent)}
+.feeds{grid-template-columns:minmax(0,1fr) auto}
+.feeds > span{grid-column:1 / -1;margin-top:4px}
 }
-</script>
+@media (max-width:640px){.search{display:none}.nav{order:3;width:100%;padding-bottom:10px}.kv{grid-template-columns:92px minmax(0,1fr)}}
+</style></head>
+<body>
+<div class="sq light"><header class="top"><div class="wrap"><a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a><nav class="nav" aria-label="Main"><a href="Main.dc.html">threads</a><a href="Invites.dc.html">invites</a><a href="Admin.dc.html">admin</a></nav><div class="sp"></div><label class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label><a class="btn pri" href="Submit.dc.html">+ new thread</a><a class="ib" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a><a class="me" href="Account.dc.html" aria-current="page">mira</a></div></header><main class="wrap" style="padding-top: 18px;"><div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;"><h1 class="pt"><span class="p">~/</span>account</h1><span class="sp"></span><button class="btn" type="button">log out</button></div><div class="layout"><nav class="toc" aria-label="Account sections"><a href="#profile" aria-current="true">profile</a><a href="#appearance">appearance</a><a href="#notifications">notifications</a><a href="#password">password</a><a href="#feeds">feeds and API</a><a href="#delete" class="red">delete account</a></nav><div class="stack"><section id="profile" class="card" aria-label="Profile"><div class="term"><div><span class="ps">$</span> whoami</div><dl class="kv"><dt>username</dt><dd>mira <span style="color: var(--muted);">(fixed)</span></dd><dt>role</dt><dd style="color: var(--accent);">admin</dd><dt>joined</dt><dd>2025-03-02</dd><dt>invited by</dt><dd><a href="Invites.dc.html" style="text-decoration: underline; text-underline-offset: 2px;">nadia</a></dd><dt>invited</dt><dd>3 people · <a href="Invites.dc.html" style="color: var(--accent);">see the tree ›</a></dd><dt>session</dt><dd>this browser · ends in 23 days</dd></dl></div></section><section id="appearance" class="card" aria-labelledby="h-app"><div class="card-h"><h2 id="h-app">appearance</h2><p>Saved to your account, so it follows you to other browsers.</p></div><div class="card-b"><fieldset class="seg" aria-label="Theme"><label><input type="radio" name="theme" value="system"><span>system</span></label><label><input type="radio" name="theme" value="light" checked=""><span>light</span></label><label><input type="radio" name="theme" value="dark"><span>dark</span></label></fieldset><p class="help">The theme changes as soon as you pick one.</p></div></section><section id="notifications" class="card" aria-labelledby="h-not"><div class="card-h"><h2 id="h-not">notifications</h2><p>Alerts for replies to you, comments on your threads and mentions. The bell in the header always shows them.</p></div><div class="sub"><div class="sub-h"><h3>desktop alerts</h3><span class="where">this browser only</span><span class="sp"></span><span class="pill on">on</span></div><p class="help">A system alert when something new comes in while the forum is open in a background tab.</p><div class="row"><button class="btn" type="button">turn off</button></div></div><div class="sub"><div class="sub-h"><h3>push to your phone</h3><span class="where">all devices, using ntfy</span><span class="sp"></span><span class="pill on">on</span></div><label class="field"><span>ntfy topic URL</span><input class="inp wide" type="url" spellcheck="false" value="https://ntfy.sh/mira-7Qk2v9Lp"></label><p class="help">Anyone who knows the topic name can read the pushes, so use a name that is hard to guess. Clear the URL to stop pushes.</p><fieldset class="checks"><legend>push me for</legend><label><input type="checkbox" checked="">replies and mentions</label><label><input type="checkbox" checked="">new threads</label></fieldset><div class="row"><button class="btn pri" type="button">save</button><button class="btn" type="button">send a test push</button><span class="where">the test uses the saved URL</span></div></div></section><section id="password" class="card" aria-labelledby="h-pw"><div class="card-h"><h2 id="h-pw">password</h2><p>Changing it signs you out of all your other sessions.</p></div><div class="card-b"><label class="field"><span>current password</span><input class="inp" type="password" autocomplete="current-password"></label><label class="field"><span>new password</span><input class="inp" type="password" autocomplete="new-password"></label><label class="field"><span>confirm new password</span><input class="inp" type="password" autocomplete="new-password"></label><div class="row"><button class="btn pri" type="button">change password</button></div><p class="help">Forgot it? There is no email here. Ask an admin for a reset link.</p></div></section><section id="feeds" class="card" aria-labelledby="h-feed"><div class="card-h"><h2 id="h-feed">feeds and API</h2><p>Private RSS links. The same token also works for the JSON API (<a href="#" style="text-decoration: underline; text-underline-offset: 2px;">API documentation</a>). Anyone with a link can read the forum, so keep them secret.</p></div><div class="card-b"><div class="feeds"><span>threads</span><input class="inp wide" readonly="" aria-label="Threads feed URL" value="https://soliloquy.example.org/feeds/threads?token=Qm7v2tR9xLk4pWz8sN1cY6hJ3dF0bAe"><button class="btn" type="button" aria-label="Copy threads feed URL">copy</button><span>comments</span><input class="inp wide" readonly="" aria-label="Comments feed URL" value="https://soliloquy.example.org/feeds/comments?token=Qm7v2tR9xLk4pWz8sN1cY6hJ3dF0bAe"><button class="btn" type="button" aria-label="Copy comments feed URL">copy</button><span>notifications</span><input class="inp wide" readonly="" aria-label="Notifications feed URL" value="https://soliloquy.example.org/feeds/notifications?token=Qm7v2tR9xLk4pWz8sN1cY6hJ3dF0bAe"><button class="btn" type="button" aria-label="Copy notifications feed URL">copy</button></div><div class="row" style="border-top: 1px solid var(--line2); padding-top: 14px;"><button class="btn" type="button">make a new token</button><span class="where">all three links and API calls with the old token stop working at once</span></div></div></section><section id="delete" class="dz" aria-labelledby="h-del"><div class="card-h"><h2 id="h-del">delete account</h2><p>This cannot be undone. When you delete your account:</p></div><div class="card-b"><ul><li>Your threads, comments and votes stay. Your name on them changes to <span style="font-style: italic;">[deleted user]</span>.</li><li>Your sessions, notifications, push settings, feed token and unused invite links are removed.</li><li>Nobody can register the name <b>mira</b> again.</li><li>The 3 people you invited keep their accounts and their place in the tree.</li></ul><label class="field"><span>type <b>mira</b> to confirm</span><input class="inp" autocomplete="off" spellcheck="false"></label><div class="row"><button class="btn danger" type="button" disabled="">delete my account</button></div></div></section></div></div><footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a href="Invites.dc.html">invite tree</a></footer></main></div>
+
 
 
 </body></html>

@@ -8,10 +8,10 @@ import (
 )
 
 // DeleteAccount soft-deletes a user's account and removes the private data
-// that should not outlive it: sessions, notifications and unused invites.
-// Threads, comments and votes stay so the forum keeps its history. The row
-// stays, which also keeps the username reserved and lets content show
-// "[deleted user]".
+// that should not outlive it: sessions, notifications, unused invites and
+// password resets, plus the push URL and feed token. Threads, comments and
+// votes stay so the forum keeps its history. The row stays, which also keeps
+// the username reserved and lets content show "[deleted user]".
 //
 // The last active admin cannot delete their account; ErrLastAdmin is returned
 // in that case.
@@ -47,8 +47,12 @@ func (db *DB) DeleteAccount(ctx context.Context, userID int64, now time.Time) er
 		}
 	}
 
+	// ntfy_url is NOT NULL with an empty default, while feed_token is NULL
+	// until first set; clear each to its own "not set" value.
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE users SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+		UPDATE users
+		SET deleted_at = ?, ntfy_url = '', feed_token = NULL
+		WHERE id = ? AND deleted_at IS NULL`,
 		now.Unix(), userID,
 	); err != nil {
 		return err

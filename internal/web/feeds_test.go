@@ -480,7 +480,8 @@ func TestAccountFeedsSectionCreatesAndResetsToken(t *testing.T) {
 		"/feeds/comments?token=",
 		"/feeds/notifications?token=",
 		`action="/account/feeds/reset"`,
-		"reset feed link",
+		"make a new token",
+		`data-copy="` + testBaseURL + `/feeds/threads?token=`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("account page does not contain %q", want)

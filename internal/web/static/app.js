@@ -235,6 +235,122 @@ document.addEventListener("click", (event) => {
 	});
 });
 
+// Account page: picking a theme changes the page at once and saves the choice
+// in the background. The form still submits normally when JavaScript is
+// unavailable, so the save button is only hidden once this script runs.
+const themeSave = document.querySelector("[data-theme-save]");
+const themeForm = themeSave && themeSave.form;
+if (themeForm) {
+	themeSave.hidden = true;
+
+	// Only one save may run at a time, because two requests could reach the
+	// server out of order and the older choice would win. Changes made while a
+	// save runs are coalesced into one more save with the latest selection.
+	let saving = false;
+	let queued = false;
+
+	const saveTheme = async () => {
+		if (saving) {
+			queued = true;
+			return;
+		}
+
+		saving = true;
+		for (;;) {
+			queued = false;
+			try {
+				const response = await fetch(themeForm.action, {
+					method: "POST",
+					headers: {
+						Accept: "text/html",
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+					credentials: "same-origin",
+					body: new URLSearchParams(new FormData(themeForm)),
+				});
+				if (!response.ok) {
+					throw new Error("theme save failed");
+				}
+			} catch (error) {
+				saving = false;
+				// The plain form submit saves the choice and reports errors.
+				themeForm.submit();
+				return;
+			}
+
+			if (!queued) {
+				saving = false;
+				return;
+			}
+		}
+	};
+
+	const themeRadios = themeForm.querySelectorAll('input[name="theme"]');
+	themeRadios.forEach((radio) => {
+		radio.addEventListener("change", () => {
+			if (!radio.checked) {
+				return;
+			}
+
+			const root = document.documentElement;
+			root.classList.remove("auto", "light", "dark");
+			root.classList.add(radio.value);
+			saveTheme();
+		});
+	});
+}
+
+// Account page: keep the section menu in step with the section being read.
+// Without this script the link marked in the HTML stays marked.
+const accountNav = document.querySelector(".account-page .toc");
+if (accountNav) {
+	const sections = Array.from(accountNav.querySelectorAll('a[href^="#"]'))
+		.map((link) => ({ link, section: document.getElementById(link.hash.slice(1)) }))
+		.filter((entry) => entry.section);
+
+	const markCurrent = (current) => {
+		sections.forEach((entry) => {
+			if (entry === current) {
+				entry.link.setAttribute("aria-current", "true");
+			} else {
+				entry.link.removeAttribute("aria-current");
+			}
+		});
+	};
+
+	// The section under the reading line near the top is the current one; the
+	// last section may be too short to reach the line, so the end of the page
+	// selects it. A click wins for a moment, because the browser's scroll to a
+	// section near the end of the page can land at the bottom.
+	let clicked = 0;
+	const updateCurrent = () => {
+		if (clicked || sections.length === 0) {
+			return;
+		}
+		let current = sections[0];
+		for (const entry of sections) {
+			if (entry.section.getBoundingClientRect().top <= 120) {
+				current = entry;
+			}
+		}
+		const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+		markCurrent(atEnd ? sections[sections.length - 1] : current);
+	};
+
+	window.addEventListener("scroll", updateCurrent, { passive: true });
+	window.addEventListener("resize", updateCurrent);
+	sections.forEach((entry) => {
+		entry.link.addEventListener("click", () => {
+			markCurrent(entry);
+			window.clearTimeout(clicked);
+			clicked = window.setTimeout(() => {
+				clicked = 0;
+			}, 300);
+		});
+	});
+	updateCurrent();
+}
+
 // Filter the admin user table in the browser. Without JavaScript every row is
 // visible.
 const userFilter = document.querySelector("[data-user-filter]");
@@ -546,7 +662,9 @@ if (desktopAlertsButton && desktopAlertsStatus) {
 	const supported = "Notification" in window;
 
 	const updateDesktopAlerts = () => {
+		const enabled = desktopAlertsActive();
 		desktopAlertsStatus.hidden = false;
+		desktopAlertsStatus.classList.toggle("on", enabled);
 		if (!supported) {
 			desktopAlertsStatus.textContent = "not supported";
 			desktopAlertsButton.hidden = true;
@@ -554,16 +672,14 @@ if (desktopAlertsButton && desktopAlertsStatus) {
 		}
 
 		desktopAlertsButton.hidden = false;
+		desktopAlertsButton.textContent = enabled ? "turn off" : "turn on";
 		if (Notification.permission === "denied") {
 			desktopAlertsStatus.textContent = "blocked by the browser";
-			desktopAlertsButton.textContent = "turn on desktop alerts";
 			desktopAlertsButton.disabled = true;
 			return;
 		}
 
-		const enabled = desktopAlertsActive();
-		desktopAlertsStatus.textContent = enabled ? "on in this browser" : "off";
-		desktopAlertsButton.textContent = enabled ? "turn off desktop alerts" : "turn on desktop alerts";
+		desktopAlertsStatus.textContent = enabled ? "on" : "off";
 		desktopAlertsButton.disabled = false;
 	};
 

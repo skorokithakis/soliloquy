@@ -10,109 +10,174 @@
 
 	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 
-	<div class="term" role="group" aria-label="Your account">
-		<div><span class="ps">$</span> whoami</div>
-		<dl class="kv">
-			<dt>username</dt><dd>{{.CurrentUser.Username}} <span class="muted">(fixed, you cannot change it)</span></dd>
-			<dt>role</dt><dd{{if eq .Role "admin"}} class="accent"{{end}}>{{.Role}}</dd>
-			<dt>joined</dt><dd>{{.Joined}}</dd>
-			<dt>invited by</dt><dd><a class="underline" href="/invites">{{.InvitedBy}}</a></dd>
-			<dt>invited</dt><dd>{{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} · <a class="accent" href="/invites">see the tree ›</a></dd>
-			<dt>session</dt><dd>this browser · {{.SessionEnds}}</dd>
-		</dl>
+	<div class="layout">
+		<nav class="toc" aria-label="Account sections">
+			<a href="#profile" aria-current="true">profile</a>
+			<a href="#appearance">appearance</a>
+			<a href="#notifications">notifications</a>
+			<a href="#password">password</a>
+			<a href="#feeds">feeds and API</a>
+			<a href="#delete" class="red">delete account</a>
+		</nav>
+
+		<div class="stack">
+			<section id="profile" class="card" aria-label="Profile">
+				<div class="term" role="group" aria-label="Your account">
+					<div><span class="ps">$</span> whoami</div>
+					<dl class="kv">
+						<dt>username</dt><dd>{{.CurrentUser.Username}} <span class="muted">(fixed)</span></dd>
+						<dt>role</dt><dd{{if eq .Role "admin"}} class="accent"{{end}}>{{.Role}}</dd>
+						<dt>joined</dt><dd>{{.Joined}}</dd>
+						<dt>invited by</dt><dd><a class="underline" href="/invites">{{.InvitedBy}}</a></dd>
+						<dt>invited</dt><dd>{{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} · <a class="accent" href="/invites">see the tree ›</a></dd>
+						<dt>session</dt><dd>this browser · {{.SessionEnds}}</dd>
+					</dl>
+				</div>
+			</section>
+
+			<section id="appearance" class="card" aria-labelledby="appearance-heading">
+				<div class="card-h">
+					<h2 id="appearance-heading">appearance</h2>
+					<p>Saved to your account, so it follows you to other browsers.</p>
+				</div>
+				<div class="card-b">
+					<form method="post" action="/account/theme">
+						<fieldset class="seg" aria-label="Theme">
+							<label><input type="radio" name="theme" value="auto"{{if eq .Theme "auto"}} checked{{end}}><span>system</span></label>
+							<label><input type="radio" name="theme" value="light"{{if eq .Theme "light"}} checked{{end}}><span>light</span></label>
+							<label><input type="radio" name="theme" value="dark"{{if eq .Theme "dark"}} checked{{end}}><span>dark</span></label>
+						</fieldset>
+						<p class="help">The theme changes as soon as you pick one.</p>
+						<button class="btn pri" type="submit" data-theme-save>save theme</button>
+					</form>
+				</div>
+			</section>
+
+			<section id="notifications" class="card" aria-labelledby="notifications-heading">
+				<div class="card-h">
+					<h2 id="notifications-heading">notifications</h2>
+					<p>Alerts for replies to you, comments on your threads and mentions. The bell in the header always shows them.</p>
+				</div>
+				<div class="sub">
+					<div class="sub-h">
+						<h3>desktop alerts</h3>
+						<span class="where">this browser only</span>
+						<span class="sp"></span>
+						<span class="pill" role="status" data-desktop-alerts-status hidden></span>
+					</div>
+					<p class="help">A system alert when something new comes in while the forum is open in a background tab.</p>
+					<div class="row">
+						<button class="btn" type="button" data-desktop-alerts hidden>turn on desktop alerts</button>
+					</div>
+				</div>
+				<div class="sub">
+					<div class="sub-h">
+						<h3>push to your phone</h3>
+						<span class="where">all devices, using ntfy</span>
+						<span class="sp"></span>
+						<span class="pill{{if .NtfyURL}} on{{end}}">{{if .NtfyURL}}on{{else}}off{{end}}</span>
+					</div>
+					<form class="ntfy-form" method="post" action="/account/notifications">
+						<div class="field">
+							<label for="ntfy-url">ntfy topic URL</label>
+							<input id="ntfy-url" class="inp wide" type="url" name="ntfy_url" value="{{.NtfyURL}}" placeholder="https://ntfy.sh/a-hard-to-guess-topic" spellcheck="false" autocomplete="off">
+						</div>
+						<p class="help">Anyone who knows the topic name can read the pushes, so use a name that is hard to guess. Clear the URL to stop pushes.</p>
+						<fieldset class="checks">
+							<legend>push me for</legend>
+							<label><input type="checkbox" name="ntfy_replies"{{if .NtfyReplies}} checked{{end}}> replies, comments and mentions</label>
+							<label><input type="checkbox" name="ntfy_threads"{{if .NtfyThreads}} checked{{end}}> new threads</label>
+						</fieldset>
+						{{if .NtfyTestResult}}
+						<div class="notice" role="status">
+							<span class="notice-title">ntfy test</span>
+							<span>{{.NtfyTestResult}}</span>
+						</div>
+						{{end}}
+						<div class="row">
+							<button class="btn pri" type="submit">save</button>
+							<button class="btn" type="submit" formaction="/account/notifications/test">send a test push</button>
+							<span class="where">the test uses the saved URL</span>
+						</div>
+					</form>
+				</div>
+			</section>
+
+			<section id="password" class="card" aria-labelledby="password-heading">
+				<div class="card-h">
+					<h2 id="password-heading">password</h2>
+					<p>Changing it signs you out of all your other sessions.</p>
+				</div>
+				<div class="card-b">
+					<form method="post" action="/password">
+						<div class="field">
+							<label for="current-password">current password</label>
+							<input id="current-password" class="inp" type="password" name="current_password" autocomplete="current-password" required>
+						</div>
+						<div class="field">
+							<label for="new-password">new password</label>
+							<input id="new-password" class="inp" type="password" name="new_password" autocomplete="new-password" required>
+						</div>
+						<div class="field">
+							<label for="confirm-password">confirm new password</label>
+							<input id="confirm-password" class="inp" type="password" name="confirm_password" autocomplete="new-password" required>
+						</div>
+						<div class="row">
+							<button class="btn pri" type="submit">change password</button>
+						</div>
+						<p class="help">Forgot it? There is no email here. Ask an admin for a reset link.</p>
+					</form>
+				</div>
+			</section>
+
+			<section id="feeds" class="card" aria-labelledby="feeds-heading">
+				<div class="card-h">
+					<h2 id="feeds-heading">feeds and API</h2>
+					<p>Private RSS links. The same token also works for the JSON API (<a class="underline" href="/account/api">API documentation</a>). Anyone with a link can read the forum, so keep them secret.</p>
+				</div>
+				<div class="card-b">
+					<div class="feeds">
+						<span>threads</span>
+						<input class="inp wide" type="text" readonly aria-label="Threads feed URL" value="{{.ThreadsFeedURL}}">
+						<button class="btn" type="button" data-copy="{{.ThreadsFeedURL}}" aria-label="Copy threads feed URL">copy</button>
+						<span>comments</span>
+						<input class="inp wide" type="text" readonly aria-label="Comments feed URL" value="{{.CommentsFeedURL}}">
+						<button class="btn" type="button" data-copy="{{.CommentsFeedURL}}" aria-label="Copy comments feed URL">copy</button>
+						<span>notifications</span>
+						<input class="inp wide" type="text" readonly aria-label="Notifications feed URL" value="{{.NotificationsFeedURL}}">
+						<button class="btn" type="button" data-copy="{{.NotificationsFeedURL}}" aria-label="Copy notifications feed URL">copy</button>
+					</div>
+					<form class="row feeds-actions" method="post" action="/account/feeds/reset">
+						<button class="btn" type="submit">make a new token</button>
+						<span class="where">all three links and API calls with the old token stop working at once</span>
+					</form>
+				</div>
+			</section>
+
+			<section id="delete" class="dz" aria-labelledby="delete-heading">
+				<div class="card-h">
+					<h2 id="delete-heading">delete account</h2>
+					<p>This cannot be undone. When you delete your account:</p>
+				</div>
+				<div class="card-b">
+					<ul>
+						<li>Your threads, comments and votes stay. Your name on them changes to <span class="gone">[deleted user]</span>.</li>
+						<li>Your sessions, notifications, push settings, feed token and unused invite links are removed.</li>
+						<li>Nobody can register the name <b>{{.CurrentUser.Username}}</b> again.</li>
+						<li>The {{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} you invited keep their accounts and their place in the tree.</li>
+					</ul>
+					<form class="delete-form" method="post" action="/account/delete">
+						<div class="field">
+							<label for="confirm-username">type <b>{{.CurrentUser.Username}}</b> to confirm</label>
+							<input id="confirm-username" class="inp" name="username" autocomplete="off" spellcheck="false" placeholder="{{.CurrentUser.Username}}" data-confirm-username="{{.CurrentUser.Username}}">
+						</div>
+						<div class="row">
+							<button class="btn danger" type="submit" data-delete-account>delete my account</button>
+						</div>
+					</form>
+				</div>
+			</section>
+		</div>
 	</div>
-
-	<p class="account-note">Forgot your password? There is no email here, ask an admin for a reset link.</p>
-
-	<section class="panel account-section" aria-labelledby="theme-heading">
-		<h2 class="label" id="theme-heading">theme</h2>
-		<form class="account-form" method="post" action="/account/theme">
-			<div class="checkbox-row">
-				<label><input type="radio" name="theme" value="auto"{{if eq .Theme "auto"}} checked{{end}}> system</label>
-				<label><input type="radio" name="theme" value="light"{{if eq .Theme "light"}} checked{{end}}> light</label>
-				<label><input type="radio" name="theme" value="dark"{{if eq .Theme "dark"}} checked{{end}}> dark</label>
-			</div>
-			<button class="btn pri" type="submit">save theme</button>
-		</form>
-	</section>
-
-	<section class="panel account-section" aria-labelledby="notifications-heading">
-		<h2 class="label" id="notifications-heading">notifications</h2>
-		<p class="hint">Get a desktop alert when someone replies to you, comments on your thread or mentions you while the forum is open in a background tab. This setting is stored in this browser only.</p>
-		<button class="btn" type="button" data-desktop-alerts hidden>turn on desktop alerts</button>
-		<p class="hint" role="status" data-desktop-alerts-status hidden></p>
-
-		<form class="account-form ntfy-form" method="post" action="/account/notifications">
-			<div class="field">
-				<label for="ntfy-url">ntfy topic URL</label>
-				<input id="ntfy-url" class="inp" type="url" name="ntfy_url" value="{{.NtfyURL}}" placeholder="https://ntfy.sh/a-hard-to-guess-topic" spellcheck="false" autocomplete="off">
-			</div>
-			<div class="checkbox-row">
-				<label><input type="checkbox" name="ntfy_replies"{{if .NtfyReplies}} checked{{end}}> replies to me</label>
-				<label><input type="checkbox" name="ntfy_threads"{{if .NtfyThreads}} checked{{end}}> new threads</label>
-			</div>
-			<p class="hint">Pushes go through ntfy. Anyone who knows the topic name can read it, so use a hard-to-guess name. Leave the URL empty to turn pushes off. The test uses the saved URL, so save first.</p>
-			{{if .NtfyTestResult}}
-			<div class="notice" role="status">
-				<span class="notice-title">ntfy test</span>
-				<span>{{.NtfyTestResult}}</span>
-			</div>
-			{{end}}
-			<div class="account-form-actions">
-				<button class="btn pri" type="submit">save</button>
-				<button class="btn" type="submit" formaction="/account/notifications/test">send test</button>
-			</div>
-		</form>
-	</section>
-
-	<section class="panel account-section" aria-labelledby="password-heading">
-		<h2 class="label" id="password-heading">change password</h2>
-		<form class="account-form" method="post" action="/password">
-			<div class="field">
-				<label for="current-password">current password</label>
-				<input id="current-password" class="inp" type="password" name="current_password" autocomplete="current-password" required>
-			</div>
-			<div class="field">
-				<label for="new-password">new password</label>
-				<input id="new-password" class="inp" type="password" name="new_password" autocomplete="new-password" required>
-			</div>
-			<div class="field">
-				<label for="confirm-password">confirm new password</label>
-				<input id="confirm-password" class="inp" type="password" name="confirm_password" autocomplete="new-password" required>
-			</div>
-			<button class="btn pri" type="submit">change password</button>
-			<p class="hint">Changing your password signs out all of your other sessions.</p>
-		</form>
-	</section>
-
-	<section class="panel account-section" aria-labelledby="feeds-heading">
-		<h2 class="label" id="feeds-heading">feeds</h2>
-		<p class="hint">RSS links for new threads, comments and your notifications. The same token also works for the JSON API (<a class="underline" href="/account/api">API documentation</a>). Keep them secret: anyone with a link can read the forum, even when it is private.</p>
-		<dl class="kv feed-links">
-			<dt>threads</dt><dd><a class="underline" href="{{.ThreadsFeedURL}}">{{.ThreadsFeedURL}}</a></dd>
-			<dt>comments</dt><dd><a class="underline" href="{{.CommentsFeedURL}}">{{.CommentsFeedURL}}</a></dd>
-			<dt>notifications</dt><dd><a class="underline" href="{{.NotificationsFeedURL}}">{{.NotificationsFeedURL}}</a></dd>
-		</dl>
-		<form class="inline-form" method="post" action="/account/feeds/reset">
-			<button class="btn" type="submit">reset feed link</button>
-		</form>
-		<p class="hint">Resetting replaces all three links. The old ones stop working immediately.</p>
-	</section>
-
-	<section class="dz account-section" aria-labelledby="delete-heading">
-		<h2 id="delete-heading">delete my account</h2>
-		<p>This cannot be undone. When you delete your account:</p>
-		<ul>
-			<li>Your threads, comments and votes stay. Your name on them changes to <span class="gone">[deleted user]</span>.</li>
-			<li>Your sessions, notifications and unused invite links are removed.</li>
-			<li>Nobody can register the name <b>{{.CurrentUser.Username}}</b> again.</li>
-			<li>The {{.InvitedCount}} {{if eq .InvitedCount 1}}person{{else}}people{{end}} you invited keep their accounts and their place in the tree.</li>
-		</ul>
-		<form class="delete-form" method="post" action="/account/delete">
-			<label for="confirm-username">type your username to confirm</label>
-			<input id="confirm-username" class="inp" name="username" autocomplete="off" placeholder="{{.CurrentUser.Username}}" data-confirm-username="{{.CurrentUser.Username}}">
-			<button class="btn danger" type="submit" data-delete-account>delete account</button>
-		</form>
-	</section>
 </div>
 {{end}}

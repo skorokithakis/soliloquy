@@ -119,7 +119,8 @@ func TestAccountNtfySettings(t *testing.T) {
 		`name="ntfy_url"`,
 		`name="ntfy_replies" checked`,
 		`name="ntfy_threads"`,
-		"hard-to-guess name",
+		"hard to guess",
+		`<span class="pill">off</span>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("account page does not contain %q", want)
@@ -170,12 +171,14 @@ func TestAccountNtfySettings(t *testing.T) {
 	}
 
 	body = doRequest(t, server, http.MethodGet, "/account", nil, cookie, "").Body.String()
-	if !strings.Contains(body, `value="https://ntfy.sh/a-secret-topic"`) {
-		t.Error("account page does not show the saved topic URL")
-	}
-	for _, want := range []string{`name="ntfy_replies" checked`, `name="ntfy_threads" checked`} {
+	for _, want := range []string{
+		`value="https://ntfy.sh/a-secret-topic"`,
+		`<span class="pill on">on</span>`,
+		`name="ntfy_replies" checked`,
+		`name="ntfy_threads" checked`,
+	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("account page does not mark %q", want)
+			t.Errorf("account page does not contain %q", want)
 		}
 	}
 
