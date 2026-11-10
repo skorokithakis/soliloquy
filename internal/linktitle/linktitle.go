@@ -46,6 +46,14 @@ type Fetcher struct {
 	// to a blocked address is refused. It is nil in production.
 	allowAddress func(address string) bool
 
+	// sites is the per-site rules table. It is a field so tests can replace
+	// it with a copy whose lookups point at httptest servers.
+	sites []site
+
+	// oEmbedEndpoints maps a default oEmbed endpoint to the endpoint used
+	// instead. It exists for tests and is empty in production.
+	oEmbedEndpoints map[string]string
+
 	client *http.Client
 }
 
@@ -72,6 +80,7 @@ func NewFetcher() *Fetcher {
 		},
 	}
 	fetcher.client = client
+	fetcher.sites = sites
 	return fetcher
 }
 
@@ -91,6 +100,26 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 
+	rule := f.siteFor(parsed.Hostname())
+	if rule != nil && rule.title != nil {
+		title, err := rule.title(ctx, f, parsed)
+		if err == nil && title != "" {
+			return title, nil
+		}
+	}
+
+	title, err := f.fetchPage(ctx, rawURL)
+	if err != nil {
+		return "", err
+	}
+	if rule != nil && rule.isJunkTitle(title) {
+		return "", nil
+	}
+	return title, nil
+}
+
+// fetchPage loads rawURL and returns its title.
+func (f *Fetcher) fetchPage(ctx context.Context, rawURL string) (string, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)

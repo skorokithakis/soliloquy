@@ -169,6 +169,166 @@ func TestFetchRefusesPrivateAddresses(t *testing.T) {
 	}
 }
 
+func TestFetchYouTubeOEmbed(t *testing.T) {
+	const pageURL = "https://www.youtube.com/watch?v=rpV4phLQsE4"
+
+	var gotURL, gotFormat, gotUserAgent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.Query().Get("url")
+		gotFormat = r.URL.Query().Get("format")
+		gotUserAgent = r.Header.Get("User-Agent")
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"title":"  Real   Video Title "}`)
+	}))
+	defer server.Close()
+
+	fetcher := NewFetcher()
+	fetcher.AllowPrivateAddresses = true
+	fetcher.oEmbedEndpoints = map[string]string{youTubeOEmbedEndpoint: server.URL}
+
+	title, err := fetcher.Fetch(context.Background(), pageURL)
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if title != "Real Video Title" {
+		t.Errorf("title = %q, want %q", title, "Real Video Title")
+	}
+	if gotURL != pageURL {
+		t.Errorf("oEmbed url = %q, want %q", gotURL, pageURL)
+	}
+	if gotFormat != "json" {
+		t.Errorf("oEmbed format = %q, want %q", gotFormat, "json")
+	}
+	if gotUserAgent != UserAgent {
+		t.Errorf("oEmbed User-Agent = %q, want %q", gotUserAgent, UserAgent)
+	}
+}
+
+func TestFetchYouTubeOEmbedFallsBackToPage(t *testing.T) {
+	tests := []struct {
+		name           string
+		oEmbedResponse string
+		oEmbedStatus   int
+		pageTitle      string
+		want           string
+	}{
+		{
+			name:           "oEmbed error",
+			oEmbedStatus:   http.StatusInternalServerError,
+			oEmbedResponse: `{"title":"Ignored"}`,
+			pageTitle:      "Page Title",
+			want:           "Page Title",
+		},
+		{
+			name:           "oEmbed without title",
+			oEmbedStatus:   http.StatusOK,
+			oEmbedResponse: `{"title":""}`,
+			pageTitle:      "Page Title",
+			want:           "Page Title",
+		},
+		{
+			name:           "page title is a YouTube bot check",
+			oEmbedStatus:   http.StatusInternalServerError,
+			oEmbedResponse: `{}`,
+			pageTitle:      " - YouTube ",
+			want:           "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			oEmbed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(test.oEmbedStatus)
+				io.WriteString(w, test.oEmbedResponse)
+			}))
+			defer oEmbed.Close()
+
+			page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				io.WriteString(w, `<html><head><title>`+test.pageTitle+`</title></head><body></body></html>`)
+			}))
+			defer page.Close()
+
+			fetcher := NewFetcher()
+			fetcher.AllowPrivateAddresses = true
+			fetcher.oEmbedEndpoints = map[string]string{youTubeOEmbedEndpoint: oEmbed.URL}
+			// Point the real YouTube rule at the test page server.
+			fetcher.sites = []site{{
+				hosts:      []string{"127.0.0.1"},
+				title:      youTubeTitle,
+				junkTitles: []string{"- YouTube"},
+			}}
+
+			title, err := fetcher.Fetch(context.Background(), page.URL)
+			if err != nil {
+				t.Fatalf("Fetch: %v", err)
+			}
+			if title != test.want {
+				t.Errorf("title = %q, want %q", title, test.want)
+			}
+		})
+	}
+}
+
+func TestFetchJunkTitleReplacedWithEmpty(t *testing.T) {
+	tests := []struct {
+		name      string
+		junk      []string
+		pageTitle string
+		want      string
+	}{
+		{name: "junk title", junk: []string{"Reddit"}, pageTitle: "Reddit", want: ""},
+		{name: "real title", junk: []string{"Reddit"}, pageTitle: "A Reddit thread", want: "A Reddit thread"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				io.WriteString(w, `<html><head><title>`+test.pageTitle+`</title></head><body></body></html>`)
+			}))
+			defer page.Close()
+
+			fetcher := NewFetcher()
+			fetcher.AllowPrivateAddresses = true
+			fetcher.sites = []site{{hosts: []string{"127.0.0.1"}, junkTitles: test.junk}}
+
+			title, err := fetcher.Fetch(context.Background(), page.URL)
+			if err != nil {
+				t.Fatalf("Fetch: %v", err)
+			}
+			if title != test.want {
+				t.Errorf("title = %q, want %q", title, test.want)
+			}
+		})
+	}
+}
+
+func TestSiteMatchesHost(t *testing.T) {
+	tests := []struct {
+		host string
+		want bool
+	}{
+		{host: "youtube.com", want: true},
+		{host: "www.youtube.com", want: true},
+		{host: "m.youtube.com", want: true},
+		{host: "music.youtube.com", want: true},
+		{host: "youtu.be", want: true},
+		{host: "www.youtu.be", want: true},
+		{host: "notyoutube.com", want: false},
+		{host: "youtube.com.example.com", want: false},
+		{host: "example.com", want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.host, func(t *testing.T) {
+			if got := sites[0].matchesHost(test.host); got != test.want {
+				t.Errorf("matchesHost(%q) = %t, want %t", test.host, got, test.want)
+			}
+		})
+	}
+}
+
 func TestBlockedIP(t *testing.T) {
 	tests := []struct {
 		ip      string
@@ -332,4 +492,56 @@ func TestFetchLargePage(t *testing.T) {
 			t.Errorf("title = %q, want empty because the page is larger than the read limit", title)
 		}
 	})
+}
+
+func TestFetchOEmbedRefusesPrivateEndpoint(t *testing.T) {
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		io.WriteString(w, `{"title":"Secret"}`)
+	}))
+	defer server.Close()
+
+	// The guard stays on, so the httptest endpoint on 127.0.0.1 is refused.
+	_, err := NewFetcher().fetchOEmbed(context.Background(), server.URL, "https://www.youtube.com/watch?v=x")
+	if err == nil {
+		t.Fatal("fetchOEmbed succeeded, want the private-address guard to refuse the connection")
+	}
+	if got := hits.Load(); got != 0 {
+		t.Errorf("endpoint was contacted %d times, want 0", got)
+	}
+}
+
+func TestFetchOEmbedRefusesRedirectToPrivateAddress(t *testing.T) {
+	var blockedHits atomic.Int32
+	blocked := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		blockedHits.Add(1)
+		io.WriteString(w, `{"title":"Secret"}`)
+	}))
+	defer blocked.Close()
+
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, blocked.URL, http.StatusFound)
+	}))
+	defer redirector.Close()
+
+	redirectorURL, err := url.Parse(redirector.URL)
+	if err != nil {
+		t.Fatalf("parse redirector URL: %v", err)
+	}
+
+	fetcher := NewFetcher()
+	// Let the first connection through, as a real public site would be, and
+	// leave the guard on for the redirect target.
+	fetcher.allowAddress = func(address string) bool {
+		return address == redirectorURL.Host
+	}
+
+	_, err = fetcher.fetchOEmbed(context.Background(), redirector.URL, "https://www.youtube.com/watch?v=x")
+	if err == nil {
+		t.Fatal("fetchOEmbed succeeded, want the redirect to a private address to be refused")
+	}
+	if got := blockedHits.Load(); got != 0 {
+		t.Errorf("redirect target was contacted %d times, want 0", got)
+	}
 }
