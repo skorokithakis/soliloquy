@@ -48,6 +48,9 @@ func TestIndexPage(t *testing.T) {
 	}
 
 	body := response.Body.String()
+	if strings.Contains(body, `class="pagination"`) {
+		t.Error("index shows the pagination bar when there is only one page")
+	}
 	for _, want := range []string{
 		`<h1 class="pt"><span class="p">~/</span>threads</h1>`,
 		`class="sq auto"`,

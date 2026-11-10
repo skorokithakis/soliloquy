@@ -975,10 +975,6 @@ a.btn.pri:hover {
 	margin-bottom: 10px;
 }
 
-.pagehead-mobile {
-	display: none;
-}
-
 .front-page .thread-cell {
 	min-width: 0;
 }
@@ -2149,12 +2145,6 @@ a.btn.pri:hover {
 
 	.front-page .pagehead {
 		display: none;
-	}
-
-	.pagehead-mobile {
-		display: flex;
-		justify-content: space-between;
-		padding: 10px 0 6px;
 	}
 
 	.front-page .list {

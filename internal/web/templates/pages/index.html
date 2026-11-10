@@ -2,11 +2,6 @@
 <div class="front-page">
 	<div class="pagehead">
 		<h1 class="pt"><span class="p">~/</span>threads</h1>
-		<span class="label">sorted by latest activity · page {{.Page}}</span>
-	</div>
-	<div class="pagehead-mobile">
-		<span class="label">latest activity</span>
-		<span class="label">page {{.Page}}</span>
 	</div>
 
 	{{if .Threads}}
@@ -41,11 +36,13 @@
 	<p>No threads yet.{{if not .Visitor}} <a href="/threads/new">Start the first one.</a>{{end}}</p>
 	{{end}}
 
+	{{if or .HasPrev .HasNext}}
 	<nav class="pagination" aria-label="Pages">
 		<span class="label">page {{.Page}} of {{.TotalPages}} · 30 per page</span>
 		<span class="sp"></span>
 		{{if .HasPrev}}<a class="btn" href="/?page={{.PrevPage}}" rel="prev">‹ newer</a>{{end}}
 		{{if .HasNext}}<a class="btn" href="/?page={{.NextPage}}" rel="next">older ›</a>{{end}}
 	</nav>
+	{{end}}
 </div>
 {{end}}
