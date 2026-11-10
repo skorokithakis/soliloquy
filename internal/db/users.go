@@ -28,6 +28,9 @@ type User struct {
 	DisabledAt   *time.Time
 	DeletedAt    *time.Time
 	Theme        string
+	// FeedToken is the secret in the user's RSS feed URLs. It is empty until
+	// the user first opens their account page.
+	FeedToken string
 }
 
 // Active reports whether the user may log in and use the site.
@@ -44,7 +47,7 @@ func (u *User) DisplayName() string {
 	return u.Username
 }
 
-const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at, theme`
+const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at, theme, feed_token`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -63,6 +66,7 @@ func scanUser(row rowScanner) (*User, error) {
 		createdAt  int64
 		disabledAt sql.NullInt64
 		deletedAt  sql.NullInt64
+		feedToken  sql.NullString
 	)
 	if err := row.Scan(
 		&user.ID,
@@ -74,6 +78,7 @@ func scanUser(row rowScanner) (*User, error) {
 		&disabledAt,
 		&deletedAt,
 		&user.Theme,
+		&feedToken,
 	); err != nil {
 		return nil, err
 	}
@@ -83,6 +88,7 @@ func scanUser(row rowScanner) (*User, error) {
 	user.CreatedAt = timeFromUnix(createdAt)
 	user.DisabledAt = nullTimePtr(disabledAt)
 	user.DeletedAt = nullTimePtr(deletedAt)
+	user.FeedToken = feedToken.String
 	return &user, nil
 }
 
@@ -110,6 +116,44 @@ func (db *DB) UserByUsername(ctx context.Context, username string) (*User, error
 		return nil, err
 	}
 	return user, nil
+}
+
+// UserByFeedToken returns the user whose feed token matches, or nil when no
+// user has that token. Callers must check Active before granting access.
+func (db *DB) UserByFeedToken(ctx context.Context, token string) (*User, error) {
+	user, err := scanUser(db.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE feed_token = ?`, token))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// SetFeedToken stores a user's feed token, replacing the previous one. Callers
+// generate the token, so a reset is just another call with a new value.
+func (db *DB) SetFeedToken(ctx context.Context, userID int64, token string) error {
+	_, err := db.ExecContext(ctx, `UPDATE users SET feed_token = ? WHERE id = ?`, token, userID)
+	return err
+}
+
+// SetFeedTokenIfEmpty stores token only when the user has no feed token yet,
+// then returns the token that is stored. Concurrent first calls therefore
+// agree on one token instead of overwriting each other.
+func (db *DB) SetFeedTokenIfEmpty(ctx context.Context, userID int64, token string) (string, error) {
+	if _, err := db.ExecContext(ctx, `
+		UPDATE users SET feed_token = ? WHERE id = ? AND feed_token IS NULL`,
+		token, userID,
+	); err != nil {
+		return "", err
+	}
+
+	var stored sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT feed_token FROM users WHERE id = ?`, userID).Scan(&stored); err != nil {
+		return "", err
+	}
+	return stored.String, nil
 }
 
 // SetTheme stores a user's theme preference.

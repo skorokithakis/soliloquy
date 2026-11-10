@@ -10,6 +10,8 @@ A small, lightweight, private forum for work discussions and friendly chats.
 - Admins can rename the forum.
 - Threads with nested comments, like Hacker News and Reddit.
 - New comments and notifications appear live, with no page reload.
+- RSS feeds for new threads and all new comments, with a secret link per member
+  so feeds work on a private forum.
 - Markdown, upvotes, @mentions, full-text search and dark mode.
 - One Go binary and one SQLite file, taking up 5 MB of RAM, to make Sam Altman livid.
   Put a reverse proxy in front of it and you are done.
@@ -103,6 +105,20 @@ When the forum is public, visitors can read the front page, thread pages and
 search. They see scores but no vote buttons, and a "log in" link in place of
 the new-thread, notifications and account links. Every other page and every
 write sends them to the login page. They do not get live updates.
+
+### Feeds
+
+The forum has RSS 2.0 feeds for the 50 newest threads and the 50 newest
+comments:
+
+- `/feeds/threads`
+- `/feeds/comments`
+
+On a public forum anyone can read them. On a private forum each feed needs a
+secret token: members find their personal links in the "feeds" section of
+their account page, and can reset them there if a link leaks. The same token
+keeps working when the forum is switched between public and private. It grants
+read-only access and cannot be used to log in.
 
 ## Reverse proxy
 

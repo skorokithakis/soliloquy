@@ -72,6 +72,10 @@ type PageData struct {
 	// BaseURL is the configured site base URL, used to build absolute URLs
 	// for link preview metadata.
 	BaseURL string
+	// ThreadsFeedURL and CommentsFeedURL are the absolute RSS feed URLs for
+	// the layout's alternate links. Empty means the page advertises no feed.
+	ThreadsFeedURL  string
+	CommentsFeedURL string
 	// Visitor marks a public, read-only page rendered for someone without a
 	// session. Those pages use the full header but hide all controls that
 	// need an account.
@@ -182,6 +186,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /password", s.handleChangePassword)
 	mux.HandleFunc("GET /notifications", s.handleNotificationsPage)
 	mux.HandleFunc("GET /search", s.handleSearch)
+	mux.HandleFunc("GET /feeds/threads", s.handleThreadsFeed)
+	mux.HandleFunc("GET /feeds/comments", s.handleCommentsFeed)
+	mux.HandleFunc("POST /account/feeds/reset", s.handleResetFeedToken)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
 	mux.Handle("GET /static/", s.static)
@@ -210,6 +217,7 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 		slog.Error("load settings", "error", err)
 	} else {
 		data.ForumName = settings.ForumName
+		data.ThreadsFeedURL, data.CommentsFeedURL = s.feedURLs(data.CurrentUser, settings.Public)
 	}
 	if data.CurrentUser != nil {
 		if data.CurrentUser.Theme != "" {

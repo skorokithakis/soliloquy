@@ -5,6 +5,8 @@ import (
 	"math"
 	"net/http"
 	"time"
+
+	"github.com/skorokithakis/soliloquy/internal/auth"
 )
 
 type accountPageData struct {
@@ -27,6 +29,22 @@ func (s *Server) handleAccountPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) accountPageData(r *http.Request) (accountPageData, error) {
 	user := currentUser(r)
+	// The page always shows the feed URLs, so the token is created the first
+	// time the account page is opened.
+	if user.FeedToken == "" {
+		token, err := auth.GenerateToken()
+		if err != nil {
+			return accountPageData{}, err
+		}
+		// Only the first view stores a token; a concurrent one reuses the
+		// stored value so both pages show the same link.
+		stored, err := s.db.SetFeedTokenIfEmpty(r.Context(), user.ID, token)
+		if err != nil {
+			return accountPageData{}, err
+		}
+		user.FeedToken = stored
+	}
+
 	data := accountPageData{
 		PageData:     s.pageData(r, "Account"),
 		Joined:       user.CreatedAt.Format("2006-01-02"),
@@ -83,6 +101,22 @@ func (s *Server) handleSetTheme(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.db.SetTheme(r.Context(), currentUser(r).ID, theme); err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	http.Redirect(w, r, "/account", http.StatusSeeOther)
+}
+
+// handleResetFeedToken replaces the user's feed token, which makes every old
+// feed URL stop working.
+func (s *Server) handleResetFeedToken(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GenerateToken()
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	if err := s.db.SetFeedToken(r.Context(), currentUser(r).ID, token); err != nil {
 		s.serverError(w, err)
 		return
 	}

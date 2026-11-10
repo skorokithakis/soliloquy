@@ -54,6 +54,19 @@
 		</form>
 	</section>
 
+	<section class="panel account-section" aria-labelledby="feeds-heading">
+		<h2 class="label" id="feeds-heading">feeds</h2>
+		<p class="hint">RSS links for new threads and comments. Keep them secret: anyone with a link can read the forum, even when it is private.</p>
+		<dl class="kv feed-links">
+			<dt>threads</dt><dd><a class="underline" href="{{.ThreadsFeedURL}}">{{.ThreadsFeedURL}}</a></dd>
+			<dt>comments</dt><dd><a class="underline" href="{{.CommentsFeedURL}}">{{.CommentsFeedURL}}</a></dd>
+		</dl>
+		<form class="inline-form" method="post" action="/account/feeds/reset">
+			<button class="btn" type="submit">reset feed link</button>
+		</form>
+		<p class="hint">Resetting replaces both links. The old ones stop working immediately.</p>
+	</section>
+
 	<section class="dz account-section" aria-labelledby="delete-heading">
 		<h2 id="delete-heading">delete my account</h2>
 		<p>This cannot be undone. When you delete your account:</p>

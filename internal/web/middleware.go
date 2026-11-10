@@ -99,6 +99,14 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 			}
 		}
 
+		if feedPath(r) {
+			if !s.allowFeed(w, r) {
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		if publicPath(r) {
 			next.ServeHTTP(w, r)
 			return
@@ -123,6 +131,40 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// allowFeed applies the access rule for feed requests. A session, a token
+// belonging to an active user, or a public forum grants access. Anything else
+// is a plain 404: feed readers cannot follow a login redirect, so the request
+// must fail instead. The token is read-only and never creates a session or
+// sets a cookie.
+func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) bool {
+	if currentUser(r) != nil {
+		return true
+	}
+
+	if token := r.URL.Query().Get("token"); token != "" {
+		user, err := s.db.UserByFeedToken(r.Context(), token)
+		if err != nil {
+			s.serverError(w, err)
+			return false
+		}
+		if user.Active() {
+			return true
+		}
+	}
+
+	settings, err := s.db.Settings(r.Context())
+	if err != nil {
+		s.serverError(w, err)
+		return false
+	}
+	if settings.Public {
+		return true
+	}
+
+	http.NotFound(w, r)
+	return false
 }
 
 func publicPath(r *http.Request) bool {

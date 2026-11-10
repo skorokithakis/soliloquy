@@ -9,6 +9,8 @@
 	<link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
 	<link rel="icon" href="/favicon.ico" sizes="16x16 32x32" type="image/x-icon">
 	<link rel="apple-touch-icon" href="{{static "apple-touch-icon.png"}}" sizes="180x180">
+	{{if .ThreadsFeedURL}}<link rel="alternate" type="application/rss+xml" title="{{.ForumName}} threads" href="{{.ThreadsFeedURL}}">{{end}}
+	{{if .CommentsFeedURL}}<link rel="alternate" type="application/rss+xml" title="{{.ForumName}} comments" href="{{.CommentsFeedURL}}">{{end}}
 	<title>{{.Title}} · {{.ForumName}}</title>
 	<meta property="og:title" content="{{.Title}}">
 	<meta property="og:site_name" content="{{.ForumName}}">

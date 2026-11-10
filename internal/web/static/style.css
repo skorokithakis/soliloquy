@@ -1515,6 +1515,14 @@ a.btn.pri:hover {
 	margin: 0 0 10px;
 }
 
+.feed-links {
+	margin-bottom: 12px;
+}
+
+.feed-links dd {
+	overflow-wrap: anywhere;
+}
+
 .account-form {
 	display: flex;
 	flex-direction: column;
