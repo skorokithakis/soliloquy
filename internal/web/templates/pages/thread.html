@@ -27,7 +27,7 @@
 				<a href="#comments">{{.Thread.CommentText}}</a>
 				{{if .Edited}}<span>·</span><span>edited</span>{{end}}
 				{{if .CanEdit}}<span>·</span><a href="/threads/{{.Thread.PublicID}}/edit">edit</a>{{end}}
-				{{if .CanDelete}}<span>·</span><form class="inline-form" method="post" action="/threads/{{.Thread.PublicID}}/delete"><button type="submit">delete</button></form>{{end}}
+				{{if .CanDelete}}<span>·</span><form class="inline-form" method="post" action="/threads/{{.Thread.PublicID}}/delete" data-confirm="Delete this thread and all its comments? This cannot be undone."><button type="submit">delete</button></form>{{end}}
 			</div>
 			{{if .Body}}<div class="md thread-body">{{.Body}}</div>{{end}}
 		</div>

@@ -1,3 +1,18 @@
+// Ask before submitting a form whose data-confirm attribute holds the
+// question. The listener is on the document so forms inserted later, such as
+// comment delete forms in live updates, are covered too. Without JavaScript
+// the forms submit without a question.
+document.addEventListener("submit", (event) => {
+	const form = event.target;
+	if (!(form instanceof HTMLFormElement) || !form.dataset.confirm) {
+		return;
+	}
+
+	if (!window.confirm(form.dataset.confirm)) {
+		event.preventDefault();
+	}
+});
+
 // Vote without a page reload. The forms still work as plain POSTs when
 // JavaScript is unavailable. A failed request reloads the page instead of
 // resubmitting, because the vote may already have been committed.

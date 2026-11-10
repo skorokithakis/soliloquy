@@ -287,7 +287,11 @@ func TestEditAndDeleteCommentPermissions(t *testing.T) {
 	}
 
 	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "")
-	for _, want := range []string{"edited <strong>text</strong>", "edited"} {
+	for _, want := range []string{
+		"edited <strong>text</strong>",
+		"edited",
+		`data-confirm="Delete this comment? This cannot be undone. Replies to it stay."`,
+	} {
 		if !strings.Contains(page.Body.String(), want) {
 			t.Errorf("thread page does not contain %q after edit", want)
 		}

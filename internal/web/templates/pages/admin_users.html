@@ -62,7 +62,7 @@
 								<button class="x" type="submit">make admin</button>
 							</form>
 							{{end}}
-							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable">
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable" data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled. This cannot be undone.">
 								<button class="x d" type="submit">disable</button>
 							</form>
 						</div>

@@ -147,7 +147,7 @@
 						<input class="inp wide" type="text" readonly aria-label="Notifications feed URL" value="{{.NotificationsFeedURL}}">
 						<button class="btn" type="button" data-copy="{{.NotificationsFeedURL}}" aria-label="Copy notifications feed URL">copy</button>
 					</div>
-					<form class="row feeds-actions" method="post" action="/account/feeds/reset">
+					<form class="row feeds-actions" method="post" action="/account/feeds/reset" data-confirm="Make a new token? Your current feed links and API calls with the old token stop working.">
 						<button class="btn" type="submit">make a new token</button>
 						<span class="where">all three links and API calls with the old token stop working at once</span>
 					</form>

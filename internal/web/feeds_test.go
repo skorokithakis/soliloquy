@@ -480,6 +480,7 @@ func TestAccountFeedsSectionCreatesAndResetsToken(t *testing.T) {
 		"/feeds/comments?token=",
 		"/feeds/notifications?token=",
 		`action="/account/feeds/reset"`,
+		`data-confirm="Make a new token? Your current feed links and API calls with the old token stop working."`,
 		"make a new token",
 		`data-copy="` + testBaseURL + `/feeds/threads?token=`,
 	} {

@@ -346,7 +346,12 @@ func TestAdminEditsThread(t *testing.T) {
 	}
 	body := page.Body.String()
 	meta := metaLine(t, body)
-	for _, want := range []string{`href="` + editPath + `">edit</a>`, `action="/threads/` + thread.PublicID + `/delete"`, "edited"} {
+	for _, want := range []string{
+		`href="` + editPath + `">edit</a>`,
+		`action="/threads/` + thread.PublicID + `/delete"`,
+		`data-confirm="Delete this thread and all its comments? This cannot be undone."`,
+		"edited",
+	} {
 		if !strings.Contains(meta, want) {
 			t.Errorf("admin meta line does not contain %q: %q", want, meta)
 		}

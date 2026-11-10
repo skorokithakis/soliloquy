@@ -35,7 +35,7 @@
 		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply">reply</a>{{end}}
 		<a href="#c{{.PublicID}}">link</a>
 		{{if .IsAuthor}}<a href="/comments/{{.PublicID}}/edit">edit</a>{{end}}
-		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.PublicID}}/delete"><button type="submit">delete</button></form>{{end}}
+		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.PublicID}}/delete" data-confirm="Delete this comment? This cannot be undone. Replies to it stay."><button type="submit">delete</button></form>{{end}}
 	</div>
 	{{end}}
 	<ol class="kids" data-parent-id="{{.PublicID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>

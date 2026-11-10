@@ -45,6 +45,7 @@ func TestAdminUsersPage(t *testing.T) {
 		fmt.Sprintf(`action="/admin/users/%d/reset"`, dave.ID),
 		fmt.Sprintf(`action="/admin/users/%d/grant-admin"`, dave.ID),
 		fmt.Sprintf(`action="/admin/users/%d/disable"`, dave.ID),
+		`data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled. This cannot be undone."`,
 		`title="You cannot remove your own admin rights"`,
 	} {
 		if !strings.Contains(body, want) {
