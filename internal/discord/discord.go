@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -44,16 +46,35 @@ func (e *StatusError) Error() string {
 	return "discord returned " + e.Status
 }
 
-// RequestError wraps a transport error. Its message deliberately omits the
-// underlying error because that text contains the webhook URL, which is a
-// secret.
+// RequestError wraps a transport error. Its message never contains the webhook
+// URL, which is a secret, but it does explain the cause so the admin can see
+// why delivery failed.
 type RequestError struct {
 	Err error
 }
 
-func (e *RequestError) Error() string { return "webhook request failed" }
+func (e *RequestError) Error() string {
+	return "webhook request failed: " + safeReason(e.Err)
+}
 
 func (e *RequestError) Unwrap() error { return e.Err }
+
+// safeReason returns the cause of a failed HTTP request without the URL.
+// http.Client wraps errors in *url.Error, whose message repeats the URL, so
+// the wrapper is unwrapped until only the cause is left.
+func safeReason(err error) string {
+	for err != nil {
+		var urlErr *url.Error
+		if !errors.As(err, &urlErr) {
+			break
+		}
+		err = urlErr.Err
+	}
+	if err == nil {
+		return "unknown error"
+	}
+	return err.Error()
+}
 
 // ThreadMessage is the data in a new-thread notification.
 type ThreadMessage struct {

@@ -81,9 +81,30 @@ func TestSendTransportErrorHidesURL(t *testing.T) {
 	if strings.Contains(err.Error(), webhookURL) {
 		t.Errorf("error %q contains the webhook URL", err)
 	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("error %q does not explain the cause", err)
+	}
 	var requestErr *RequestError
 	if !errors.As(err, &requestErr) {
 		t.Errorf("error = %v, want a RequestError", err)
+	}
+}
+
+func TestSendTLSFailureExplainsReason(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+
+	// The default client does not trust the test server's certificate, so this
+	// fails the way a scratch container without CA certificates fails.
+	err := NewClient().Send(context.Background(), server.URL, "hello")
+	if err == nil {
+		t.Fatal("Send to an untrusted server succeeded")
+	}
+	if !strings.Contains(err.Error(), "certificate") {
+		t.Errorf("error %q does not explain the TLS failure", err)
+	}
+	if strings.Contains(err.Error(), server.URL) {
+		t.Errorf("error %q contains the webhook URL", err)
 	}
 }
 

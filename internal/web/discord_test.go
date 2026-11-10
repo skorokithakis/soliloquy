@@ -217,3 +217,87 @@ func TestCreateThreadPostsToDiscordWebhooks(t *testing.T) {
 		t.Error("a failed send changed the thread redirect")
 	}
 }
+
+func TestAdminDiscordTestRequiresAdmin(t *testing.T) {
+	server := newTestServer(t)
+	user := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, user)
+
+	response := postForm(t, server, "/admin/settings/discord-test", nil, cookie)
+	if response.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
+func TestAdminDiscordTestReportsResults(t *testing.T) {
+	server := newTestServer(t)
+	admin := createTestUser(t, server, "admin", true)
+	cookie := signIn(t, server, admin)
+	sender := newFakeWebhookSender()
+	server.webhooks = sender
+
+	response := postForm(t, server, "/admin/settings/discord-test", nil, cookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if !strings.Contains(response.Body.String(), "No webhook URLs are configured") {
+		t.Error("result does not say that no webhooks are configured")
+	}
+
+	webhooks := []string{
+		"https://discord.com/api/webhooks/1/aaa",
+		"https://discord.com/api/webhooks/2/bbb",
+	}
+	saveDiscordWebhooks(t, server, webhooks)
+
+	response = postForm(t, server, "/admin/settings/discord-test", nil, cookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if !strings.Contains(response.Body.String(), "Test message sent to all 2 webhooks.") {
+		t.Errorf("result does not report success: %s", response.Body.String())
+	}
+	if messages := sender.received(t, 2); len(messages) != 2 {
+		t.Errorf("sent %d test messages, want 2", len(messages))
+	}
+
+	// The second webhook rejects the test message. The result names it by
+	// position and does not repeat its URL.
+	sender.errs[webhooks[1]] = &discord.StatusError{Status: "500 Internal Server Error", Code: http.StatusInternalServerError}
+	response = postForm(t, server, "/admin/settings/discord-test", nil, cookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "#2 (HTTP 500)") {
+		t.Errorf("result does not name the failed webhook: %s", body)
+	}
+	// The page shows the saved URLs in the textarea, but the result itself
+	// must not repeat them.
+	result := body[strings.Index(body, "discord test"):]
+	result = result[:strings.Index(result, "</div>")]
+	if strings.Contains(result, webhooks[1]) {
+		t.Errorf("result repeats the webhook URL: %s", result)
+	}
+
+	// A transport failure explains the cause without repeating the URL. The
+	// *url.Error wrapper is where the URL appears, so only its cause is shown.
+	sender.errs[webhooks[1]] = &discord.RequestError{Err: &url.Error{
+		Op:  "Post",
+		URL: webhooks[1],
+		Err: errors.New("tls: failed to verify certificate: x509: certificate signed by unknown authority"),
+	}}
+	response = postForm(t, server, "/admin/settings/discord-test", nil, cookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body = response.Body.String()
+	result = body[strings.Index(body, "discord test"):]
+	result = result[:strings.Index(result, "</div>")]
+	if !strings.Contains(result, "tls: failed to verify certificate") {
+		t.Errorf("result does not explain the transport failure: %s", result)
+	}
+	if strings.Contains(result, webhooks[1]) {
+		t.Errorf("result repeats the webhook URL: %s", result)
+	}
+}

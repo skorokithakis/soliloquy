@@ -1534,6 +1534,13 @@ a.btn.pri:hover {
 	max-width: 280px;
 }
 
+/* Admin settings fields use the full width of their panel; the account page
+   keeps its narrower inputs. */
+.account-form.admin-settings-form .inp,
+.account-form.admin-settings-form textarea {
+	max-width: none;
+}
+
 /* Panels inside the form (admin settings) take the full width; the
    flex-start alignment above would shrink each one to its content. */
 .account-form > .panel {

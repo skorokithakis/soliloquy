@@ -101,7 +101,7 @@ func discordFailureReason(err error) string {
 	if errors.As(err, &statusErr) {
 		return "HTTP " + strconv.Itoa(statusErr.Code)
 	}
-	return "request failed"
+	return err.Error()
 }
 
 // validateDiscordWebhooks trims the textarea value and checks that every
