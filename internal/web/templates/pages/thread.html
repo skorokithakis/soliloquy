@@ -37,7 +37,7 @@
 	<p class="login-prompt"><a class="btn" href="/login">Log in to comment</a></p>
 	{{else}}
 	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.PublicID}}/comments" aria-label="Add a comment">
-		{{if .CommentError}}<p class="error" role="alert">{{.CommentError}}</p>{{end}}
+		{{if .CommentError}}<p class="err" role="alert">{{.CommentError}}</p>{{end}}
 		<div class="editor">
 			<textarea name="body" maxlength="20000" required aria-label="Comment" placeholder="Add a comment. Markdown works. Type @ to mention someone.">{{.CommentBody}}</textarea>
 			<div class="edbar">

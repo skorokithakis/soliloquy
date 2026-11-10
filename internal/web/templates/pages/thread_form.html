@@ -1,7 +1,9 @@
 {{define "content"}}
 <div class="thread-form-page">
-	<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
-	{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
+	</div>
+	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 
 	<div class="thread-form-layout">
 		<form class="thread-form" method="post" action="{{.Action}}" aria-label="{{.Heading}}">

@@ -18,7 +18,9 @@
 
 {{define "content"}}
 <div class="notifications-page">
-	<h1 class="pt"><span class="p">~/</span>notifications</h1>
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>notifications</h1>
+	</div>
 
 	{{if .Unread}}
 	<div class="label section-label">unread · {{.UnreadCount}}</div>

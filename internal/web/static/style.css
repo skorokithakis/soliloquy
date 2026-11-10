@@ -311,10 +311,6 @@ input[type="button"]:disabled {
 	margin: 0;
 }
 
-.error {
-	color: var(--danger);
-}
-
 .hint {
 	font: 12px var(--font-mono);
 	color: var(--muted);
@@ -1227,7 +1223,6 @@ a.btn.pri:hover {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 28px;
-	margin-top: 16px;
 	align-items: flex-start;
 }
 
@@ -2182,10 +2177,6 @@ a.btn.pri:hover {
 
 	.front-page .tt {
 		font-size: 15.5px;
-	}
-
-	.notifications-page .pt {
-		margin: 10px 0 4px;
 	}
 
 	.notifications-page .section-label {

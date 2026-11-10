@@ -1,7 +1,9 @@
 {{define "content"}}
 <div class="comment-form-page">
-	<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
-	{{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>{{.Heading}}</h1>
+	</div>
+	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 	<form method="post" action="{{.Action}}">
 		<div class="editor">
 			<textarea name="body" rows="8" maxlength="20000" required autofocus aria-label="{{.Heading}}">{{.FormBody}}</textarea>
