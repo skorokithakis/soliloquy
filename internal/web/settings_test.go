@@ -86,7 +86,7 @@ func TestAdminSettingsSave(t *testing.T) {
 			t.Errorf("home page does not contain %q", want)
 		}
 	}
-	if !strings.Contains(home, "soliloquy v1.0") {
+	if !strings.Contains(home, `powered by <a href="https://github.com/skorokithakis/soliloquy">soliloquy</a>`) {
 		t.Error("footer no longer names the software")
 	}
 

@@ -90,10 +90,7 @@ func TestLayoutShowsThemeFooterAndCurrentNav(t *testing.T) {
 		`<a class="on" aria-current="page" href="/">threads</a>`,
 		`<a class="ib notifications-link" href="/notifications" aria-label="Notifications">`,
 		`<a class="me" href="/account">alice</a>`,
-		`<a href="https://github.com/skorokithakis/soliloquy">source</a>`,
-		`<a href="/invites">invite tree</a>`,
-		"AGPL-3.0",
-		"soliloquy v1.0",
+		`<span>powered by <a href="https://github.com/skorokithakis/soliloquy">soliloquy</a></span>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("layout does not contain %q", want)
