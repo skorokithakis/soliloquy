@@ -979,6 +979,12 @@ a.btn.pri:hover {
 	min-width: 0;
 }
 
+/* Without a pagination bar the footer's top border follows the list, so the
+   last row drops its own border to avoid two lines. */
+.front-page .list:last-child .row:last-child {
+	border-bottom: 0;
+}
+
 .pagination {
 	display: flex;
 	align-items: center;
