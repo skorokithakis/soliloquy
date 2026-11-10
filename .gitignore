@@ -1,1 +1,3 @@
 .symphony-cache/
+dist/
+.tickets/
