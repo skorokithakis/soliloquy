@@ -28,8 +28,15 @@ type site struct {
 	// matches www.youtube.com and m.youtube.com but not notyoutube.com.
 	hosts []string
 
-	// title tries to return the page's title without loading it. A nil func,
-	// an error or an empty title falls back to the normal page fetch.
+	// oEmbed is the site's oEmbed endpoint, which returns the page's title
+	// without loading it. An error or an empty title falls back to the normal
+	// page fetch.
+	oEmbed string
+
+	// title tries to return the page's title without loading it. It takes
+	// precedence over oEmbed and exists for sites whose API needs custom
+	// code. A nil func, an error or an empty title falls back to the normal
+	// page fetch.
 	title func(ctx context.Context, fetcher *Fetcher, pageURL *url.URL) (string, error)
 
 	// junkTitles are titles, after cleanTitle, that mean the page had no real
@@ -42,19 +49,71 @@ type site struct {
 var sites = []site{
 	{
 		hosts:      []string{"youtube.com", "youtu.be"},
-		title:      youTubeTitle,
+		oEmbed:     youTubeOEmbedEndpoint,
 		junkTitles: []string{"- YouTube"},
+	},
+	{
+		hosts:  []string{"vimeo.com"},
+		oEmbed: "https://vimeo.com/api/oembed.json",
 	},
 	{
 		// Reddit serves some requests a bot-check page titled "Reddit".
 		hosts:      []string{"reddit.com"},
+		oEmbed:     "https://www.reddit.com/oembed",
 		junkTitles: []string{"Reddit"},
 	},
-}
-
-// youTubeTitle fetches a video's title from YouTube's oEmbed API.
-func youTubeTitle(ctx context.Context, fetcher *Fetcher, pageURL *url.URL) (string, error) {
-	return fetcher.fetchOEmbed(ctx, youTubeOEmbedEndpoint, pageURL.String())
+	{
+		hosts:  []string{"soundcloud.com"},
+		oEmbed: "https://soundcloud.com/oembed",
+	},
+	{
+		hosts:  []string{"open.spotify.com"},
+		oEmbed: "https://open.spotify.com/oembed",
+	},
+	{
+		hosts:  []string{"flickr.com", "flic.kr"},
+		oEmbed: "https://www.flickr.com/services/oembed",
+	},
+	{
+		hosts:  []string{"tiktok.com"},
+		oEmbed: "https://www.tiktok.com/oembed",
+	},
+	{
+		hosts:  []string{"dailymotion.com", "dai.ly"},
+		oEmbed: "https://www.dailymotion.com/services/oembed",
+	},
+	{
+		hosts:  []string{"ted.com"},
+		oEmbed: "https://www.ted.com/services/v1/oembed.json",
+	},
+	{
+		hosts:  []string{"mixcloud.com"},
+		oEmbed: "https://app.mixcloud.com/oembed/",
+	},
+	{
+		hosts:  []string{"streamable.com"},
+		oEmbed: "https://api.streamable.com/oembed.json",
+	},
+	{
+		hosts:  []string{"speakerdeck.com"},
+		oEmbed: "https://speakerdeck.com/oembed.json",
+	},
+	{
+		hosts:  []string{"giphy.com"},
+		oEmbed: "https://giphy.com/services/oembed",
+	},
+	{
+		hosts:  []string{"scribd.com"},
+		oEmbed: "https://www.scribd.com/services/oembed",
+	},
+	{
+		hosts:  []string{"loom.com"},
+		oEmbed: "https://www.loom.com/v1/oembed",
+	},
+	{
+		hosts:  []string{"slideshare.net"},
+		oEmbed: "https://www.slideshare.net/api/oembed/2",
+	},
 }
 
 // siteFor returns the rule for host, or nil when no rule matches.

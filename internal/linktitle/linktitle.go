@@ -101,8 +101,15 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (string, error) {
 	defer cancel()
 
 	rule := f.siteFor(parsed.Hostname())
-	if rule != nil && rule.title != nil {
-		title, err := rule.title(ctx, f, parsed)
+	if rule != nil {
+		var title string
+		var err error
+		switch {
+		case rule.title != nil:
+			title, err = rule.title(ctx, f, parsed)
+		case rule.oEmbed != "":
+			title, err = f.fetchOEmbed(ctx, rule.oEmbed, parsed.String())
+		}
 		if err == nil && title != "" {
 			return title, nil
 		}

@@ -255,7 +255,7 @@ func TestFetchYouTubeOEmbedFallsBackToPage(t *testing.T) {
 			// Point the real YouTube rule at the test page server.
 			fetcher.sites = []site{{
 				hosts:      []string{"127.0.0.1"},
-				title:      youTubeTitle,
+				oEmbed:     youTubeOEmbedEndpoint,
 				junkTitles: []string{"- YouTube"},
 			}}
 
