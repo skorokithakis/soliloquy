@@ -267,6 +267,207 @@ func TestFeedTokenStopsWorkingForInactiveUsers(t *testing.T) {
 	}
 }
 
+func TestNotificationsFeedListsOnlyOwnNotifications(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	ctx := context.Background()
+	base := time.Unix(1_700_000_000, 0).UTC()
+
+	thread := createThreadDirect(t, server, alice, "Thread title", "", "thread body", base)
+	otherThread := createThreadDirect(t, server, alice, "Other thread", "", "other body", base.Add(time.Minute))
+	reply := createCommentDirect(t, server, thread, bob, nil, "reply **body**", base.Add(2*time.Minute))
+	topLevel := createCommentDirect(t, server, otherThread, carol, nil, "top level body", base.Add(3*time.Minute))
+
+	// Newest first: mention, thread comment, reply.
+	replyNotification := mustCreateNotification(t, server, alice.ID, bob.ID, db.NotificationReply, thread.ID, &reply.ID, base.Add(4*time.Minute))
+	commentNotification := mustCreateNotification(t, server, alice.ID, carol.ID, db.NotificationThreadComment, otherThread.ID, &topLevel.ID, base.Add(5*time.Minute))
+	mentionNotification := mustCreateNotification(t, server, alice.ID, bob.ID, db.NotificationMention, thread.ID, nil, base.Add(6*time.Minute))
+
+	// Bob's own notification must not leak into Alice's feed.
+	if _, err := server.db.CreateNotification(ctx, bob.ID, alice.ID, db.NotificationReply, thread.ID, &reply.ID, base.Add(7*time.Minute)); err != nil {
+		t.Fatalf("CreateNotification for bob: %v", err)
+	}
+
+	for _, user := range []*db.User{alice, bob} {
+		if err := server.db.SetFeedToken(ctx, user.ID, user.Username+"-token"); err != nil {
+			t.Fatalf("set feed token: %v", err)
+		}
+	}
+
+	response := doRequest(t, server, http.MethodGet, feedURLWithToken("/feeds/notifications", "alice-token"), nil, nil, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("feed status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if got := response.Header().Get("Content-Type"); got != "application/rss+xml; charset=utf-8" {
+		t.Errorf("Content-Type = %q", got)
+	}
+	if cookies := response.Result().Cookies(); len(cookies) != 0 {
+		t.Errorf("feed set cookies: %v", cookies)
+	}
+
+	feed := parseFeed(t, response)
+	if feed.Channel.Title != "soliloquy notifications" {
+		t.Errorf("channel title = %q", feed.Channel.Title)
+	}
+	if len(feed.Channel.Items) != 3 {
+		t.Fatalf("feed has %d items, want 3:\n%s", len(feed.Channel.Items), response.Body.String())
+	}
+
+	want := []struct {
+		notification *db.Notification
+		title        string
+		link         string
+		body         string
+	}{
+		{
+			notification: mentionNotification,
+			title:        "bob mentioned you in Thread title",
+			link:         testBaseURL + threadPath(thread.PublicID),
+			body:         "thread body",
+		},
+		{
+			notification: commentNotification,
+			title:        "carol commented on your thread Other thread",
+			link:         testBaseURL + commentAnchorPath(otherThread.PublicID, topLevel.PublicID),
+			body:         "top level body",
+		},
+		{
+			notification: replyNotification,
+			title:        "bob replied to you in Thread title",
+			link:         testBaseURL + commentAnchorPath(thread.PublicID, reply.PublicID),
+			body:         "reply <strong>body</strong>",
+		},
+	}
+
+	guids := make(map[string]struct{}, len(feed.Channel.Items))
+	for i, item := range feed.Channel.Items {
+		expected := want[i]
+		if item.Title != expected.title {
+			t.Errorf("item %d title = %q, want %q", i, item.Title, expected.title)
+		}
+		if item.Link != expected.link {
+			t.Errorf("item %d link = %q, want %q", i, item.Link, expected.link)
+		}
+		if !strings.Contains(item.Description, expected.body) {
+			t.Errorf("item %d description = %q, want it to contain %q", i, item.Description, expected.body)
+		}
+		if wantTime := rssTime(expected.notification.CreatedAt); item.PubDate != wantTime {
+			t.Errorf("item %d pubDate = %q, want %q", i, item.PubDate, wantTime)
+		}
+		if item.GUID.IsPermaLink != "false" {
+			t.Errorf("item %d GUID is a permalink: %+v", i, item.GUID)
+		}
+		if item.GUID.Value == item.Link {
+			t.Errorf("item %d GUID is the item link %q, want a notification-specific GUID", i, item.GUID.Value)
+		}
+		if _, seen := guids[item.GUID.Value]; seen {
+			t.Errorf("item %d repeats a GUID: %q", i, item.GUID.Value)
+		}
+		guids[item.GUID.Value] = struct{}{}
+	}
+
+	for _, want := range []string{"<dc:creator>bob</dc:creator>", "<dc:creator>carol</dc:creator>"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("feed does not contain %q", want)
+		}
+	}
+	if strings.Contains(response.Body.String(), "<dc:creator>alice</dc:creator>") {
+		t.Error("feed contains the recipient as an actor")
+	}
+
+	// Reading the feed must not mark anything read.
+	unread, err := server.db.CountUnreadNotifications(ctx, alice.ID)
+	if err != nil {
+		t.Fatalf("CountUnreadNotifications: %v", err)
+	}
+	if unread != 3 {
+		t.Errorf("unread notifications after reading the feed = %d, want 3", unread)
+	}
+}
+
+func TestNotificationsFeedAccessRequiresUser(t *testing.T) {
+	for _, public := range []bool{false, true} {
+		name := "private forum"
+		if public {
+			name = "public forum"
+		}
+		t.Run(name, func(t *testing.T) {
+			server := newTestServer(t)
+			alice := createTestUser(t, server, "alice", false)
+			disabled := createTestUser(t, server, "disabled", false)
+			deleted := createTestUser(t, server, "deleted", false)
+			createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+
+			ctx := context.Background()
+			for user, token := range map[*db.User]string{
+				alice:    "alice-token",
+				disabled: "disabled-token",
+				deleted:  "deleted-token",
+			} {
+				if err := server.db.SetFeedToken(ctx, user.ID, token); err != nil {
+					t.Fatalf("set feed token: %v", err)
+				}
+			}
+			if _, err := server.db.DisableUser(ctx, disabled.ID, server.now()); err != nil {
+				t.Fatalf("disable user: %v", err)
+			}
+			if err := server.db.DeleteAccount(ctx, deleted.ID, server.now()); err != nil {
+				t.Fatalf("delete account: %v", err)
+			}
+
+			setPublic(t, server, public)
+			cookie := signIn(t, server, alice)
+
+			tests := map[string]struct {
+				path   string
+				cookie *http.Cookie
+				want   int
+			}{
+				"active user token":   {feedURLWithToken("/feeds/notifications", "alice-token"), nil, http.StatusOK},
+				"session":             {"/feeds/notifications", cookie, http.StatusOK},
+				"invalid token":       {feedURLWithToken("/feeds/notifications", "wrong-token"), nil, http.StatusNotFound},
+				"disabled user token": {feedURLWithToken("/feeds/notifications", "disabled-token"), nil, http.StatusNotFound},
+				"deleted user token":  {feedURLWithToken("/feeds/notifications", "deleted-token"), nil, http.StatusNotFound},
+				"no token":            {"/feeds/notifications", nil, http.StatusNotFound},
+			}
+			for testName, test := range tests {
+				t.Run(testName, func(t *testing.T) {
+					response := doRequest(t, server, http.MethodGet, test.path, nil, test.cookie, "")
+					if response.Code != test.want {
+						t.Fatalf("status = %d, want %d", response.Code, test.want)
+					}
+					if test.want == http.StatusNotFound && response.Header().Get("Location") != "" {
+						t.Errorf("refused feed redirected to %q", response.Header().Get("Location"))
+					}
+				})
+			}
+
+			// The public-forum rule still applies to the shared feeds.
+			wantShared := http.StatusOK
+			if !public {
+				wantShared = http.StatusNotFound
+			}
+			for _, path := range []string{"/feeds/threads", "/feeds/comments"} {
+				if response := doRequest(t, server, http.MethodGet, path, nil, nil, ""); response.Code != wantShared {
+					t.Errorf("%s without a token status = %d, want %d", path, response.Code, wantShared)
+				}
+			}
+		})
+	}
+}
+
+func mustCreateNotification(t *testing.T, server *Server, recipientID, actorID int64, kind string, threadID int64, commentID *int64, at time.Time) *db.Notification {
+	t.Helper()
+
+	notification, err := server.db.CreateNotification(context.Background(), recipientID, actorID, kind, threadID, commentID, at)
+	if err != nil {
+		t.Fatalf("CreateNotification: %v", err)
+	}
+	return notification
+}
+
 func TestAccountFeedsSectionCreatesAndResetsToken(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)
@@ -277,6 +478,7 @@ func TestAccountFeedsSectionCreatesAndResetsToken(t *testing.T) {
 		"feeds",
 		"/feeds/threads?token=",
 		"/feeds/comments?token=",
+		"/feeds/notifications?token=",
 		`action="/account/feeds/reset"`,
 		"reset feed link",
 	} {
@@ -318,8 +520,14 @@ func TestAccountFeedsSectionCreatesAndResetsToken(t *testing.T) {
 	if response := doRequest(t, server, http.MethodGet, feedURLWithToken("/feeds/threads", token), nil, nil, ""); response.Code != http.StatusNotFound {
 		t.Errorf("old token status = %d, want %d", response.Code, http.StatusNotFound)
 	}
+	if response := doRequest(t, server, http.MethodGet, feedURLWithToken("/feeds/notifications", token), nil, nil, ""); response.Code != http.StatusNotFound {
+		t.Errorf("old token notifications status = %d, want %d", response.Code, http.StatusNotFound)
+	}
 	if response := doRequest(t, server, http.MethodGet, feedURLWithToken("/feeds/threads", newToken), nil, nil, ""); response.Code != http.StatusOK {
 		t.Errorf("new token status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if response := doRequest(t, server, http.MethodGet, feedURLWithToken("/feeds/notifications", newToken), nil, nil, ""); response.Code != http.StatusOK {
+		t.Errorf("new token notifications status = %d, want %d", response.Code, http.StatusOK)
 	}
 
 	// The reset is a POST, so the origin check applies to it.
@@ -362,5 +570,10 @@ func TestLayoutAdvertisesFeeds(t *testing.T) {
 	}
 	if strings.Contains(visitor, "/feeds/threads?token=") {
 		t.Error("public visitor page advertises a tokenized feed")
+	}
+
+	// The personal notifications feed stays on the account page.
+	if strings.Contains(body, "/feeds/notifications") {
+		t.Error("layout advertises the notifications feed")
 	}
 }

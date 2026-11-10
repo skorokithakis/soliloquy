@@ -190,8 +190,9 @@ func (s *Server) handleCreateThread(w http.ResponseWriter, r *http.Request) {
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
 
-	// Posting to Discord must never delay or fail thread creation.
-	go s.notifyDiscordThread(thread)
+	// Posting to Discord and ntfy must never delay or fail thread creation.
+	s.goBackground(func() { s.notifyDiscordThread(thread) })
+	s.goBackground(func() { s.notifyNtfyThread(thread) })
 
 	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }

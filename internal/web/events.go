@@ -20,6 +20,14 @@ type badgeEvent struct {
 	Count int64 `json:"count"`
 }
 
+// notificationEvent is a personal notification for an open page. URL is the
+// same site-relative link the notifications page uses, and there is no comment
+// body: desktop alerts show Text only.
+type notificationEvent struct {
+	Text string `json:"text"`
+	URL  string `json:"url"`
+}
+
 type commentEvent struct {
 	CommentID string  `json:"comment_id"`
 	ThreadID  string  `json:"thread_id"`
@@ -195,6 +203,18 @@ func (s *Server) publishBadgeCounts(ctx context.Context, recipientIDs []int64) {
 			Data: mustJSON(badgeEvent{Count: count}),
 		})
 	}
+}
+
+// publishNotification sends a new personal notification to the recipient's
+// open pages. Desktop alerts use it; the badge still updates separately.
+func (s *Server) publishNotification(notification *db.Notification) {
+	s.hub.Publish(hub.UserTopic(notification.RecipientID), hub.Event{
+		Name: "notification",
+		Data: mustJSON(notificationEvent{
+			Text: notificationText(notification),
+			URL:  notificationPath(notification.ThreadPublicID, notification.CommentPublicID),
+		}),
+	})
 }
 
 // publishNewComment sends a new comment to everyone watching the thread. The

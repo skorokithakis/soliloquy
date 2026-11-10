@@ -410,6 +410,25 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 
 	select {
 	case event := <-badges:
+		if event.Name != "notification" {
+			t.Fatalf("first user event name = %q, want notification", event.Name)
+		}
+		var payload notificationEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode notification event: %v", err)
+		}
+		if payload.Text != "bob commented on your thread Thread" {
+			t.Errorf("notification text = %q", payload.Text)
+		}
+		if payload.URL != commentAnchorPath(thread.PublicID, commentID) {
+			t.Errorf("notification URL = %q", payload.URL)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no notification event was published")
+	}
+
+	select {
+	case event := <-badges:
 		if event.Name != "badge" {
 			t.Fatalf("badge event name = %q, want badge", event.Name)
 		}
@@ -422,6 +441,89 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("no badge event was published")
+	}
+}
+
+func TestNotificationEventsCarryTextAndURL(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+
+	aliceEvents, unsubscribeAlice := server.hub.Subscribe(hub.UserTopic(alice.ID))
+	defer unsubscribeAlice()
+	bobEvents, unsubscribeBob := server.hub.Subscribe(hub.UserTopic(bob.ID))
+	defer unsubscribeBob()
+
+	thread := createThreadDirect(t, server, alice, "A thread", "", "body", server.now())
+
+	// A top-level comment notifies the thread's author.
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
+		"body": {"top level"},
+	}, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	rootID := anchorPublicID(t, response.Header().Get("Location"))
+	assertNotificationEvent(t, aliceEvents, "bob commented on your thread A thread", commentAnchorPath(thread.PublicID, rootID))
+
+	select {
+	case event := <-bobEvents:
+		t.Fatalf("bob got a notification event for his own comment: %+v", event)
+	default:
+	}
+
+	// A reply notifies the parent comment's author.
+	response = postForm(t, server, "/comments/"+rootID+"/reply", url.Values{
+		"body": {"a reply"},
+	}, aliceCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("reply status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	replyID := anchorPublicID(t, response.Header().Get("Location"))
+	assertNotificationEvent(t, bobEvents, "alice replied to you in A thread", commentAnchorPath(thread.PublicID, replyID))
+
+	// A mention in a thread body has no comment, so it links to the thread.
+	response = postForm(t, server, "/threads", url.Values{
+		"title": {"Mention thread"},
+		"body":  {"hello @alice"},
+	}, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("create thread status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	mentionThreadID := strings.TrimPrefix(response.Header().Get("Location"), "/threads/")
+	assertNotificationEvent(t, aliceEvents, "bob mentioned you in Mention thread", threadPath(mentionThreadID))
+}
+
+func assertNotificationEvent(t *testing.T, events <-chan hub.Event, wantText, wantURL string) {
+	t.Helper()
+
+	// Badge events share the user topic, so step over them until the
+	// notification arrives.
+	for {
+		select {
+		case event := <-events:
+			if event.Name == "badge" {
+				continue
+			}
+			if event.Name != "notification" {
+				t.Fatalf("event name = %q, want notification", event.Name)
+			}
+			var payload notificationEvent
+			if err := json.Unmarshal(event.Data, &payload); err != nil {
+				t.Fatalf("decode notification event: %v", err)
+			}
+			if payload.Text != wantText {
+				t.Errorf("notification text = %q, want %q", payload.Text, wantText)
+			}
+			if payload.URL != wantURL {
+				t.Errorf("notification URL = %q, want %q", payload.URL, wantURL)
+			}
+			return
+		case <-time.After(time.Second):
+			t.Fatal("no notification event was published")
+		}
 	}
 }
 

@@ -17,6 +17,21 @@ type accountPageData struct {
 	InvitedBy    string
 	InvitedCount int64
 	SessionEnds  string
+	// NtfyURL is empty when push notifications are off. It is a secret and is
+	// only ever shown back on the user's own account page.
+	NtfyURL     string
+	NtfyReplies bool
+	NtfyThreads bool
+	// NtfyTestResult is set after the user sends a test push.
+	NtfyTestResult string
+}
+
+// ntfyFormValues is what the notifications form submitted. It survives a
+// validation error so the user does not lose their input.
+type ntfyFormValues struct {
+	URL     string
+	Replies bool
+	Threads bool
 }
 
 // apiDocsPageData is the API documentation page. Its links carry the member's
@@ -50,6 +65,9 @@ func (s *Server) accountPageData(r *http.Request) (accountPageData, error) {
 		Role:         "user",
 		InvitedBy:    "(root)",
 		InvitedCount: 0,
+		NtfyURL:      user.NtfyURL,
+		NtfyReplies:  user.NtfyReplies,
+		NtfyThreads:  user.NtfyThreads,
 	}
 	if user.IsAdmin {
 		data.Role = "admin"
@@ -124,6 +142,23 @@ func (s *Server) renderAccountError(w http.ResponseWriter, r *http.Request, stat
 		return
 	}
 	data.Error = message
+	s.renderStatus(w, status, "account", data)
+}
+
+// renderAccountNtfy re-renders the account page after a push settings error,
+// keeping the submitted values so the user can fix the URL instead of
+// retyping the whole form.
+func (s *Server) renderAccountNtfy(w http.ResponseWriter, r *http.Request, status int, values ntfyFormValues, message, testResult string) {
+	data, err := s.accountPageData(r)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	data.NtfyURL = values.URL
+	data.NtfyReplies = values.Replies
+	data.NtfyThreads = values.Threads
+	data.Error = message
+	data.NtfyTestResult = testResult
 	s.renderStatus(w, status, "account", data)
 }
 

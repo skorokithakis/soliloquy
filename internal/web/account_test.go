@@ -30,6 +30,7 @@ func TestAccountPageShowsDetails(t *testing.T) {
 		`action="/password"`,
 		`action="/account/delete"`,
 		`data-confirm-username="bob"`,
+		`data-desktop-alerts`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("account page does not contain %q", want)

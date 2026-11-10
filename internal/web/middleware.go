@@ -24,12 +24,27 @@ type contextKey int
 const (
 	userContextKey contextKey = iota
 	sessionContextKey
+	// feedTokenUserContextKey holds the active user a feed's ?token= belongs
+	// to. It is separate from userContextKey because the token does not log
+	// the request in and must not create a session or a cookie.
+	feedTokenUserContextKey
 )
 
 // currentUser returns the logged-in user stored by loadUser, or nil.
 func currentUser(r *http.Request) *db.User {
 	user, _ := r.Context().Value(userContextKey).(*db.User)
 	return user
+}
+
+// feedUser returns the user a feed request is for: the user whose feed token
+// was given, or the session user when the token is absent or invalid. It
+// returns nil when the request identifies nobody, which personal feeds treat
+// as a 404 even on a public forum.
+func feedUser(r *http.Request) *db.User {
+	if user, _ := r.Context().Value(feedTokenUserContextKey).(*db.User); user != nil {
+		return user
+	}
+	return currentUser(r)
 }
 
 // currentSession returns the session making the request, or nil.
@@ -100,10 +115,11 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 		}
 
 		if feedPath(r) {
-			if !s.allowFeed(w, r) {
+			feedRequest, allowed := s.allowFeed(w, r)
+			if !allowed {
 				return
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, feedRequest)
 			return
 		}
 
@@ -137,38 +153,41 @@ func (s *Server) loadUser(next http.Handler) http.Handler {
 // a token belonging to an active user, or a public forum grants access.
 // Anything else is a plain 404: feed readers and API clients cannot follow a
 // login redirect, so the request must fail instead. The token is read-only and
-// never creates a session or sets a cookie.
-func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) bool {
-	if currentUser(r) != nil {
-		return true
-	}
-
+// never creates a session or sets a cookie. The returned request carries the
+// token's user in its context so personal feeds can tell whose feed is being
+// read.
+func (s *Server) allowFeed(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
 	if token := r.URL.Query().Get("token"); token != "" {
 		user, err := s.db.UserByFeedToken(r.Context(), token)
 		if err != nil {
 			s.feedAccessError(w, r, err)
-			return false
+			return r, false
 		}
 		if user.Active() {
-			return true
+			ctx := context.WithValue(r.Context(), feedTokenUserContextKey, user)
+			return r.WithContext(ctx), true
 		}
+	}
+
+	if currentUser(r) != nil {
+		return r, true
 	}
 
 	settings, err := s.db.Settings(r.Context())
 	if err != nil {
 		s.feedAccessError(w, r, err)
-		return false
+		return r, false
 	}
 	if settings.Public {
-		return true
+		return r, true
 	}
 
 	if apiPath(r) {
 		writeJSONError(w, http.StatusNotFound, "not found")
-		return false
+		return r, false
 	}
 	http.NotFound(w, r)
-	return false
+	return r, false
 }
 
 // feedAccessError reports an unexpected failure of the feed/API access check.

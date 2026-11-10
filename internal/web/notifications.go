@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/skorokithakis/soliloquy/internal/db"
 	"github.com/skorokithakis/soliloquy/internal/markdown"
@@ -28,10 +29,31 @@ type notificationView struct {
 }
 
 func (n notificationView) Link() string {
-	if n.CommentPublicID != nil {
-		return commentAnchorPath(n.ThreadPublicID, *n.CommentPublicID)
+	return notificationPath(n.ThreadPublicID, n.CommentPublicID)
+}
+
+// notificationPath is the site-relative link for a notification: the anchor
+// of the comment it is about, or the thread for a mention in the thread body.
+func notificationPath(threadPublicID string, commentPublicID *string) string {
+	if commentPublicID != nil {
+		return commentAnchorPath(threadPublicID, *commentPublicID)
 	}
-	return threadPath(n.ThreadPublicID)
+	return threadPath(threadPublicID)
+}
+
+// notificationText is the one-line message for a personal notification. It is
+// shared by browser desktop alerts and push notifications, so it never
+// includes the comment body.
+func notificationText(notification *db.Notification) string {
+	actor := notification.ActorName()
+	switch notification.Kind {
+	case db.NotificationReply:
+		return actor + " replied to you in " + notification.ThreadTitle
+	case db.NotificationThreadComment:
+		return actor + " commented on your thread " + notification.ThreadTitle
+	default:
+		return actor + " mentioned you in " + notification.ThreadTitle
+	}
 }
 
 type notificationsPageData struct {
@@ -130,6 +152,22 @@ func notificationSnippet(bodyHTML string, limit int) string {
 	return text
 }
 
+// createNotification creates a notification and pushes it to the recipient's
+// open pages. Every notification goes through here so a new one always
+// reaches the recipient's live stream, not just the unread badge.
+func (s *Server) createNotification(ctx context.Context, recipientID, actorID int64, kind string, threadID int64, commentID *int64, now time.Time) (*db.Notification, error) {
+	notification, err := s.db.CreateNotification(ctx, recipientID, actorID, kind, threadID, commentID, now)
+	if err != nil {
+		return nil, err
+	}
+	s.publishNotification(notification)
+	// Pushing must never delay or fail the request that caused the
+	// notification, and the request context may already be gone by the time
+	// the push completes.
+	s.goBackground(func() { s.pushNotification(notification) })
+	return notification, nil
+}
+
 // notifyNewComment creates the notifications caused by a new comment: a reply
 // to its parent's author, a top-level comment on the thread's author, and any
 // mentions in its body. It returns the recipients whose badge counts changed.
@@ -151,7 +189,7 @@ func (s *Server) notifyNewComment(ctx context.Context, threadID, threadAuthorID 
 			return nil
 		}
 
-		if _, err := s.db.CreateNotification(ctx, recipientID, comment.AuthorID, kind, threadID, &comment.ID, now); err != nil {
+		if _, err := s.createNotification(ctx, recipientID, comment.AuthorID, kind, threadID, &comment.ID, now); err != nil {
 			return err
 		}
 		recipients = append(recipients, recipientID)
@@ -204,7 +242,7 @@ func (s *Server) notifyMentions(ctx context.Context, actorID, threadID int64, co
 			continue
 		}
 
-		if _, err := s.db.CreateNotification(ctx, user.ID, actorID, db.NotificationMention, threadID, commentID, now); err != nil {
+		if _, err := s.createNotification(ctx, user.ID, actorID, db.NotificationMention, threadID, commentID, now); err != nil {
 			return recipients, err
 		}
 		recipients = append(recipients, user.ID)

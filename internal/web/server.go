@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/skorokithakis/soliloquy/internal/auth"
@@ -21,6 +22,7 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/discord"
 	"github.com/skorokithakis/soliloquy/internal/hub"
 	"github.com/skorokithakis/soliloquy/internal/linktitle"
+	"github.com/skorokithakis/soliloquy/internal/ntfy"
 )
 
 //go:embed templates static
@@ -42,9 +44,31 @@ type Server struct {
 	// webhooks posts new threads to Discord. It is an interface so tests can
 	// replace it and avoid the network.
 	webhooks webhookSender
+	// pushes posts ntfy notifications. It is an interface for the same reason.
+	pushes pushSender
 	// titleFetcher fetches page titles for POST /title. Tests set
 	// AllowPrivateAddresses so it can reach httptest servers on 127.0.0.1.
 	titleFetcher *linktitle.Fetcher
+	// background tracks fire-and-forget work such as webhook deliveries and
+	// pushes. Tests wait for it before closing the database; requests never
+	// wait for it.
+	background sync.WaitGroup
+}
+
+// goBackground runs work in a goroutine and tracks it so tests can wait for it
+// before closing the database. Handlers never wait.
+func (s *Server) goBackground(work func()) {
+	s.background.Add(1)
+	go func() {
+		defer s.background.Done()
+		work()
+	}()
+}
+
+// waitBackground waits for all fire-and-forget work to finish. It exists for
+// tests, which close the database as soon as the test body returns.
+func (s *Server) waitBackground() {
+	s.background.Wait()
 }
 
 // PageData is embedded in every page's template data. The layout uses
@@ -74,8 +98,11 @@ type PageData struct {
 	BaseURL string
 	// ThreadsFeedURL and CommentsFeedURL are the absolute RSS feed URLs for
 	// the layout's alternate links. Empty means the page advertises no feed.
-	ThreadsFeedURL  string
-	CommentsFeedURL string
+	// NotificationsFeedURL is the personal feed shown on the account page; the
+	// layout does not advertise it.
+	ThreadsFeedURL       string
+	CommentsFeedURL      string
+	NotificationsFeedURL string
 	// Visitor marks a public, read-only page rendered for someone without a
 	// session. Those pages use the full header but hide all controls that
 	// need an account.
@@ -136,6 +163,7 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		hub:             hub.New(),
 		now:             time.Now,
 		webhooks:        discord.NewClient(),
+		pushes:          ntfy.NewClient(),
 		titleFetcher:    linktitle.NewFetcher(),
 	}, nil
 }
@@ -189,9 +217,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /search", s.handleSearch)
 	mux.HandleFunc("GET /feeds/threads", s.handleThreadsFeed)
 	mux.HandleFunc("GET /feeds/comments", s.handleCommentsFeed)
+	mux.HandleFunc("GET /feeds/notifications", s.handleNotificationsFeed)
 	mux.HandleFunc("GET /api/threads", s.handleAPIThreads)
 	mux.HandleFunc("GET /api/threads/{id}", s.handleAPIThread)
 	mux.HandleFunc("POST /account/feeds/reset", s.handleResetFeedToken)
+	mux.HandleFunc("POST /account/notifications", s.handleSaveNotificationSettings)
+	mux.HandleFunc("POST /account/notifications/test", s.handleNtfyTest)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
 	mux.Handle("GET /static/", s.static)
@@ -220,7 +251,7 @@ func (s *Server) pageData(r *http.Request, title string) PageData {
 		slog.Error("load settings", "error", err)
 	} else {
 		data.ForumName = settings.ForumName
-		data.ThreadsFeedURL, data.CommentsFeedURL = s.feedURLs(data.CurrentUser, settings.Public)
+		data.ThreadsFeedURL, data.CommentsFeedURL, data.NotificationsFeedURL = s.feedURLs(data.CurrentUser, settings.Public)
 	}
 	if data.CurrentUser != nil {
 		if data.CurrentUser.Theme != "" {

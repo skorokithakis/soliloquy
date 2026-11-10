@@ -31,6 +31,13 @@ type User struct {
 	// FeedToken is the secret in the user's RSS feed URLs. It is empty until
 	// the user first opens their account page.
 	FeedToken string
+	// NtfyURL is the user's ntfy topic URL. It is empty when pushes are off.
+	// The URL is a secret and must not appear in errors or logs.
+	NtfyURL string
+	// NtfyReplies turns pushes for personal notifications on or off.
+	NtfyReplies bool
+	// NtfyThreads turns pushes for every new thread on or off.
+	NtfyThreads bool
 }
 
 // Active reports whether the user may log in and use the site.
@@ -47,7 +54,7 @@ func (u *User) DisplayName() string {
 	return u.Username
 }
 
-const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at, theme, feed_token`
+const userColumns = `id, username, password_hash, is_admin, invited_by, created_at, disabled_at, deleted_at, theme, feed_token, ntfy_url, ntfy_replies, ntfy_threads`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -60,13 +67,15 @@ type execQueryer interface {
 
 func scanUser(row rowScanner) (*User, error) {
 	var (
-		user       User
-		isAdmin    int64
-		invitedBy  sql.NullInt64
-		createdAt  int64
-		disabledAt sql.NullInt64
-		deletedAt  sql.NullInt64
-		feedToken  sql.NullString
+		user        User
+		isAdmin     int64
+		invitedBy   sql.NullInt64
+		createdAt   int64
+		disabledAt  sql.NullInt64
+		deletedAt   sql.NullInt64
+		feedToken   sql.NullString
+		ntfyReplies int64
+		ntfyThreads int64
 	)
 	if err := row.Scan(
 		&user.ID,
@@ -79,6 +88,9 @@ func scanUser(row rowScanner) (*User, error) {
 		&deletedAt,
 		&user.Theme,
 		&feedToken,
+		&user.NtfyURL,
+		&ntfyReplies,
+		&ntfyThreads,
 	); err != nil {
 		return nil, err
 	}
@@ -89,6 +101,8 @@ func scanUser(row rowScanner) (*User, error) {
 	user.DisabledAt = nullTimePtr(disabledAt)
 	user.DeletedAt = nullTimePtr(deletedAt)
 	user.FeedToken = feedToken.String
+	user.NtfyReplies = ntfyReplies != 0
+	user.NtfyThreads = ntfyThreads != 0
 	return &user, nil
 }
 
@@ -154,6 +168,17 @@ func (db *DB) SetFeedTokenIfEmpty(ctx context.Context, userID int64, token strin
 		return "", err
 	}
 	return stored.String, nil
+}
+
+// SetNtfySettings stores a user's push notification settings. An empty topic
+// URL turns pushes off.
+func (db *DB) SetNtfySettings(ctx context.Context, userID int64, topicURL string, replies, threads bool) error {
+	_, err := db.ExecContext(ctx, `
+		UPDATE users
+		SET ntfy_url = ?, ntfy_replies = ?, ntfy_threads = ?
+		WHERE id = ?`,
+		topicURL, boolInt(replies), boolInt(threads), userID)
+	return err
 }
 
 // SetTheme stores a user's theme preference.

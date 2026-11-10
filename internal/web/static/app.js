@@ -502,6 +502,88 @@ if (threadForm) {
 	}
 }
 
+// Desktop alerts for personal notifications. The preference is per browser,
+// so it lives in localStorage rather than the account record.
+const desktopAlertsKey = "desktop-alerts";
+
+function desktopAlertsEnabled() {
+	try {
+		return window.localStorage.getItem(desktopAlertsKey) === "on";
+	} catch (error) {
+		return false;
+	}
+}
+
+function setDesktopAlertsEnabled(enabled) {
+	try {
+		if (enabled) {
+			window.localStorage.setItem(desktopAlertsKey, "on");
+		} else {
+			window.localStorage.removeItem(desktopAlertsKey);
+		}
+	} catch (error) {
+		// Storage is unavailable; leave alerts off.
+	}
+}
+
+// desktopAlertsActive is the effective state: the browser preference is on
+// and the browser still grants permission. Stored "on" alone is not enough,
+// because permission can return to "default", and the button should then ask
+// for it again instead of switching alerts off.
+function desktopAlertsActive() {
+	return (
+		desktopAlertsEnabled() &&
+		"Notification" in window &&
+		Notification.permission === "granted"
+	);
+}
+
+// Account page: the button requests permission from the click, because
+// browsers only show the prompt for a user gesture.
+const desktopAlertsButton = document.querySelector("[data-desktop-alerts]");
+const desktopAlertsStatus = document.querySelector("[data-desktop-alerts-status]");
+if (desktopAlertsButton && desktopAlertsStatus) {
+	const supported = "Notification" in window;
+
+	const updateDesktopAlerts = () => {
+		desktopAlertsStatus.hidden = false;
+		if (!supported) {
+			desktopAlertsStatus.textContent = "not supported";
+			desktopAlertsButton.hidden = true;
+			return;
+		}
+
+		desktopAlertsButton.hidden = false;
+		if (Notification.permission === "denied") {
+			desktopAlertsStatus.textContent = "blocked by the browser";
+			desktopAlertsButton.textContent = "turn on desktop alerts";
+			desktopAlertsButton.disabled = true;
+			return;
+		}
+
+		const enabled = desktopAlertsActive();
+		desktopAlertsStatus.textContent = enabled ? "on in this browser" : "off";
+		desktopAlertsButton.textContent = enabled ? "turn off desktop alerts" : "turn on desktop alerts";
+		desktopAlertsButton.disabled = false;
+	};
+
+	desktopAlertsButton.addEventListener("click", async () => {
+		if (desktopAlertsActive()) {
+			setDesktopAlertsEnabled(false);
+			updateDesktopAlerts();
+			return;
+		}
+
+		const permission = await Notification.requestPermission();
+		if (permission === "granted") {
+			setDesktopAlertsEnabled(true);
+		}
+		updateDesktopAlerts();
+	});
+
+	updateDesktopAlerts();
+}
+
 // Live badge and comment updates over the page's single SSE stream.
 const eventsURL = document.body.dataset.sseUrl;
 if (eventsURL && "EventSource" in window) {
@@ -518,6 +600,22 @@ if (eventsURL && "EventSource" in window) {
 		if (liveIndicator) {
 			liveIndicator.hidden = true;
 		}
+	});
+
+	stream.addEventListener("notification", (event) => {
+		if (!desktopAlertsActive() || !document.hidden) {
+			return;
+		}
+
+		const data = JSON.parse(event.data);
+		// One fixed tag means several open tabs show a single alert.
+		const alert = new Notification(data.text, { tag: "soliloquy-notification" });
+		alert.onclick = () => {
+			// Reuse the forum tab instead of opening another one.
+			window.focus();
+			window.location.href = data.url;
+			alert.close();
+		};
 	});
 
 	stream.addEventListener("badge", (event) => {

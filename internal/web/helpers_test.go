@@ -35,6 +35,9 @@ func newTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
+	// The database cleanup was registered first, so it runs after this one:
+	// let fire-and-forget webhook and push work finish before closing the DB.
+	t.Cleanup(server.waitBackground)
 	return server
 }
 

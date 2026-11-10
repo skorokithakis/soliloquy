@@ -121,7 +121,7 @@ News. New comments and notifications show up live, with no page reload.
 
 ### 3.7 Notifications
 
-In-app only. A user gets a notification when:
+A user gets an in-app notification when:
 
 1. someone replies to their comment,
 2. someone posts a top-level comment on their thread,
@@ -133,6 +133,10 @@ In-app only. A user gets a notification when:
 
 Users do not get notifications for their own actions. There is a
 notifications page and an unread count badge in the header.
+
+Users can also receive their notifications through a personal RSS feed,
+desktop alerts in the browser (while a forum tab is open), and ntfy pushes.
+ntfy can also send a push for each new thread, if the user turns it on.
 
 ### 3.8 Search
 

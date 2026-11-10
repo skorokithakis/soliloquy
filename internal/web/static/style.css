@@ -1577,7 +1577,8 @@ a.btn.pri:hover {
 	gap: 10px;
 }
 
-.theme-form {
+.theme-form,
+.checkbox-row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -1585,7 +1586,8 @@ a.btn.pri:hover {
 }
 
 /* Reset the stacked-form spacing from "form > label" and its input. */
-.theme-form label {
+.theme-form label,
+.checkbox-row label {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -1593,8 +1595,16 @@ a.btn.pri:hover {
 	font: 12px var(--font-mono);
 }
 
-.theme-form input {
+.theme-form input,
+.checkbox-row input {
 	margin: 0;
+}
+
+/* Hints and the push test result are blocks of their own, not shrink-wrapped
+   labels. */
+.account-form > .hint,
+.account-form > .notice {
+	align-self: stretch;
 }
 
 .dz {

@@ -87,8 +87,8 @@ func TestEmbeddedMigrationsRun(t *testing.T) {
 	if err := database.Migrate(context.Background()); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	if version := schemaVersion(t, database); version != 11 {
-		t.Fatalf("user_version = %d, want 11", version)
+	if version := schemaVersion(t, database); version != 12 {
+		t.Fatalf("user_version = %d, want 12", version)
 	}
 }
 

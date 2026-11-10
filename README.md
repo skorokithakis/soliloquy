@@ -10,9 +10,11 @@ A small, lightweight, private forum for work discussions and friendly chats.
 - Admins can rename the forum.
 - Threads with nested comments, like Hacker News and Reddit.
 - New comments and notifications appear live, with no page reload.
-- RSS feeds for new threads and all new comments, with a secret link per member
-  so feeds work on a private forum.
+- RSS feeds for new threads, all new comments and your own notifications, with
+  a secret link per member so feeds work on a private forum.
 - A small read-only JSON API for threads and comments.
+- Notifications outside the forum: desktop alerts in the browser, and phone
+  pushes through [ntfy](https://ntfy.sh/).
 - Markdown, upvotes, @mentions, full-text search and dark mode.
 - One Go binary and one SQLite file, taking up 5 MB of RAM, to make Sam Altman livid.
   Put a reverse proxy in front of it and you are done.
@@ -109,17 +111,20 @@ write sends them to the login page. They do not get live updates.
 
 ### Feeds
 
-The forum has RSS 2.0 feeds for the 50 newest threads and the 50 newest
-comments:
+The forum has RSS 2.0 feeds for the 50 newest threads, the 50 newest
+comments and the 50 newest notifications of one member:
 
 - `/feeds/threads`
 - `/feeds/comments`
+- `/feeds/notifications`
 
-On a public forum anyone can read them. On a private forum each feed needs a
-secret token: members find their personal links in the "feeds" section of
-their account page, and can reset them there if a link leaks. The same token
-keeps working when the forum is switched between public and private. It grants
-read-only access and cannot be used to log in.
+On a public forum anyone can read the threads and comments feeds. The
+notifications feed is personal, so it always needs the member's token. On a
+private forum each feed needs a secret token: members find their personal
+links in the "feeds" section of their account page, and can reset them there
+if a link leaks. The same token keeps working when the forum is switched
+between public and private. It grants read-only access and cannot be used to
+log in.
 
 ### JSON API
 
@@ -138,6 +143,19 @@ needed. A refused request gets a 404.
 
 Members can find the full API reference, with their own tokenized links, at
 `/account/api`. The account page links to it.
+
+### Notifications
+
+Members get an in-app notification for a reply to their comment, a top-level
+comment on their thread, and an @mention. In the "notifications" section of
+the account page they can also:
+
+- Turn on desktop alerts. The browser shows an alert for each new notification
+  while a forum tab is open in the background. This setting is per browser.
+- Set an ntfy topic URL (any `https://` server). The forum sends a push for
+  each new notification, and optionally for each new thread. A push has the
+  author and the thread title, but not the comment text. Anyone who knows the
+  topic name can read it, so use a name that is hard to guess.
 
 ## Reverse proxy
 

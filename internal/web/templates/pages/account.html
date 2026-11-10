@@ -34,6 +34,35 @@
 		</form>
 	</section>
 
+	<section class="panel account-section" aria-labelledby="notifications-heading">
+		<h2 class="label" id="notifications-heading">notifications</h2>
+		<p class="hint">Get a desktop alert when someone replies to you, comments on your thread or mentions you while the forum is open in a background tab. This setting is stored in this browser only.</p>
+		<button class="btn" type="button" data-desktop-alerts hidden>turn on desktop alerts</button>
+		<p class="hint" role="status" data-desktop-alerts-status hidden></p>
+
+		<form class="account-form ntfy-form" method="post" action="/account/notifications">
+			<div class="field">
+				<label for="ntfy-url">ntfy topic URL</label>
+				<input id="ntfy-url" class="inp" type="url" name="ntfy_url" value="{{.NtfyURL}}" placeholder="https://ntfy.sh/a-hard-to-guess-topic" spellcheck="false" autocomplete="off">
+			</div>
+			<div class="checkbox-row">
+				<label><input type="checkbox" name="ntfy_replies"{{if .NtfyReplies}} checked{{end}}> replies to me</label>
+				<label><input type="checkbox" name="ntfy_threads"{{if .NtfyThreads}} checked{{end}}> new threads</label>
+			</div>
+			<p class="hint">Pushes go through ntfy. Anyone who knows the topic name can read it, so use a hard-to-guess name. Leave the URL empty to turn pushes off. The test uses the saved URL, so save first.</p>
+			{{if .NtfyTestResult}}
+			<div class="notice" role="status">
+				<span class="notice-title">ntfy test</span>
+				<span>{{.NtfyTestResult}}</span>
+			</div>
+			{{end}}
+			<div class="account-form-actions">
+				<button class="btn pri" type="submit">save</button>
+				<button class="btn" type="submit" formaction="/account/notifications/test">send test</button>
+			</div>
+		</form>
+	</section>
+
 	<section class="panel account-section" aria-labelledby="password-heading">
 		<h2 class="label" id="password-heading">change password</h2>
 		<form class="account-form" method="post" action="/password">
@@ -56,15 +85,16 @@
 
 	<section class="panel account-section" aria-labelledby="feeds-heading">
 		<h2 class="label" id="feeds-heading">feeds</h2>
-		<p class="hint">RSS links for new threads and comments. The same token also works for the JSON API (<a class="underline" href="/account/api">API documentation</a>). Keep them secret: anyone with a link can read the forum, even when it is private.</p>
+		<p class="hint">RSS links for new threads, comments and your notifications. The same token also works for the JSON API (<a class="underline" href="/account/api">API documentation</a>). Keep them secret: anyone with a link can read the forum, even when it is private.</p>
 		<dl class="kv feed-links">
 			<dt>threads</dt><dd><a class="underline" href="{{.ThreadsFeedURL}}">{{.ThreadsFeedURL}}</a></dd>
 			<dt>comments</dt><dd><a class="underline" href="{{.CommentsFeedURL}}">{{.CommentsFeedURL}}</a></dd>
+			<dt>notifications</dt><dd><a class="underline" href="{{.NotificationsFeedURL}}">{{.NotificationsFeedURL}}</a></dd>
 		</dl>
 		<form class="inline-form" method="post" action="/account/feeds/reset">
 			<button class="btn" type="submit">reset feed link</button>
 		</form>
-		<p class="hint">Resetting replaces both links. The old ones stop working immediately.</p>
+		<p class="hint">Resetting replaces all three links. The old ones stop working immediately.</p>
 	</section>
 
 	<section class="dz account-section" aria-labelledby="delete-heading">

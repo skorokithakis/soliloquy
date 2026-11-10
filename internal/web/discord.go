@@ -44,11 +44,11 @@ func (s *Server) notifyDiscordThread(thread *db.Thread) {
 		Body:   thread.Body,
 	})
 	for index, webhook := range settings.DiscordWebhooks {
-		go func() {
+		s.goBackground(func() {
 			if err := s.webhooks.Send(context.Background(), webhook, content); err != nil {
 				slog.Error("send discord webhook", "webhook", index+1, "error", err)
 			}
-		}()
+		})
 	}
 }
 
