@@ -8,13 +8,13 @@
 	<div class="thread-form-layout">
 		<form class="thread-form" method="post" action="{{.Action}}" aria-label="{{.Heading}}">
 			<div class="field">
-				<label for="thread-title">title</label>
-				<input id="thread-title" class="inp" name="title" value="{{.FormTitle}}" maxlength="200" required autofocus data-counter-name="title">
-				<div class="hint"><span></span><span data-counter="title">{{.TitleLength}} / 200</span></div>
+				<label for="thread-url">url <span>(optional)</span></label>
+				<input id="thread-url" class="inp mono" name="url" type="url" value="{{.FormURL}}" placeholder="https://" autofocus>
 			</div>
 			<div class="field">
-				<label for="thread-url">url <span>(optional)</span></label>
-				<input id="thread-url" class="inp mono" name="url" type="url" value="{{.FormURL}}" placeholder="https://">
+				<label for="thread-title">title</label>
+				<input id="thread-title" class="inp" name="title" value="{{.FormTitle}}" maxlength="200" required data-counter-name="title">
+				<div class="hint"><span data-title-status></span><span data-counter="title">{{.TitleLength}} / 200</span></div>
 			</div>
 			<div class="field">
 				<label for="thread-body">body <span>(optional, markdown)</span></label>

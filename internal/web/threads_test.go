@@ -68,6 +68,30 @@ func TestThreadFormKeepsPreviewHiddenWithoutJS(t *testing.T) {
 	}
 }
 
+func TestThreadFormPutsURLBeforeTitle(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+
+	body := doRequest(t, server, http.MethodGet, "/threads/new", nil, cookie, "").Body.String()
+	urlIndex := strings.Index(body, `id="thread-url"`)
+	titleIndex := strings.Index(body, `id="thread-title"`)
+	if urlIndex < 0 || titleIndex < 0 || urlIndex > titleIndex {
+		t.Fatalf("thread form does not put the url field above the title field")
+	}
+
+	urlTag := body[urlIndex:]
+	urlTag = urlTag[:strings.Index(urlTag, ">")+1]
+	if !strings.Contains(urlTag, "autofocus") {
+		t.Errorf("url input does not have autofocus: %s", urlTag)
+	}
+	titleTag := body[titleIndex:]
+	titleTag = titleTag[:strings.Index(titleTag, ">")+1]
+	if strings.Contains(titleTag, "autofocus") {
+		t.Errorf("title input still has autofocus: %s", titleTag)
+	}
+}
+
 func TestCreateThreadWithURL(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

@@ -20,6 +20,7 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/db"
 	"github.com/skorokithakis/soliloquy/internal/discord"
 	"github.com/skorokithakis/soliloquy/internal/hub"
+	"github.com/skorokithakis/soliloquy/internal/linktitle"
 )
 
 //go:embed templates static
@@ -41,6 +42,9 @@ type Server struct {
 	// webhooks posts new threads to Discord. It is an interface so tests can
 	// replace it and avoid the network.
 	webhooks webhookSender
+	// titleFetcher fetches page titles for POST /title. Tests set
+	// AllowPrivateAddresses so it can reach httptest servers on 127.0.0.1.
+	titleFetcher *linktitle.Fetcher
 }
 
 // PageData is embedded in every page's template data. The layout uses
@@ -128,6 +132,7 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		hub:             hub.New(),
 		now:             time.Now,
 		webhooks:        discord.NewClient(),
+		titleFetcher:    linktitle.NewFetcher(),
 	}, nil
 }
 
@@ -138,6 +143,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /threads/new", s.handleNewThreadPage)
 	mux.HandleFunc("POST /threads", s.handleCreateThread)
 	mux.HandleFunc("POST /preview", s.handlePreview)
+	mux.HandleFunc("POST /title", s.handleTitle)
 	mux.HandleFunc("GET /threads/{id}", s.handleThreadPage)
 	mux.HandleFunc("GET /threads/{id}/edit", s.handleEditThreadPage)
 	mux.HandleFunc("POST /threads/{id}/edit", s.handleUpdateThread)

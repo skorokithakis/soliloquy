@@ -355,6 +355,9 @@ if (threadForm) {
 	const mentionNote = threadForm.querySelector("[data-mention-note]");
 	const writeTab = tabs && tabs.querySelector('[data-tab="write"]');
 	const previewTab = tabs && tabs.querySelector('[data-tab="preview"]');
+	const titleInput = threadForm.querySelector('input[name="title"]');
+	const urlInput = threadForm.querySelector('input[name="url"]');
+	const titleStatus = threadForm.querySelector("[data-title-status]");
 
 	if (tabs && previewPane && textarea) {
 		tabs.hidden = false;
@@ -428,6 +431,74 @@ if (threadForm) {
 		if (textarea.value.trim() !== "") {
 			requestPreview();
 		}
+	}
+
+	// Fetch the page title when someone pastes a URL or leaves the field. The
+	// change event is the fallback for browsers whose paste event fires before
+	// the input value updates, and for a typed URL. A plain form still works.
+	if (titleInput && urlInput) {
+		let titleRequest = 0;
+		// The URL being fetched now. A paste is followed by a change event on
+		// blur, so this stops a second fetch of the same URL while the first runs.
+		let pendingURL = "";
+
+		const setTitleStatus = (text) => {
+			if (titleStatus) {
+				titleStatus.textContent = text;
+			}
+		};
+
+		const requestTitle = async () => {
+			const url = urlInput.value.trim();
+			if (url !== "" && url === pendingURL) {
+				return;
+			}
+			const request = ++titleRequest;
+			pendingURL = "";
+			if (url === "" || titleInput.value !== "") {
+				setTitleStatus("");
+				return;
+			}
+			pendingURL = url;
+
+			setTitleStatus("fetching title…");
+			try {
+				const response = await fetch("/title", {
+					method: "POST",
+					headers: {
+						Accept: "application/json",
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+					credentials: "same-origin",
+					body: new URLSearchParams({ url }),
+				});
+				const data = response.ok ? await response.json() : {};
+				// Fill only if this is still the latest request, the URL has not
+				// changed since, and the member has not typed a title.
+				if (
+					request === titleRequest &&
+					urlInput.value.trim() === url &&
+					titleInput.value === "" &&
+					data.title
+				) {
+					titleInput.value = data.title;
+					updateCounter(titleInput);
+				}
+			} catch (error) {
+				// The title is a convenience; the plain form still works.
+			} finally {
+				if (request === titleRequest) {
+					pendingURL = "";
+					setTitleStatus("");
+				}
+			}
+		};
+
+		urlInput.addEventListener("paste", () => {
+			// The paste event fires before the input value updates.
+			window.setTimeout(requestTitle, 0);
+		});
+		urlInput.addEventListener("change", requestTitle);
 	}
 }
 
