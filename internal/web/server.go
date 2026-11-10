@@ -88,7 +88,17 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		return nil, fmt.Errorf("base URL %q has no scheme or host", cfg.BaseURL)
 	}
 
-	templates, err := parseTemplates()
+	staticFS, err := fs.Sub(assets, "static")
+	if err != nil {
+		return nil, fmt.Errorf("open static assets: %w", err)
+	}
+
+	staticAssets, err := loadStaticAssets(staticFS)
+	if err != nil {
+		return nil, err
+	}
+
+	templates, err := parseTemplates(staticAssets.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -98,22 +108,19 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		return nil, fmt.Errorf("parse comment template: %w", err)
 	}
 
-	staticFS, err := fs.Sub(assets, "static")
-	if err != nil {
-		return nil, fmt.Errorf("open static assets: %w", err)
-	}
-
 	favicon, err := fs.ReadFile(staticFS, "favicon.ico")
 	if err != nil {
 		return nil, fmt.Errorf("read favicon: %w", err)
 	}
+
+	fileHandler := http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))
 
 	return &Server{
 		db:              database,
 		cfg:             cfg,
 		templates:       templates,
 		commentTemplate: commentTemplate,
-		static:          http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))),
+		static:          cacheHashedStatic(staticAssets, fileHandler),
 		favicon:         favicon,
 		baseOrigin:      base.Scheme + "://" + base.Host,
 		baseHost:        base.Host,
@@ -268,7 +275,7 @@ func (s *Server) serverError(w http.ResponseWriter, err error) {
 // parseTemplates builds one template set per page. Each page defines a
 // "content" block and the shared layout defines the surrounding document, so
 // pages do not overwrite each other's content.
-func parseTemplates() (map[string]*template.Template, error) {
+func parseTemplates(static func(string) (string, error)) (map[string]*template.Template, error) {
 	pageFiles, err := fs.Glob(assets, "templates/pages/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("find page templates: %w", err)
@@ -280,7 +287,7 @@ func parseTemplates() (map[string]*template.Template, error) {
 	templates := make(map[string]*template.Template, len(pageFiles))
 	for _, pageFile := range pageFiles {
 		name := strings.TrimSuffix(path.Base(pageFile), ".html")
-		tmpl, err := template.New(name).ParseFS(assets, "templates/layout.html", "templates/comment.html", pageFile)
+		tmpl, err := template.New(name).Funcs(template.FuncMap{"static": static}).ParseFS(assets, "templates/layout.html", "templates/comment.html", pageFile)
 		if err != nil {
 			return nil, fmt.Errorf("parse page template %q: %w", pageFile, err)
 		}

@@ -56,8 +56,8 @@ func TestIndexPage(t *testing.T) {
 		`class="sq auto"`,
 		`class="top"`,
 		`href="/invites">invites</a>`,
-		"/static/style.css",
-		"/static/app.js",
+		staticURL(t, "style.css"),
+		staticURL(t, "app.js"),
 		"alice",
 		`href="/account"`,
 	} {

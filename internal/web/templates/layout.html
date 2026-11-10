@@ -6,17 +6,17 @@
 	<meta charset="utf-8">
 	{{/* Logged-out pages shrink with the on-screen keyboard so the centred login box stays above it. Logged-in pages keep the default, so the fixed comment dock on threads does not sit above the keyboard. */}}
 	<meta name="viewport" content="width=device-width, initial-scale=1{{if not (or .CurrentUser .Visitor)}}, interactive-widget=resizes-content{{end}}">
-	<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+	<link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
 	<link rel="icon" href="/favicon.ico" sizes="16x16 32x32" type="image/x-icon">
-	<link rel="apple-touch-icon" href="/static/apple-touch-icon.png" sizes="180x180">
+	<link rel="apple-touch-icon" href="{{static "apple-touch-icon.png"}}" sizes="180x180">
 	<title>{{.Title}} · {{.ForumName}}</title>
 	<meta property="og:title" content="{{.Title}}">
 	<meta property="og:site_name" content="{{.ForumName}}">
 	<meta property="og:type" content="website">
-	<meta property="og:image" content="{{.BaseURL}}/static/og.png">
+	<meta property="og:image" content="{{.BaseURL}}{{static "og.png"}}">
 	<meta name="twitter:card" content="summary_large_image">
-	<link rel="stylesheet" href="/static/style.css">
-	<script src="/static/app.js" defer></script>
+	<link rel="stylesheet" href="{{static "style.css"}}">
+	<script src="{{static "app.js"}}" defer></script>
 </head>
 <body{{if .CurrentUser}} data-sse-url="/events{{if .EventThreadID}}?thread_id={{.EventThreadID}}{{end}}"{{end}}>
 {{if or .CurrentUser .Visitor}}
