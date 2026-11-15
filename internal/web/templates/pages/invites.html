@@ -33,7 +33,7 @@
 			{{range .Tree}}
 			<li class="tr">
 				<span class="pre">{{.Prefix}}</span>
-				{{if .Deleted}}<span class="gone">[deleted user]</span>{{else}}<span class="nm{{if .Disabled}} off{{end}}">{{.Name}}</span>{{end}}
+				{{if .Deleted}}<span class="gone">[deleted user]</span>{{else}}<a class="nm{{if .Disabled}} off{{end}}" href="/u/{{.Username}}">{{.Name}}</a>{{end}}
 				{{if .IsAdmin}}<span class="flag a">admin</span>{{end}}
 				{{if .IsYou}}<span class="flag you">you</span>{{end}}
 				{{if .Disabled}}<span class="flag">disabled</span>{{end}}

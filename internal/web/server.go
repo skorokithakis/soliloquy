@@ -194,6 +194,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /invite/{token}", s.handleSignupPage)
 	mux.HandleFunc("GET /invite/{token}/check", s.handleInviteUsernameCheck)
 	mux.HandleFunc("POST /invite/{token}", s.handleSignup)
+	mux.HandleFunc("GET /u/{username}", s.handleProfilePage)
 	mux.HandleFunc("GET /invites", s.handleInvitesPage)
 	mux.HandleFunc("POST /invites", s.handleCreateInvite)
 	mux.HandleFunc("GET /admin/users", s.handleAdminUsersPage)

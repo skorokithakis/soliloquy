@@ -23,7 +23,7 @@
 			<div class="thread-cell">
 				{{if .URL}}<a class="tt" href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">({{.Domain}})</span>{{else}}<a class="tt" href="/threads/{{.PublicID}}">{{.Title}}</a>{{end}}
 				<div class="meta">
-					{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else}}<span>{{.Author}}</span>{{end}}
+					{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if $.Visitor}}<span>{{.Author}}</span>{{else}}<a href="/u/{{.AuthorUsername}}">{{.Author}}</a>{{end}}
 					<span>·</span>
 					<a href="/threads/{{.PublicID}}">{{.CommentText}}</a>
 				</div>

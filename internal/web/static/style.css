@@ -2471,6 +2471,14 @@ a.btn.pri:hover {
 	color: var(--ink);
 }
 
+.r .ctx a.au {
+	color: var(--muted);
+}
+
+.r .ctx a.au:hover {
+	color: var(--accent);
+}
+
 .r .snip {
 	margin-top: 3px;
 	color: var(--ink);

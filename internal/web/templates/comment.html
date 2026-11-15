@@ -17,7 +17,7 @@
 		{{else}}
 		<span class="vote none" aria-hidden="true"></span>
 		{{end}}
-		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if .LoggedIn}}<a class="u" href="/account">{{.Author}}</a>{{else}}<span class="u">{{.Author}}</span>{{end}}
+		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if .LoggedIn}}<a class="u" href="/u/{{.AuthorUsername}}">{{.Author}}</a>{{else}}<span class="u">{{.Author}}</span>{{end}}
 		{{if .IsOP}}<span class="op">op</span>{{end}}
 		<span>{{.CreatedAt}}</span>
 		<span>·</span>

@@ -1,0 +1,66 @@
+{{define "content"}}
+<div class="profile-page">
+	<div class="pagehead">
+		<h1 class="pt"><span class="p">~/</span>{{.Username}}</h1>
+		<span class="sp"></span>
+		{{if .IsAdmin}}<span class="flag a">admin</span>{{end}}
+		{{if .Disabled}}<span class="flag">disabled</span>{{end}}
+	</div>
+	<div class="meta">
+		<span>joined {{.Joined}}</span>
+		{{if .HasInviter}}
+		<span>·</span>
+		<span>invited by {{if .InviterDeleted}}[deleted user]{{else}}<a href="/u/{{.InviterUsername}}">{{.InviterUsername}}</a>{{end}}</span>
+		{{end}}
+	</div>
+
+	<div class="search-summary">
+		<span class="label">threads</span>
+		<span class="label">newest first</span>
+	</div>
+	{{if .Threads}}
+	<ol class="rl">
+		{{range .Threads}}
+		<li class="r">
+			<span class="ty t">thread</span>
+			<div class="search-result-body">
+				<a class="tt" href="/threads/{{.PublicID}}">{{.Title}}</a>
+				<div class="meta">
+					<span>{{.Age}}</span>
+					<span>·</span>
+					<a href="/threads/{{.PublicID}}#comments">{{.CommentText}}</a>
+				</div>
+			</div>
+		</li>
+		{{end}}
+	</ol>
+	{{else}}
+	<p class="hint">No threads yet.</p>
+	{{end}}
+
+	<div class="search-summary">
+		<span class="label">comments</span>
+		<span class="label">newest first</span>
+	</div>
+	{{if .Comments}}
+	<ol class="rl">
+		{{range .Comments}}
+		<li class="r">
+			<span class="ty">comment</span>
+			<div class="search-result-body">
+				<div class="ctx">in <a href="/threads/{{.ThreadPublicID}}">{{.ThreadTitle}}</a></div>
+				{{if .Excerpt}}<div class="snip">{{.Excerpt}}</div>{{end}}
+				<div class="meta">
+					<span>{{.Age}}</span>
+					<span>·</span>
+					<a href="/threads/{{.ThreadPublicID}}#c{{.PublicID}}">open comment ›</a>
+				</div>
+			</div>
+		</li>
+		{{end}}
+	</ol>
+	{{else}}
+	<p class="hint">No comments yet.</p>
+	{{end}}
+</div>
+{{end}}

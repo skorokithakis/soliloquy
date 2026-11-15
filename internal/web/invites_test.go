@@ -64,8 +64,8 @@ func TestInvitesPageShowsTreeAndLinkStates(t *testing.T) {
 	for _, want := range []string{
 		">├── </span>",
 		">│   ├── </span>",
-		`class="nm">bob</span>`,
-		`class="nm">carol</span>`,
+		`<a class="nm" href="/u/bob">bob</a>`,
+		`<a class="nm" href="/u/carol">carol</a>`,
 		"[deleted user]",
 		"5 accounts, 1 deleted · 1 disabled",
 		`class="flag a">admin</span>`,

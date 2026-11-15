@@ -166,7 +166,7 @@ An admin can:
 - When it is public, a visitor can read the front page, thread pages and
   search. Paging works as it does for members.
 - Visitors cannot write. Every POST redirects them to the login page.
-- Account, notifications, invites, the invite tree, admin pages, the thread
+- Account, notifications, invites, the invite tree, member profiles, admin pages, the thread
   form, edit and reply pages, and live updates are for logged-in users only.
   Visitors who open them are sent to the login page.
 - Visitors see the usual header with the forum name, the "threads" link and
@@ -180,6 +180,20 @@ An admin can:
 
 - Server-rendered pages that work on desktop and mobile.
 - Each account can choose system, light or dark on the account page. The default follows the system setting.
+
+### 3.12 Member profiles
+
+- Each member has a profile page at `/u/{username}`. Only logged-in users can
+  see it.
+- The page shows the username, the join date, who invited the member, and
+  whether the member is an admin or is disabled.
+- It also lists the member's 20 newest threads and 20 newest comments, newest
+  first. There is no paging. Deleted threads, deleted comments and comments in
+  deleted threads are not listed.
+- A deleted account has no profile page.
+- For logged-in users, author names on the front page, thread pages, comments
+  and search link to the author's profile. Names in the invite tree link to
+  the profile too. Visitors see names as plain text.
 
 ## 4. Technical design
 
@@ -247,7 +261,7 @@ Flags or environment variables:
 ## 7. Non-goals (version 1)
 
 - Public signup, email of any kind, SSO.
-- Public write access, user profile pages and a public invite tree.
+- Public write access, public profile pages and a public invite tree.
 - Downvotes, karma, categories, tags.
 - Live updates for edits, deletes and vote counts, and live updates for
   visitors.

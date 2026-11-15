@@ -25,6 +25,7 @@ type commentView struct {
 	ParentPublicID string
 	HasParent      bool
 	Author         string
+	AuthorUsername string
 	AuthorDeleted  bool
 	Score          int64
 	ScoreText      string
@@ -83,21 +84,22 @@ func commentViews(nodes []*db.CommentNode, viewer *db.User, threadAuthorID int64
 func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) commentView {
 	comment := node.Comment
 	view := commentView{
-		PublicID:      comment.PublicID,
-		Author:        comment.AuthorName(),
-		AuthorDeleted: comment.AuthorDeletedAt != nil,
-		Score:         comment.Score,
-		ScoreText:     pointsText(comment.Score),
-		CreatedAt:     relativeTime(comment.CreatedAt, now),
-		Edited:        comment.EditedAt != nil,
-		Deleted:       comment.DeletedAt != nil,
-		IsAuthor:      viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
-		CanDelete:     viewer != nil && (viewer.ID == comment.AuthorID || viewer.IsAdmin) && comment.DeletedAt == nil,
-		Voted:         comment.Voted,
-		CanVote:       viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
-		IsOP:          comment.AuthorID == threadAuthorID,
-		LoggedIn:      viewer != nil,
-		Replies:       commentViews(node.Replies, viewer, threadAuthorID, now),
+		PublicID:       comment.PublicID,
+		Author:         comment.AuthorName(),
+		AuthorUsername: comment.AuthorUsername,
+		AuthorDeleted:  comment.AuthorDeletedAt != nil,
+		Score:          comment.Score,
+		ScoreText:      pointsText(comment.Score),
+		CreatedAt:      relativeTime(comment.CreatedAt, now),
+		Edited:         comment.EditedAt != nil,
+		Deleted:        comment.DeletedAt != nil,
+		IsAuthor:       viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
+		CanDelete:      viewer != nil && (viewer.ID == comment.AuthorID || viewer.IsAdmin) && comment.DeletedAt == nil,
+		Voted:          comment.Voted,
+		CanVote:        viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
+		IsOP:           comment.AuthorID == threadAuthorID,
+		LoggedIn:       viewer != nil,
+		Replies:        commentViews(node.Replies, viewer, threadAuthorID, now),
 	}
 	if comment.ParentPublicID != nil {
 		view.ParentPublicID = *comment.ParentPublicID

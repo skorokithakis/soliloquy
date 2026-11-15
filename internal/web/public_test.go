@@ -32,6 +32,7 @@ func TestVisitorReadsNothingWhenForumIsPrivate(t *testing.T) {
 		"/",
 		threadPath(thread.PublicID),
 		"/search?q=Thread",
+		"/u/alice",
 		"/threads/new",
 		"/invites",
 		"/tree",

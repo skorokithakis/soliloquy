@@ -20,7 +20,7 @@
 				{{if .Thread.URL}}<a href="{{.Thread.URL}}" rel="nofollow noopener">{{.Thread.Title}}</a> <span class="dom">{{.Thread.Domain}}</span>{{else}}{{.Thread.Title}}{{end}}
 			</h1>
 			<div class="meta">
-				{{if .Thread.AuthorDeleted}}<span class="gone">{{.Thread.Author}}</span>{{else}}<span>{{.Thread.Author}}</span>{{end}}
+				{{if .Thread.AuthorDeleted}}<span class="gone">{{.Thread.Author}}</span>{{else if $.Visitor}}<span>{{.Thread.Author}}</span>{{else}}<a href="/u/{{.Thread.AuthorUsername}}">{{.Thread.Author}}</a>{{end}}
 				<span>·</span>
 				<span>{{.CreatedAt}}</span>
 				<span>·</span>

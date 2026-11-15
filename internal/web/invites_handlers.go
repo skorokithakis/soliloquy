@@ -13,6 +13,7 @@ import (
 type inviteTreeRowView struct {
 	Prefix   string
 	Name     string
+	Username string
 	Joined   string
 	Deleted  bool
 	IsAdmin  bool
@@ -107,6 +108,7 @@ func inviteTreeRows(nodes []*db.InviteNode, viewerID int64) ([]inviteTreeRowView
 			rows = append(rows, inviteTreeRowView{
 				Prefix:   prefix + branch,
 				Name:     user.DisplayName(),
+				Username: user.Username,
 				Joined:   user.CreatedAt.Format("2006-01-02"),
 				Deleted:  isDeleted,
 				IsAdmin:  !isDeleted && user.IsAdmin,

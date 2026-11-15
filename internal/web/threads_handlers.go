@@ -24,17 +24,18 @@ const (
 )
 
 type threadView struct {
-	PublicID      string
-	Title         string
-	URL           string
-	Domain        string
-	Author        string
-	AuthorDeleted bool
-	Score         int64
-	CommentText   string
-	LastActivity  string
-	Voted         bool
-	CanVote       bool
+	PublicID       string
+	Title          string
+	URL            string
+	Domain         string
+	Author         string
+	AuthorUsername string
+	AuthorDeleted  bool
+	Score          int64
+	CommentText    string
+	LastActivity   string
+	Voted          bool
+	CanVote        bool
 }
 
 type indexPageData struct {
@@ -453,15 +454,16 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 	}
 
 	return threadView{
-		PublicID:      thread.PublicID,
-		Title:         thread.Title,
-		URL:           thread.URL,
-		Domain:        domain,
-		Author:        thread.AuthorName(),
-		AuthorDeleted: thread.AuthorDeletedAt != nil,
-		Score:         thread.Score,
-		CommentText:   commentsText(thread.CommentCount),
-		LastActivity:  relativeTime(thread.LastActivityAt, now),
+		PublicID:       thread.PublicID,
+		Title:          thread.Title,
+		URL:            thread.URL,
+		Domain:         domain,
+		Author:         thread.AuthorName(),
+		AuthorUsername: thread.AuthorUsername,
+		AuthorDeleted:  thread.AuthorDeletedAt != nil,
+		Score:          thread.Score,
+		CommentText:    commentsText(thread.CommentCount),
+		LastActivity:   relativeTime(thread.LastActivityAt, now),
 	}
 }
 
