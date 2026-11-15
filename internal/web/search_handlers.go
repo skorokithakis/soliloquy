@@ -9,6 +9,8 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/db"
 )
 
+const searchPerPage = 30
+
 type searchResultView struct {
 	Title          string
 	Link           string
@@ -25,18 +27,46 @@ type searchResultView struct {
 
 type searchPageData struct {
 	PageData
-	Query    string
-	Searched bool
-	Results  []searchResultView
+	Query      string
+	Searched   bool
+	Results    []searchResultView
+	Total      int64
+	Page       int
+	TotalPages int
+	HasPrev    bool
+	HasNext    bool
+	PrevPage   int
+	NextPage   int
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := threadPageNumber(r)
 
-	results, err := s.db.Search(r.Context(), query)
+	total, err := s.db.CountSearch(r.Context(), query)
 	if err != nil {
 		s.serverError(w, err)
 		return
+	}
+	totalPages := int((total + searchPerPage - 1) / searchPerPage)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	// A page past the end would show the total with no results and no way
+	// back, so show the last page instead of redirecting.
+	if page > totalPages {
+		page = totalPages
+	}
+
+	results, err := s.db.Search(r.Context(), query, searchPerPage+1, (page-1)*searchPerPage)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	hasNext := len(results) > searchPerPage
+	if hasNext {
+		results = results[:searchPerPage]
 	}
 
 	now := s.now()
@@ -69,10 +99,17 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := searchPageData{
-		PageData: s.pageData(r, "Search"),
-		Query:    query,
-		Searched: query != "",
-		Results:  views,
+		PageData:   s.pageData(r, "Search"),
+		Query:      query,
+		Searched:   query != "",
+		Results:    views,
+		Total:      total,
+		Page:       page,
+		TotalPages: totalPages,
+		HasPrev:    page > 1 && totalPages > 1,
+		HasNext:    hasNext,
+		PrevPage:   page - 1,
+		NextPage:   page + 1,
 	}
 	data.SearchQuery = query
 	data.Visitor = currentUser(r) == nil

@@ -46,6 +46,9 @@ func TestSearchPage(t *testing.T) {
 	if strings.Contains(body, "<script>alert(1)</script>") {
 		t.Error("search page renders unescaped post content")
 	}
+	if strings.Contains(body, `class="pagination"`) {
+		t.Error("search page shows paging controls for a single page of results")
+	}
 
 	index := doRequest(t, server, http.MethodGet, "/", nil, cookie, "")
 	if !strings.Contains(index.Body.String(), `action="/search"`) {
@@ -74,6 +77,118 @@ func TestSearchPageEmptyQuery(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `class="bigsearch"`) {
 		t.Error("syntax search page did not render")
+	}
+}
+
+func TestSearchPagePaginates(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	now := server.now()
+
+	// Identical threads give the database no score to rank by, so paging must
+	// rely on its deterministic tie-breaker.
+	publicIDs := make([]string, 0, 32)
+	for i := 0; i < 32; i++ {
+		thread := createThreadDirect(t, server, alice, "needle", "", "needle body", now.Add(time.Duration(i)*time.Minute))
+		publicIDs = append(publicIDs, thread.PublicID)
+	}
+
+	query := url.QueryEscape("needle&body")
+	first := doRequest(t, server, http.MethodGet, "/search?q="+query, nil, cookie, "")
+	if first.Code != http.StatusOK {
+		t.Fatalf("first page status = %d, want %d", first.Code, http.StatusOK)
+	}
+	body := first.Body.String()
+	for _, want := range []string{
+		"32 results · best match first",
+		"page 1 of 2 · 30 per page",
+		`href="/search?q=needle%26body&amp;page=2" rel="next"`,
+		`href="` + threadPath(publicIDs[0]) + `"`,
+		`href="` + threadPath(publicIDs[29]) + `"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("first page does not contain %q", want)
+		}
+	}
+	if strings.Contains(body, `href="`+threadPath(publicIDs[30])+`"`) {
+		t.Error("first page contains a thread from the second page")
+	}
+	if strings.Contains(body, `rel="prev"`) {
+		t.Error("first page has a previous link")
+	}
+
+	second := doRequest(t, server, http.MethodGet, "/search?q="+query+"&page=2", nil, cookie, "")
+	if second.Code != http.StatusOK {
+		t.Fatalf("second page status = %d, want %d", second.Code, http.StatusOK)
+	}
+	body = second.Body.String()
+	for _, want := range []string{
+		"32 results · best match first",
+		"page 2 of 2 · 30 per page",
+		`href="/search?q=needle%26body&amp;page=1" rel="prev"`,
+		`href="` + threadPath(publicIDs[30]) + `"`,
+		`href="` + threadPath(publicIDs[31]) + `"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("second page does not contain %q", want)
+		}
+	}
+	if strings.Contains(body, `href="`+threadPath(publicIDs[0])+`"`) {
+		t.Error("second page contains a thread from the first page")
+	}
+	if strings.Contains(body, `rel="next"`) {
+		t.Error("second page has a next link")
+	}
+}
+
+func TestSearchPagePastTheEndShowsLastPage(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	now := server.now()
+
+	publicIDs := make([]string, 0, 31)
+	for i := 0; i < 31; i++ {
+		thread := createThreadDirect(t, server, alice, "needle", "", "needle body", now.Add(time.Duration(i)*time.Minute))
+		publicIDs = append(publicIDs, thread.PublicID)
+	}
+
+	response := doRequest(t, server, http.MethodGet, "/search?q=needle&page=3", nil, cookie, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("past-the-end status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	for _, want := range []string{
+		"31 results · best match first",
+		"page 2 of 2 · 30 per page",
+		`href="/search?q=needle&amp;page=1" rel="prev"`,
+		`href="` + threadPath(publicIDs[30]) + `"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("past-the-end page does not contain %q", want)
+		}
+	}
+	if strings.Contains(body, "No results for") {
+		t.Error("past-the-end page says there are no results")
+	}
+
+	// With a single page of results the clamp lands on that page and no paging
+	// controls are shown.
+	server = newTestServer(t)
+	alice = createTestUser(t, server, "alice", false)
+	cookie = signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "needle", "", "needle body", server.now())
+
+	body = doRequest(t, server, http.MethodGet, "/search?q=needle&page=5", nil, cookie, "").Body.String()
+	if !strings.Contains(body, `href="`+threadPath(thread.PublicID)+`"`) {
+		t.Error("past-the-end page with one page of results does not show the result")
+	}
+	if strings.Contains(body, `class="pagination"`) {
+		t.Error("past-the-end page with one page of results shows paging controls")
+	}
+	if strings.Contains(body, "No results for") {
+		t.Error("past-the-end page with one page of results says there are no results")
 	}
 }
 

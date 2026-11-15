@@ -21,9 +21,19 @@ const (
 	SearchSnippetEnd   = "\x02"
 )
 
-// maxSearchResults is the fixed result limit for a search. The product does
-// not paginate search results.
-const maxSearchResults = 50
+// searchFromWhere is the shared FROM clause of Search and CountSearch. It
+// joins the index back to its source rows and applies the same filters to
+// both queries, so a result count cannot drift from the rows it counts.
+const searchFromWhere = `
+	FROM search_index
+	JOIN threads t ON t.id = search_index.thread_id
+	JOIN users tu ON tu.id = t.author_id
+	LEFT JOIN comments c
+		ON search_index.kind = 'comment' AND c.id = search_index.item_id
+	LEFT JOIN users cu ON cu.id = c.author_id
+	WHERE search_index MATCH ?
+		AND t.deleted_at IS NULL
+		AND (search_index.kind = 'thread' OR c.deleted_at IS NULL)`
 
 // SearchResult is one matching thread or comment. Title is the thread title for
 // both kinds, so comment results can show which thread they belong to. Snippet
@@ -43,9 +53,10 @@ type SearchResult struct {
 	CommentCount   int64
 }
 
-// Search returns up to maxSearchResults matches for query, best first. Deleted
-// comments and live content in deleted threads are excluded.
-func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) {
+// Search returns matches for query, best first, starting at offset. Callers ask
+// for one row more than the page size to find out whether another page exists.
+// Deleted comments and live content in deleted threads are excluded.
+func (db *DB) Search(ctx context.Context, query string, limit, offset int) ([]SearchResult, error) {
 	match := searchMatchQuery(query)
 	if match == "" {
 		return []SearchResult{}, nil
@@ -65,18 +76,10 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 			CASE WHEN search_index.kind = 'comment'
 				THEN c.created_at ELSE t.created_at END,
 			(SELECT COUNT(*) FROM comments cc
-				WHERE cc.thread_id = t.id AND cc.deleted_at IS NULL)
-		FROM search_index
-		JOIN threads t ON t.id = search_index.thread_id
-		JOIN users tu ON tu.id = t.author_id
-		LEFT JOIN comments c
-			ON search_index.kind = 'comment' AND c.id = search_index.item_id
-		LEFT JOIN users cu ON cu.id = c.author_id
-		WHERE search_index MATCH ?
-			AND t.deleted_at IS NULL
-			AND (search_index.kind = 'thread' OR c.deleted_at IS NULL)
-		ORDER BY bm25(search_index, 0.0, 0.0, 0.0, 10.0, 1.0)
-		LIMIT ?`, match, maxSearchResults)
+				WHERE cc.thread_id = t.id AND cc.deleted_at IS NULL)`+searchFromWhere+`
+		ORDER BY bm25(search_index, 0.0, 0.0, 0.0, 10.0, 1.0),
+			search_index.kind, search_index.item_id
+		LIMIT ? OFFSET ?`, match, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +112,22 @@ func (db *DB) Search(ctx context.Context, query string) ([]SearchResult, error) 
 		results = append(results, result)
 	}
 	return results, rows.Err()
+}
+
+// CountSearch returns the number of matches for query. It applies the same
+// filters as Search, so the total always describes the rows Search pages
+// through.
+func (db *DB) CountSearch(ctx context.Context, query string) (int64, error) {
+	match := searchMatchQuery(query)
+	if match == "" {
+		return 0, nil
+	}
+
+	var count int64
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*)`+searchFromWhere, match).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // searchMatchQuery turns user input into a safe FTS5 MATCH expression. Each

@@ -9,11 +9,12 @@
 	</form>
 
 	{{if .Searched}}
-		{{if .Results}}
+		{{if .Total}}
 		<div class="search-summary">
-			<span class="label">{{len .Results}} {{if eq (len .Results) 1}}result{{else}}results{{end}} · best match first</span>
+			<span class="label">{{.Total}} {{if eq .Total 1}}result{{else}}results{{end}} · best match first</span>
 			<span class="label">threads and comments</span>
 		</div>
+		{{if .Results}}
 		<ol class="rl">
 			{{range .Results}}
 			<li class="r">
@@ -45,8 +46,18 @@
 			</li>
 			{{end}}
 		</ol>
+		{{end}}
 		{{else}}
 		<p>No results for “{{.Query}}”.</p>
+		{{end}}
+
+		{{if or .HasPrev .HasNext}}
+		<nav class="pagination" aria-label="Pages">
+			<span class="label">page {{.Page}} of {{.TotalPages}} · 30 per page</span>
+			<span class="sp"></span>
+			{{if .HasPrev}}<a class="btn" href="/search?q={{.Query}}&amp;page={{.PrevPage}}" rel="prev">‹ previous</a>{{end}}
+			{{if .HasNext}}<a class="btn" href="/search?q={{.Query}}&amp;page={{.NextPage}}" rel="next">next ›</a>{{end}}
+		</nav>
 		{{end}}
 	{{else}}
 	<p class="hint">Search thread titles, thread bodies and comments.</p>

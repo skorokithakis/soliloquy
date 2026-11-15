@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func TestSearchFindsThreadsAndComments(t *testing.T) {
 		t.Fatalf("CreateComment: %v", err)
 	}
 
-	results, err := database.Search(ctx, "goroutines")
+	results, err := database.Search(ctx, "goroutines", 50, 0)
 	if err != nil {
 		t.Fatalf("Search goroutines: %v", err)
 	}
@@ -46,7 +47,7 @@ func TestSearchFindsThreadsAndComments(t *testing.T) {
 		t.Errorf("thread snippet %q has no highlight marker", results[0].Snippet)
 	}
 
-	results, err = database.Search(ctx, "pipeline")
+	results, err = database.Search(ctx, "pipeline", 50, 0)
 	if err != nil {
 		t.Fatalf("Search pipeline: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestSearchAuthorFieldsFollowResultKind(t *testing.T) {
 		t.Fatalf("DeleteAccount: %v", err)
 	}
 
-	results, err := database.Search(ctx, "commentneedle")
+	results, err := database.Search(ctx, "commentneedle", 50, 0)
 	if err != nil {
 		t.Fatalf("Search commentneedle: %v", err)
 	}
@@ -97,7 +98,7 @@ func TestSearchAuthorFieldsFollowResultKind(t *testing.T) {
 		t.Errorf("comment result author = %+v, want active bob", results)
 	}
 
-	results, err = database.Search(ctx, "threadneedle")
+	results, err = database.Search(ctx, "threadneedle", 50, 0)
 	if err != nil {
 		t.Fatalf("Search threadneedle: %v", err)
 	}
@@ -181,12 +182,12 @@ func TestSearchTreatsInputAsLiteralTerms(t *testing.T) {
 	for _, query := range []string{
 		`"`, `""`, `*`, `-`, `()`, `NEAR(`, `foo OR bar`, `foo"bar`, `foo:bar`, `^foo`, `foo*`,
 	} {
-		if _, err := database.Search(ctx, query); err != nil {
+		if _, err := database.Search(ctx, query, 50, 0); err != nil {
 			t.Errorf("Search(%q) returned an error: %v", query, err)
 		}
 	}
 
-	results, err := database.Search(ctx, "foo bar")
+	results, err := database.Search(ctx, "foo bar", 50, 0)
 	if err != nil {
 		t.Fatalf("Search foo bar: %v", err)
 	}
@@ -194,7 +195,7 @@ func TestSearchTreatsInputAsLiteralTerms(t *testing.T) {
 		t.Errorf("multiple terms did not AND together: %d results", len(results))
 	}
 
-	results, err = database.Search(ctx, `"foo bar"`)
+	results, err = database.Search(ctx, `"foo bar"`, 50, 0)
 	if err != nil {
 		t.Fatalf("Search quoted phrase: %v", err)
 	}
@@ -203,7 +204,7 @@ func TestSearchTreatsInputAsLiteralTerms(t *testing.T) {
 	}
 
 	for _, query := range []string{"", "   "} {
-		results, err := database.Search(ctx, query)
+		results, err := database.Search(ctx, query, 50, 0)
 		if err != nil {
 			t.Errorf("Search(%q) returned an error: %v", query, err)
 		}
@@ -213,7 +214,7 @@ func TestSearchTreatsInputAsLiteralTerms(t *testing.T) {
 	}
 }
 
-func TestSearchLimitsResults(t *testing.T) {
+func TestSearchPagesResultsInStableOrder(t *testing.T) {
 	database := migratedTestDB(t)
 	ctx := context.Background()
 	base := time.Unix(1_700_000_000, 0).UTC()
@@ -222,19 +223,108 @@ func TestSearchLimitsResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	for i := 0; i < maxSearchResults+5; i++ {
-		title := "needle thread " + string(rune('a'+i%26))
-		if _, err := database.CreateThread(ctx, alice.ID, title, "", "needle body", "", base.Add(time.Duration(i)*time.Second)); err != nil {
+
+	// Identical content gives every thread the same bm25 score, so the order
+	// must come from the tie-breaker.
+	want := make([]int64, 0, 5)
+	for i := 0; i < 5; i++ {
+		thread, err := database.CreateThread(ctx, alice.ID, "needle", "", "needle body", "", base.Add(time.Duration(i)*time.Second))
+		if err != nil {
 			t.Fatalf("CreateThread %d: %v", i, err)
+		}
+		want = append(want, thread.ID)
+	}
+
+	var got []int64
+	for offset := 0; offset < len(want); offset += 2 {
+		results, err := database.Search(ctx, "needle", 2, offset)
+		if err != nil {
+			t.Fatalf("Search offset %d: %v", offset, err)
+		}
+		for _, result := range results {
+			got = append(got, result.ItemID)
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("paged result IDs = %v, want %v", got, want)
+	}
+
+	// The same page must contain the same rows on every call.
+	first, err := database.Search(ctx, "needle", 2, 0)
+	if err != nil {
+		t.Fatalf("Search first page: %v", err)
+	}
+	again, err := database.Search(ctx, "needle", 2, 0)
+	if err != nil {
+		t.Fatalf("Search first page again: %v", err)
+	}
+	for i := range first {
+		if first[i].ItemID != again[i].ItemID {
+			t.Fatalf("first page is not stable: %d then %d", first[i].ItemID, again[i].ItemID)
 		}
 	}
 
-	results, err := database.Search(ctx, "needle")
+	results, err := database.Search(ctx, "needle", 2, len(want))
 	if err != nil {
-		t.Fatalf("Search: %v", err)
+		t.Fatalf("Search past the end: %v", err)
 	}
-	if len(results) != maxSearchResults {
-		t.Errorf("results = %d, want %d", len(results), maxSearchResults)
+	if len(results) != 0 {
+		t.Errorf("results past the end = %d, want 0", len(results))
+	}
+}
+
+func TestCountSearchMatchesSearchFilters(t *testing.T) {
+	database := migratedTestDB(t)
+	ctx := context.Background()
+	base := time.Unix(1_700_000_000, 0).UTC()
+
+	alice, err := database.CreateUser(ctx, "alice", "hash", false, nil, base)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	thread, err := database.CreateThread(ctx, alice.ID, "needle", "", "needle body", "", base)
+	if err != nil {
+		t.Fatalf("CreateThread: %v", err)
+	}
+	comment, err := database.CreateComment(ctx, thread.ID, nil, alice.ID, "needle comment", "<p>needle comment</p>", base.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("CreateComment: %v", err)
+	}
+
+	countSearch := func(query string) int64 {
+		t.Helper()
+		count, err := database.CountSearch(ctx, query)
+		if err != nil {
+			t.Fatalf("CountSearch(%q): %v", query, err)
+		}
+		return count
+	}
+
+	if got := countSearch("needle"); got != 2 {
+		t.Errorf("CountSearch = %d, want 2", got)
+	}
+
+	if _, err := database.DeleteComment(ctx, comment.ID, base.Add(2*time.Minute)); err != nil {
+		t.Fatalf("DeleteComment: %v", err)
+	}
+	if got := countSearch("needle"); got != 1 {
+		t.Errorf("CountSearch after comment delete = %d, want 1", got)
+	}
+
+	if _, err := database.DeleteThread(ctx, thread.ID, base.Add(3*time.Minute)); err != nil {
+		t.Fatalf("DeleteThread: %v", err)
+	}
+	if got := countSearch("needle"); got != 0 {
+		t.Errorf("CountSearch after thread delete = %d, want 0", got)
+	}
+
+	for _, query := range []string{"", "   "} {
+		if got := countSearch(query); got != 0 {
+			t.Errorf("CountSearch(%q) = %d, want 0", query, got)
+		}
+	}
+	if got := countSearch(`"*`); got != 0 {
+		t.Errorf("CountSearch of syntax characters = %d, want 0", got)
 	}
 }
 
@@ -257,7 +347,7 @@ func TestSearchRanksTitleMatchesFirst(t *testing.T) {
 		t.Fatalf("CreateThread bodied: %v", err)
 	}
 
-	results, err := database.Search(ctx, "needle")
+	results, err := database.Search(ctx, "needle", 50, 0)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -272,7 +362,7 @@ func TestSearchRanksTitleMatchesFirst(t *testing.T) {
 func searchIDs(t *testing.T, database *DB, query string) []int64 {
 	t.Helper()
 
-	results, err := database.Search(context.Background(), query)
+	results, err := database.Search(context.Background(), query, 50, 0)
 	if err != nil {
 		t.Fatalf("Search(%q): %v", query, err)
 	}
