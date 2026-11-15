@@ -94,7 +94,8 @@ func (db *DB) NotificationByID(ctx context.Context, id int64) (*Notification, er
 }
 
 // ListNotifications returns a page of a recipient's notifications, newest
-// first.
+// first. Notifications for deleted threads or deleted comments are omitted, so
+// pagination counts only notifications a reader can open.
 func (db *DB) ListNotifications(ctx context.Context, recipientID int64, limit, offset int) ([]Notification, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT n.id, n.recipient_id, n.kind, n.actor_id, u.username,
@@ -113,6 +114,8 @@ func (db *DB) ListNotifications(ctx context.Context, recipientID int64, limit, o
 		JOIN threads t ON t.id = n.thread_id
 		LEFT JOIN comments c ON c.id = n.comment_id
 		WHERE n.recipient_id = ?
+			AND t.deleted_at IS NULL
+			AND (n.comment_id IS NULL OR c.deleted_at IS NULL)
 		ORDER BY n.created_at DESC, n.id DESC
 		LIMIT ? OFFSET ?`, recipientID, limit, offset)
 	if err != nil {
@@ -132,12 +135,18 @@ func (db *DB) ListNotifications(ctx context.Context, recipientID int64, limit, o
 }
 
 // CountUnreadNotifications returns the number of unread notifications for a
-// recipient. It is used for the header badge.
+// recipient. It is used for the header badge. It ignores notifications for
+// deleted threads or deleted comments, matching ListNotifications.
 func (db *DB) CountUnreadNotifications(ctx context.Context, recipientID int64) (int64, error) {
 	var count int64
 	err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM notifications
-		WHERE recipient_id = ? AND read_at IS NULL`, recipientID).Scan(&count)
+		SELECT COUNT(*)
+		FROM notifications n
+		JOIN threads t ON t.id = n.thread_id
+		LEFT JOIN comments c ON c.id = n.comment_id
+		WHERE n.recipient_id = ? AND n.read_at IS NULL
+			AND t.deleted_at IS NULL
+			AND (n.comment_id IS NULL OR c.deleted_at IS NULL)`, recipientID).Scan(&count)
 	if err != nil {
 		return 0, err
 	}
