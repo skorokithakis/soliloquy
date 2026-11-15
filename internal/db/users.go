@@ -194,10 +194,12 @@ func (db *DB) CreateUser(ctx context.Context, username, passwordHash string, isA
 }
 
 func createUser(ctx context.Context, q execQueryer, username, passwordHash string, isAdmin bool, invitedBy *int64, now time.Time) (*User, error) {
+	// unread_since starts at signup, so threads that existed before the account
+	// do not count as unopened for it.
 	result, err := q.ExecContext(ctx, `
-		INSERT INTO users (username, password_hash, is_admin, invited_by, created_at)
-		VALUES (?, ?, ?, ?, ?)`,
-		username, passwordHash, boolInt(isAdmin), nullableInt64(invitedBy), now.Unix(),
+		INSERT INTO users (username, password_hash, is_admin, invited_by, created_at, unread_since)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		username, passwordHash, boolInt(isAdmin), nullableInt64(invitedBy), now.Unix(), now.Unix(),
 	)
 	if err != nil {
 		return nil, userInsertError(err)

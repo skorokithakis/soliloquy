@@ -37,6 +37,13 @@ type Thread struct {
 	// Voted is true when the viewer passed to a list query has an active vote
 	// on the thread. It is false for viewer 0.
 	Voted bool
+	// NewComments counts the thread's live comments created after the
+	// viewer's read cutoff, excluding the viewer's own comments. It is zero
+	// for viewer 0.
+	NewComments int64
+	// Unopened is true when the viewer has never opened a thread that was
+	// created after their account's unread_since. It is false for viewer 0.
+	Unopened bool
 }
 
 // AuthorName is the name shown for the thread's author, including on threads
@@ -53,15 +60,28 @@ const threadColumns = `t.id, t.public_id, t.author_id, t.title, t.url, t.body, t
 	(SELECT COUNT(*) FROM comments c WHERE c.thread_id = t.id AND c.deleted_at IS NULL),
 	u.username, u.deleted_at`
 
+// threadListColumns adds the viewer's vote and read state to threadColumns.
+// Queries using it must join thread_reads as r and users as vu for the viewer,
+// and pass the viewer's ID for every placeholder in this fragment.
 const threadListColumns = threadColumns + `,
 	EXISTS(SELECT 1 FROM votes v
-		WHERE v.item_type = 'thread' AND v.item_id = t.id AND v.user_id = ?)`
+		WHERE v.item_type = 'thread' AND v.item_id = t.id AND v.user_id = ?),
+	CASE WHEN ? = 0 THEN 0 ELSE (
+		SELECT COUNT(*) FROM comments c
+		WHERE c.thread_id = t.id
+		  AND c.deleted_at IS NULL
+		  AND c.author_id != ?
+		  AND c.created_at > MAX(COALESCE(r.last_read_at, 0), vu.unread_since)
+	) END,
+	CASE WHEN ? = 0 THEN 0 ELSE (
+		r.user_id IS NULL AND t.created_at > vu.unread_since
+	) END`
 
 func scanThread(row rowScanner) (*Thread, error) {
 	return scanThreadRow(row, false)
 }
 
-func scanThreadRow(row rowScanner, withVoted bool) (*Thread, error) {
+func scanThreadRow(row rowScanner, withViewerState bool) (*Thread, error) {
 	var (
 		thread          Thread
 		createdAt       int64
@@ -87,8 +107,8 @@ func scanThreadRow(row rowScanner, withVoted bool) (*Thread, error) {
 		&thread.AuthorUsername,
 		&authorDeletedAt,
 	}
-	if withVoted {
-		dest = append(dest, &thread.Voted)
+	if withViewerState {
+		dest = append(dest, &thread.Voted, &thread.NewComments, &thread.Unopened)
 	}
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
@@ -198,15 +218,21 @@ func (db *DB) DeleteThread(ctx context.Context, id int64, now time.Time) (bool, 
 }
 
 // ListThreads returns live threads ordered by most recent activity, along with
-// the viewer's vote state. Ties are broken by the newest thread. Callers ask
-// for one row more than the page size to find out whether another page exists.
+// the viewer's vote and read state. Ties are broken by the newest thread.
+// Callers ask for one row more than the page size to find out whether another
+// page exists.
 func (db *DB) ListThreads(ctx context.Context, viewerID int64, limit, offset int) ([]Thread, error) {
+	// The six viewer arguments are for threadListColumns (four), the
+	// thread_reads join and the viewer's users join.
 	rows, err := db.QueryContext(ctx, `
 		SELECT `+threadListColumns+`
 		FROM threads t JOIN users u ON u.id = t.author_id
+		LEFT JOIN thread_reads r ON r.thread_id = t.id AND r.user_id = ?
+		LEFT JOIN users vu ON vu.id = ?
 		WHERE t.deleted_at IS NULL
 		ORDER BY t.last_activity_at DESC, t.id DESC
-		LIMIT ? OFFSET ?`, viewerID, limit, offset)
+		LIMIT ? OFFSET ?`,
+		viewerID, viewerID, viewerID, viewerID, viewerID, viewerID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

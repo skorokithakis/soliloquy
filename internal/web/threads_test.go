@@ -559,6 +559,68 @@ func TestFrontPageShowsDeletedUser(t *testing.T) {
 	}
 }
 
+func TestFrontPageShowsReadState(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Unix(1_700_000_000, 0).UTC()
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, bob)
+
+	unread := createThreadDirect(t, server, alice, "Unread thread", "", "body", base.Add(time.Minute))
+	createCommentDirect(t, server, unread, alice, nil, "first", base.Add(2*time.Minute))
+	createCommentDirect(t, server, unread, bob, nil, "own comment", base.Add(2*time.Minute+time.Second))
+	createCommentDirect(t, server, unread, alice, nil, "second", base.Add(3*time.Minute))
+
+	opened := createThreadDirect(t, server, alice, "Opened thread", "", "body", base.Add(4*time.Minute))
+	createCommentDirect(t, server, opened, alice, nil, "before the visit", base.Add(5*time.Minute))
+	if _, err := server.db.MarkThreadRead(context.Background(), bob.ID, opened.ID, base.Add(6*time.Minute)); err != nil {
+		t.Fatalf("MarkThreadRead: %v", err)
+	}
+	createCommentDirect(t, server, opened, alice, nil, "after the visit", base.Add(7*time.Minute))
+
+	// The unopened thread has a dot and the two comments by alice are new; the
+	// viewer's own comment does not count. The opened thread has no dot but
+	// still reports the comment that arrived after the visit.
+	server.now = func() time.Time { return base.Add(10 * time.Minute) }
+	body := doRequest(t, server, http.MethodGet, "/", nil, cookie, "").Body.String()
+
+	unreadRow := frontPageRow(t, body, "Unread thread")
+	for _, want := range []string{
+		`<span class="dot unread-dot" aria-label="unread"></span>`,
+		"3 comments",
+		`<span class="new-count">2 new</span>`,
+	} {
+		if !strings.Contains(unreadRow, want) {
+			t.Errorf("unread thread row does not contain %q", want)
+		}
+	}
+
+	openedRow := frontPageRow(t, body, "Opened thread")
+	if strings.Contains(openedRow, "unread-dot") {
+		t.Error("opened thread row still shows the unread dot")
+	}
+	for _, want := range []string{"2 comments", `<span class="new-count">1 new</span>`} {
+		if !strings.Contains(openedRow, want) {
+			t.Errorf("opened thread row does not contain %q", want)
+		}
+	}
+}
+
+// frontPageRow returns the markup of the front-page row whose title is title.
+func frontPageRow(t *testing.T, body, title string) string {
+	t.Helper()
+
+	for _, row := range strings.Split(body, `<li class="row">`) {
+		if strings.Contains(row, title) {
+			return row
+		}
+	}
+	t.Fatalf("front page has no row for %q", title)
+	return ""
+}
+
 func TestThreadNotFound(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

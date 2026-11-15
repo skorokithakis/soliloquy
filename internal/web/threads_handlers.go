@@ -36,6 +36,10 @@ type threadView struct {
 	LastActivity   string
 	Voted          bool
 	CanVote        bool
+	// NewComments and Unopened describe the viewer's read state. ListThreads
+	// fills them; queries without a viewer leave them zero.
+	NewComments int64
+	Unopened    bool
 }
 
 type indexPageData struct {
@@ -204,13 +208,29 @@ func (s *Server) handleThreadPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderThreadPage(w, r, thread, http.StatusOK, "", "")
+	// Opening the page marks the thread read. The cutoff the update returns
+	// is the read state from before this visit, so the comments new to the
+	// viewer are the ones created after it. Visitors have no read state and
+	// must not write any.
+	newSince := time.Time{}
+	if user := currentUser(r); user != nil {
+		cutoff, err := s.db.MarkThreadRead(r.Context(), user.ID, thread.ID, s.now())
+		if err != nil {
+			s.serverError(w, err)
+			return
+		}
+		newSince = cutoff
+	}
+
+	s.renderThreadPage(w, r, thread, newSince, http.StatusOK, "", "")
 }
 
 // renderThreadPage renders a thread and its comment tree. It is shared by the
 // GET handler and the comment handlers, which re-render the page with an error
-// and the submitted text when a comment is invalid.
-func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread *db.Thread, status int, commentBody, commentError string) {
+// and the submitted text when a comment is invalid. Only the GET handler marks
+// the thread read, so those re-renders pass a zero cutoff and show no new
+// markers.
+func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread *db.Thread, newSince time.Time, status int, commentBody, commentError string) {
 	user := currentUser(r)
 	viewerID := int64(0)
 	if user != nil {
@@ -240,7 +260,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		CanDelete:     user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		Voted:         voted,
 		CanVote:       user != nil && user.ID != thread.AuthorID,
-		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now),
+		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now, newSince),
 		CommentBody:   commentBody,
 		CommentLength: utf8.RuneCountInString(commentBody),
 		CommentError:  commentError,
@@ -464,6 +484,8 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 		Score:          thread.Score,
 		CommentText:    commentsText(thread.CommentCount),
 		LastActivity:   relativeTime(thread.LastActivityAt, now),
+		NewComments:    thread.NewComments,
+		Unopened:       thread.Unopened,
 	}
 }
 

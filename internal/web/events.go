@@ -231,7 +231,9 @@ func (s *Server) publishNewComment(threadID int64, comment *db.Comment) {
 		threadAuthorID = thread.AuthorID
 	}
 
-	view := commentViewFor(&db.CommentNode{Comment: *comment}, nil, threadAuthorID, s.now())
+	// The stream carries one rendering for every viewer, so it marks no
+	// comment as new; app.js adds the marker on the viewer's page instead.
+	view := commentViewFor(&db.CommentNode{Comment: *comment}, nil, threadAuthorID, s.now(), time.Time{})
 	// Only logged-in users have a live stream, so they also get the reply link.
 	view.LoggedIn = true
 	html, err := s.renderCommentHTML(view)

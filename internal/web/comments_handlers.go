@@ -41,7 +41,10 @@ type commentView struct {
 	// LoggedIn says whether the viewer has an account. Visitors get no vote,
 	// reply, edit or delete controls, and no account link on the author name.
 	LoggedIn bool
-	Replies  []commentView
+	// New marks a comment newer than the viewer's read cutoff, so the page
+	// shows it the way app.js shows a comment that arrived live.
+	New     bool
+	Replies []commentView
 }
 
 type commentFormPageData struct {
@@ -73,15 +76,15 @@ func (s *Server) renderCommentHTML(view commentView) (template.HTML, error) {
 	return template.HTML(buf.String()), nil
 }
 
-func commentViews(nodes []*db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) []commentView {
+func commentViews(nodes []*db.CommentNode, viewer *db.User, threadAuthorID int64, now, newSince time.Time) []commentView {
 	views := make([]commentView, len(nodes))
 	for i, node := range nodes {
-		views[i] = commentViewFor(node, viewer, threadAuthorID, now)
+		views[i] = commentViewFor(node, viewer, threadAuthorID, now, newSince)
 	}
 	return views
 }
 
-func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64, now time.Time) commentView {
+func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64, now, newSince time.Time) commentView {
 	comment := node.Comment
 	view := commentView{
 		PublicID:       comment.PublicID,
@@ -99,7 +102,11 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		CanVote:        viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
 		IsOP:           comment.AuthorID == threadAuthorID,
 		LoggedIn:       viewer != nil,
-		Replies:        commentViews(node.Replies, viewer, threadAuthorID, now),
+		// A deleted comment keeps its place in the tree but has no content to
+		// mark, and the reader's own comments never count as new. The zero
+		// cutoff means this comment list does not mark new comments at all.
+		New:     viewer != nil && !newSince.IsZero() && comment.DeletedAt == nil && comment.AuthorID != viewer.ID && comment.CreatedAt.After(newSince),
+		Replies: commentViews(node.Replies, viewer, threadAuthorID, now, newSince),
 	}
 	if comment.ParentPublicID != nil {
 		view.ParentPublicID = *comment.ParentPublicID
@@ -120,7 +127,7 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderThreadPage(w, r, thread, http.StatusBadRequest, body, err.Error())
+		s.renderThreadPage(w, r, thread, time.Time{}, http.StatusBadRequest, body, err.Error())
 		return
 	}
 

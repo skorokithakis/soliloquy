@@ -637,6 +637,18 @@ a.btn.pri:hover {
 	font-weight: 500;
 }
 
+/* Read-state markers on the front page. The dot reuses the notifications dot
+   and sits on the title's first line; the new-comment count sits after the
+   comment count in the accent colour. */
+.unread-dot {
+	margin-right: 5px;
+	vertical-align: 1px;
+}
+
+.new-count {
+	color: var(--accent);
+}
+
 .act {
 	padding-top: 3px;
 	color: var(--muted);

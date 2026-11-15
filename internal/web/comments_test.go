@@ -14,6 +14,146 @@ import (
 	"github.com/skorokithakis/soliloquy/internal/markdown"
 )
 
+func TestThreadPageMarksCommentsNewSinceLastVisit(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Unix(1_700_000_000, 0).UTC()
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, bob)
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", base.Add(time.Minute))
+	fromAlice := createCommentDirect(t, server, thread, alice, nil, "from alice", base.Add(2*time.Minute))
+	fromBob := createCommentDirect(t, server, thread, bob, nil, "from bob", base.Add(3*time.Minute))
+	deleted := createCommentDirect(t, server, thread, alice, nil, "gone", base.Add(4*time.Minute))
+	if _, err := server.db.DeleteComment(context.Background(), deleted.ID, base.Add(5*time.Minute)); err != nil {
+		t.Fatalf("delete comment: %v", err)
+	}
+
+	// Bob has never opened the thread, so his cutoff is his unread_since at
+	// signup: alice's comments are new, his own and the deleted one are not.
+	openedAt := base.Add(10 * time.Minute)
+	server.now = func() time.Time { return openedAt }
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+
+	assertNewComment(t, body, fromAlice.PublicID, true)
+	assertNewComment(t, body, fromBob.PublicID, false)
+	assertNewComment(t, body, deleted.PublicID, false)
+
+	// Opening the page stores the visit as the thread's read time.
+	var lastReadAt int64
+	if err := server.db.QueryRow(
+		"SELECT last_read_at FROM thread_reads WHERE user_id = ? AND thread_id = ?", bob.ID, thread.ID,
+	).Scan(&lastReadAt); err != nil {
+		t.Fatalf("read thread_reads row: %v", err)
+	}
+	if lastReadAt != openedAt.Unix() {
+		t.Errorf("last_read_at = %d, want the visit time %d", lastReadAt, openedAt.Unix())
+	}
+
+	// The next visit has nothing new: the earlier visit moved the cutoff past
+	// every comment.
+	server.now = func() time.Time { return openedAt.Add(time.Minute) }
+	body = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+	for _, comment := range []*db.Comment{fromAlice, fromBob} {
+		assertNewComment(t, body, comment.PublicID, false)
+	}
+}
+
+func TestInvalidCommentDoesNotMarkThreadRead(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Unix(1_700_000_000, 0).UTC()
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	cookie := signIn(t, server, bob)
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", base.Add(time.Minute))
+	fromAlice := createCommentDirect(t, server, thread, alice, nil, "from alice", base.Add(2*time.Minute))
+
+	// The rejected comment re-renders the page. That must not consume the new
+	// markers or write read state.
+	server.now = func() time.Time { return base.Add(5 * time.Minute) }
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{"body": {"  \n\t"}}, cookie)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	assertNewComment(t, response.Body.String(), fromAlice.PublicID, false)
+
+	var rows int
+	if err := server.db.QueryRow(
+		"SELECT COUNT(*) FROM thread_reads WHERE user_id = ? AND thread_id = ?", bob.ID, thread.ID,
+	).Scan(&rows); err != nil {
+		t.Fatalf("count thread_reads: %v", err)
+	}
+	if rows != 0 {
+		t.Error("a rejected comment marked the thread read")
+	}
+}
+
+func TestVisitorGetsNoReadState(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Unix(1_700_000_000, 0).UTC()
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", base.Add(time.Minute))
+	createCommentDirect(t, server, thread, alice, nil, "comment", base.Add(2*time.Minute))
+	setPublic(t, server, true)
+
+	server.now = func() time.Time { return base.Add(3 * time.Minute) }
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, nil, "")
+	if page.Code != http.StatusOK {
+		t.Fatalf("thread page status = %d, want %d", page.Code, http.StatusOK)
+	}
+	if body := page.Body.String(); strings.Contains(body, `class="c new"`) || strings.Contains(body, `class="tag">new</span>`) {
+		t.Error("thread page shows new markers to a visitor")
+	}
+
+	index := doRequest(t, server, http.MethodGet, "/", nil, nil, "")
+	if index.Code != http.StatusOK {
+		t.Fatalf("front page status = %d, want %d", index.Code, http.StatusOK)
+	}
+	if body := index.Body.String(); strings.Contains(body, "unread-dot") || strings.Contains(body, "new-count") {
+		t.Error("front page shows read-state markers to a visitor")
+	}
+
+	var rows int
+	if err := server.db.QueryRow("SELECT COUNT(*) FROM thread_reads").Scan(&rows); err != nil {
+		t.Fatalf("count thread_reads: %v", err)
+	}
+	if rows != 0 {
+		t.Errorf("thread_reads rows = %d, want 0; a visitor wrote read state", rows)
+	}
+}
+
+// assertNewComment checks the markup around one comment: the shaded .new list
+// item and the header tag that app.js also builds for live comments, in the
+// same place before the collapse toggle.
+func assertNewComment(t *testing.T, body, publicID string, want bool) {
+	t.Helper()
+
+	if !want {
+		if strings.Contains(body, `<li class="c new" id="c`+publicID+`"`) {
+			t.Errorf("comment %s is marked new", publicID)
+		}
+		return
+	}
+
+	start := strings.Index(body, `<li class="c new" id="c`+publicID+`"`)
+	if start < 0 {
+		t.Fatalf("comment %s is not marked new", publicID)
+	}
+
+	tagIndex := strings.Index(body[start:], `<span class="tag">new</span>`)
+	toggleIndex := strings.Index(body[start:], `class="tog"`)
+	if tagIndex < 0 || toggleIndex < 0 || tagIndex > toggleIndex {
+		t.Errorf("comment %s does not put the new tag before the collapse toggle", publicID)
+	}
+}
+
 func TestThreadPageRendersCommentTree(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

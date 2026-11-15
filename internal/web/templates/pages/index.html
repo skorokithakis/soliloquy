@@ -21,11 +21,13 @@
 				<span class="sc{{if .Voted}} on{{end}}">{{.Score}}</span>
 			</div>
 			<div class="thread-cell">
+				{{if .Unopened}}<span class="dot unread-dot" aria-label="unread"></span>{{end}}
 				{{if .URL}}<a class="tt" href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">({{.Domain}})</span>{{else}}<a class="tt" href="/threads/{{.PublicID}}">{{.Title}}</a>{{end}}
 				<div class="meta">
 					{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if $.Visitor}}<span>{{.Author}}</span>{{else}}<a href="/u/{{.AuthorUsername}}">{{.Author}}</a>{{end}}
 					<span>·</span>
 					<a href="/threads/{{.PublicID}}">{{.CommentText}}</a>
+					{{if .NewComments}}<span>·</span><span class="new-count">{{.NewComments}} new</span>{{end}}
 				</div>
 			</div>
 			<span class="act">{{.LastActivity}}</span>

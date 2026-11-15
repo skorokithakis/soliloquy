@@ -1,5 +1,5 @@
 {{define "comment"}}
-<li class="c" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
+<li class="c{{if .New}} new{{end}}" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
 	<div class="ch">
 		{{if .Deleted}}
 		{{if .LoggedIn}}<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>{{else}}<span class="vote none" aria-hidden="true"></span>{{end}}
@@ -25,6 +25,7 @@
 		{{if .Edited}}<span>·</span><span>edited</span>{{end}}
 		{{end}}
 		{{if .HasParent}}<span>·</span><a class="par" href="#c{{.ParentPublicID}}">parent</a>{{end}}
+		{{if .New}}<span class="tag">new</span>{{end}}
 		<button class="tog" type="button" hidden aria-expanded="true" aria-label="Collapse comment">[-]</button>
 	</div>
 	<div class="cb md{{if .Deleted}} gone{{end}}">
