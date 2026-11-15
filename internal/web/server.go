@@ -202,6 +202,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/settings/discord-test", s.handleAdminDiscordTest)
 	mux.HandleFunc("GET /tree", s.handleInviteTree)
 	mux.HandleFunc("POST /admin/users/{id}/disable", s.handleAdminDisableUser)
+	mux.HandleFunc("POST /admin/users/{id}/enable", s.handleAdminEnableUser)
 	mux.HandleFunc("POST /admin/users/{id}/reset", s.handleAdminResetPassword)
 	mux.HandleFunc("POST /admin/users/{id}/grant-admin", s.handleAdminGrantAdmin)
 	mux.HandleFunc("POST /admin/users/{id}/revoke-admin", s.handleAdminRevokeAdmin)

@@ -45,16 +45,20 @@ func TestAdminUsersPage(t *testing.T) {
 		fmt.Sprintf(`action="/admin/users/%d/reset"`, dave.ID),
 		fmt.Sprintf(`action="/admin/users/%d/grant-admin"`, dave.ID),
 		fmt.Sprintf(`action="/admin/users/%d/disable"`, dave.ID),
-		`data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled. This cannot be undone."`,
+		`data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled."`,
+		`enable: lets them log in again. Cancelled invites stay cancelled.`,
 		`title="You cannot remove your own admin rights"`,
+		fmt.Sprintf(`action="/admin/users/%d/enable"`, bob.ID), // disabled users can be enabled
+		`<button class="x" type="submit">enable</button>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("admin page does not contain %q", want)
 		}
 	}
 	for _, unwanted := range []string{
-		fmt.Sprintf(`action="/admin/users/%d/reset"`, bob.ID), // disabled users have no actions
+		fmt.Sprintf(`action="/admin/users/%d/reset"`, bob.ID), // disabled users have no other actions
 		fmt.Sprintf(`action="/admin/users/%d/disable"`, bob.ID),
+		`no actions`,
 		fmt.Sprintf(`action="/admin/users/%d/disable"`, admin.ID), // cannot disable self
 		fmt.Sprintf(`action="/admin/users/%d/reset"`, admin.ID),   // self row only shows the disabled admin button
 		`data-username="carol"`,                                   // deleted accounts are omitted
@@ -84,6 +88,7 @@ func TestAdminActionsRequireAdmin(t *testing.T) {
 
 	paths := []string{
 		fmt.Sprintf("/admin/users/%d/disable", admin.ID),
+		fmt.Sprintf("/admin/users/%d/enable", admin.ID),
 		fmt.Sprintf("/admin/users/%d/reset", admin.ID),
 		fmt.Sprintf("/admin/users/%d/grant-admin", user.ID),
 		fmt.Sprintf("/admin/users/%d/revoke-admin", admin.ID),
@@ -150,6 +155,87 @@ func TestAdminDisablesUser(t *testing.T) {
 	stillActive, err := server.db.UserByID(context.Background(), admin.ID)
 	if err != nil || stillActive == nil || stillActive.DisabledAt != nil {
 		t.Errorf("admin disabled themselves: user = %+v, err = %v", stillActive, err)
+	}
+}
+
+func TestAdminEnablesUser(t *testing.T) {
+	server := newTestServer(t)
+	admin := createTestUser(t, server, "admin", true)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	adminCookie := signIn(t, server, admin)
+	if err := server.db.CreateInvite(context.Background(), "bob-invite", &bob.ID, false, server.now()); err != nil {
+		t.Fatalf("create bob invite: %v", err)
+	}
+
+	response := postForm(t, server, fmt.Sprintf("/admin/users/%d/disable", bob.ID), nil, adminCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("disable status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	response = postForm(t, server, fmt.Sprintf("/admin/users/%d/enable", bob.ID), nil, adminCookie)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/users" {
+		t.Fatalf("enable status = %d, Location = %q", response.Code, response.Header().Get("Location"))
+	}
+	updated, err := server.db.UserByID(context.Background(), bob.ID)
+	if err != nil || updated == nil {
+		t.Fatalf("UserByID: user = %v, err = %v", updated, err)
+	}
+	if updated.DisabledAt != nil {
+		t.Error("enable did not clear disabled_at")
+	}
+
+	// Cancelled invites stay cancelled.
+	if invites, err := server.db.ListActiveInvites(context.Background(), bob.ID, server.now()); err != nil || len(invites) != 0 {
+		t.Errorf("re-enabled user invites = %d, err = %v; want none", len(invites), err)
+	}
+
+	// Bob can log in again.
+	response = postForm(t, server, "/login", url.Values{
+		"username": {"bob"},
+		"password": {testPassword},
+	}, nil)
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/" {
+		t.Errorf("re-enabled user login status = %d, Location = %q", response.Code, response.Header().Get("Location"))
+	}
+
+	// Enabling an active, unknown or deleted account is a no-op redirect.
+	if err := server.db.DeleteAccount(context.Background(), carol.ID, server.now()); err != nil {
+		t.Fatalf("delete carol: %v", err)
+	}
+	for _, id := range []int64{bob.ID, 999999, carol.ID} {
+		response = postForm(t, server, fmt.Sprintf("/admin/users/%d/enable", id), nil, adminCookie)
+		if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/users" {
+			t.Errorf("enable user %d: status = %d, Location = %q", id, response.Code, response.Header().Get("Location"))
+		}
+	}
+	deleted, err := server.db.UserByID(context.Background(), carol.ID)
+	if err != nil || deleted == nil || deleted.DeletedAt == nil {
+		t.Errorf("enable restored a deleted account: user = %+v, err = %v", deleted, err)
+	}
+}
+
+func TestAdminEnableKeepsAdminRights(t *testing.T) {
+	server := newTestServer(t)
+	admin := createTestUser(t, server, "admin", true)
+	other := createTestUser(t, server, "other", true)
+	adminCookie := signIn(t, server, admin)
+
+	response := postForm(t, server, fmt.Sprintf("/admin/users/%d/disable", other.ID), nil, adminCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("disable status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	response = postForm(t, server, fmt.Sprintf("/admin/users/%d/enable", other.ID), nil, adminCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("enable status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	updated, err := server.db.UserByID(context.Background(), other.ID)
+	if err != nil || updated == nil {
+		t.Fatalf("UserByID: user = %v, err = %v", updated, err)
+	}
+	if updated.DisabledAt != nil || !updated.IsAdmin {
+		t.Errorf("re-enabled admin = %+v, want active with admin rights", updated)
 	}
 }
 

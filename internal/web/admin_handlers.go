@@ -134,6 +134,23 @@ func (s *Server) handleAdminDisableUser(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 }
 
+func (s *Server) handleAdminEnableUser(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+
+	id, ok := pathUserID(w, r)
+	if !ok {
+		return
+	}
+
+	if _, err := s.db.EnableUser(r.Context(), id); err != nil {
+		s.serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+}
+
 func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return

@@ -132,6 +132,23 @@ func (db *DB) DisableUser(ctx context.Context, userID int64, now time.Time) (boo
 	return affected == 1, nil
 }
 
+// EnableUser clears a disabled user's flag so they can log in again. It
+// reports whether a disabled account was re-enabled. Their cancelled invites
+// and ended sessions stay gone, and their admin rights are unchanged.
+func (db *DB) EnableUser(ctx context.Context, userID int64) (bool, error) {
+	result, err := db.ExecContext(ctx, `
+		UPDATE users SET disabled_at = NULL
+		WHERE id = ? AND disabled_at IS NOT NULL AND deleted_at IS NULL`, userID)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected == 1, nil
+}
+
 // SetAdmin grants or removes a user's admin rights. Deleted accounts are left
 // alone. The caller enforces that an admin cannot remove their own rights, and
 // the last active admin cannot lose theirs; ErrLastAdmin is returned in that

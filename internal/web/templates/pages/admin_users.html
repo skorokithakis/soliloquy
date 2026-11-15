@@ -45,7 +45,11 @@
 					<td class="{{if .Disabled}}st-off{{else}}st-ok{{end}}">{{.Status}}</td>
 					<td>
 						{{if .Disabled}}
-						<div class="acts"><span class="x">no actions</span></div>
+						<div class="acts">
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/enable">
+								<button class="x" type="submit">enable</button>
+							</form>
+						</div>
 						{{else if .IsYou}}
 						<div class="acts"><button class="x" type="button" disabled title="You cannot remove your own admin rights">remove admin</button></div>
 						{{else}}
@@ -62,7 +66,7 @@
 								<button class="x" type="submit">make admin</button>
 							</form>
 							{{end}}
-							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable" data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled. This cannot be undone.">
+							<form class="inline-form" method="post" action="/admin/users/{{.ID}}/disable" data-confirm="Disable this user? They are logged out, cannot log in again, and their unused invite links are cancelled.">
 								<button class="x d" type="submit">disable</button>
 							</form>
 						</div>
@@ -76,6 +80,7 @@
 
 	<p class="admin-note">
 		disable: ends their sessions, blocks login and cancels their unused invites. People they invited keep their accounts.<br>
+		enable: lets them log in again. Cancelled invites stay cancelled.<br>
 		Admins delete threads and comments from the thread page.
 	</p>
 </div>

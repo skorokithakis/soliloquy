@@ -286,6 +286,87 @@ func TestDisableUserEndsSessionsAndCancelsUnusedInvites(t *testing.T) {
 	assertCount(t, database, `SELECT COUNT(*) FROM invites WHERE created_by = ? AND used_at IS NOT NULL`, user.ID, 1)
 }
 
+func TestEnableUserReenablesDisabledAccount(t *testing.T) {
+	database := migratedTestDB(t)
+	ctx := context.Background()
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	if _, err := database.CreateUser(ctx, "admin", "hash", true, nil, now); err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	user, err := database.CreateUser(ctx, "alice", "hash", false, nil, now)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if err := database.CreateSession(ctx, user.ID, "session", now, now.Add(time.Hour)); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if err := database.CreateInvite(ctx, "unused", &user.ID, false, now); err != nil {
+		t.Fatalf("create unused invite: %v", err)
+	}
+	if _, err := database.DisableUser(ctx, user.ID, now.Add(time.Minute)); err != nil {
+		t.Fatalf("DisableUser: %v", err)
+	}
+
+	enabled, err := database.EnableUser(ctx, user.ID)
+	if err != nil || !enabled {
+		t.Fatalf("EnableUser: enabled = %v, err = %v", enabled, err)
+	}
+	updated, err := database.UserByID(ctx, user.ID)
+	if err != nil || updated == nil {
+		t.Fatalf("UserByID: user = %v, err = %v", updated, err)
+	}
+	if !updated.Active() {
+		t.Errorf("user after enable = %+v, want active", updated)
+	}
+
+	// The disable already ended sessions and cancelled invites; enabling must
+	// not bring them back.
+	assertCount(t, database, `SELECT COUNT(*) FROM sessions WHERE user_id = ?`, user.ID, 0)
+	assertCount(t, database, `SELECT COUNT(*) FROM invites WHERE created_by = ? AND used_at IS NULL`, user.ID, 0)
+
+	// Enabling an active, unknown or deleted account changes nothing.
+	if enabled, err := database.EnableUser(ctx, user.ID); err != nil || enabled {
+		t.Errorf("enabling an active user: enabled = %v, err = %v", enabled, err)
+	}
+	if enabled, err := database.EnableUser(ctx, 999999); err != nil || enabled {
+		t.Errorf("enabling an unknown user: enabled = %v, err = %v", enabled, err)
+	}
+	deleted, err := database.CreateUser(ctx, "bob", "hash", false, nil, now)
+	if err != nil {
+		t.Fatalf("create bob: %v", err)
+	}
+	if err := database.DeleteAccount(ctx, deleted.ID, now.Add(time.Minute)); err != nil {
+		t.Fatalf("DeleteAccount: %v", err)
+	}
+	if enabled, err := database.EnableUser(ctx, deleted.ID); err != nil || enabled {
+		t.Errorf("enabling a deleted user: enabled = %v, err = %v", enabled, err)
+	}
+	stillDeleted, err := database.UserByID(ctx, deleted.ID)
+	if err != nil || stillDeleted == nil || stillDeleted.DeletedAt == nil {
+		t.Errorf("deleted user after enable = %+v, err = %v; want still deleted", stillDeleted, err)
+	}
+
+	// A disabled admin comes back as an admin.
+	otherAdmin, err := database.CreateUser(ctx, "other-admin", "hash", true, nil, now)
+	if err != nil {
+		t.Fatalf("create other admin: %v", err)
+	}
+	if _, err := database.DisableUser(ctx, otherAdmin.ID, now.Add(time.Minute)); err != nil {
+		t.Fatalf("disable other admin: %v", err)
+	}
+	if enabled, err := database.EnableUser(ctx, otherAdmin.ID); err != nil || !enabled {
+		t.Fatalf("enable other admin: enabled = %v, err = %v", enabled, err)
+	}
+	reenabledAdmin, err := database.UserByID(ctx, otherAdmin.ID)
+	if err != nil || reenabledAdmin == nil {
+		t.Fatalf("UserByID: user = %v, err = %v", reenabledAdmin, err)
+	}
+	if !reenabledAdmin.Active() || !reenabledAdmin.IsAdmin {
+		t.Errorf("re-enabled admin = %+v, want active with admin rights", reenabledAdmin)
+	}
+}
+
 func TestBuildInviteTreeIncludesDeletedAndDisabledUsers(t *testing.T) {
 	database := migratedTestDB(t)
 	ctx := context.Background()
