@@ -698,6 +698,58 @@ a.btn.pri:hover {
 	color: var(--muted);
 }
 
+/* A table is its own scroll container, so a wide table scrolls sideways
+ * instead of widening the thread on a narrow screen. */
+.md table {
+	display: block;
+	max-width: 100%;
+	margin: 4px 0 8px;
+	border-collapse: collapse;
+	overflow-x: auto;
+	font-size: 13.5px;
+	line-height: 1.45;
+}
+
+.md th,
+.md td {
+	padding: 5px 9px;
+	border: 1px solid var(--line);
+	vertical-align: top;
+}
+
+.md th {
+	background: var(--panel);
+	font-weight: 500;
+	text-align: left;
+}
+
+/* The renderer writes GFM column alignment as an align attribute, which would
+ * lose to the text-align above. */
+.md th[align="center"] {
+	text-align: center;
+}
+
+.md th[align="right"] {
+	text-align: right;
+}
+
+.md del {
+	color: var(--muted);
+}
+
+/* Task list items drop the bullet and pull the checkbox into its place. In a
+ * loose list, goldmark puts the checkbox inside the item's first paragraph. */
+.md li:has(> input[type="checkbox"]),
+.md li:has(> p:first-child > input[type="checkbox"]:first-child) {
+	list-style: none;
+}
+
+.md li > input[type="checkbox"],
+.md li > p:first-child > input[type="checkbox"]:first-child {
+	margin: 0 0.4em 0 -1.4em;
+	vertical-align: middle;
+}
+
 .ment,
 .mention {
 	padding: 0 3px;

@@ -11,8 +11,10 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
@@ -26,14 +28,27 @@ const (
 
 var (
 	converter = goldmark.New(
-		goldmark.WithExtensions(mentionExtension{}),
+		goldmark.WithExtensions(
+			// GitHub Flavored Markdown: tables, strikethrough, linkify and
+			// task lists.
+			extension.GFM,
+			mentionExtension{},
+		),
 		goldmark.WithParserOptions(
 			parser.WithASTTransformers(util.Prioritized(linkRelTransformer{}, 100)),
+		),
+		goldmark.WithRendererOptions(
+			// A single newline is a line break, as in GitHub comments.
+			html.WithHardWraps(),
+			// Tables emit align="left" rather than style="text-align: left";
+			// the sanitizer drops style but keeps align.
+			extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute),
 		),
 	)
 
 	// The UGC policy is too strict for our links, which carry a rel attribute
-	// added by the renderer, and for mention spans.
+	// added by the renderer, for mention spans, and for GFM task list
+	// checkboxes.
 	sanitizer = newSanitizer()
 )
 
@@ -41,11 +56,21 @@ func newSanitizer() *bluemonday.Policy {
 	policy := bluemonday.UGCPolicy()
 	policy.AllowAttrs("rel").Matching(bluemonday.SpaceSeparatedTokens).OnElements("a")
 	policy.AllowAttrs("class").Matching(regexp.MustCompile(`^mention$`)).OnElements("span")
+
+	// Task list items render as <input type="checkbox" disabled checked>.
+	// Allow nothing else on an input, so user HTML cannot turn it into another
+	// kind of form field or give it a src. The policy never enables styles, so
+	// a style attribute is dropped everywhere.
+	policy.AllowAttrs("type").Matching(regexp.MustCompile(`(?i)^checkbox$`)).OnElements("input")
+	policy.AllowAttrs("disabled").Matching(regexp.MustCompile(`(?i)^(|disabled)$`)).OnElements("input")
+	policy.AllowAttrs("checked").Matching(regexp.MustCompile(`(?i)^(|checked)$`)).OnElements("input")
+
 	return policy
 }
 
-// Render converts Markdown source to HTML and sanitizes the result. Links are
-// given rel="nofollow noopener". The returned HTML is safe to insert into a
+// Render converts GitHub Flavored Markdown source to HTML and sanitizes the
+// result. A single newline becomes a line break, as in GitHub comments. Links
+// are given rel="nofollow noopener". The returned HTML is safe to insert into a
 // page without further escaping.
 func Render(source string) (template.HTML, error) {
 	var buf bytes.Buffer
@@ -57,12 +82,13 @@ func Render(source string) (template.HTML, error) {
 }
 
 // Mentions returns the distinct usernames mentioned as @username in source, in
-// the order they first appear. Names are lowercased. Mentions inside code spans
-// and code blocks are ignored, as are email-like "a@b" sequences, and names
-// shorter than 3 or longer than 20 characters.
+// the order they first appear. Names are lowercased. It parses with the same
+// parser as Render, so the names returned are exactly the ones rendered as
+// mentions: mentions inside code are ignored, as are email-like sequences such
+// as "a@b", URLs, and names shorter than 3 or longer than 20 characters.
 func Mentions(source string) []string {
 	reader := text.NewReader([]byte(source))
-	doc := goldmark.DefaultParser().Parse(reader)
+	doc := converter.Parser().Parse(reader)
 
 	var mentions []string
 	seen := make(map[string]struct{})
@@ -72,71 +98,22 @@ func Mentions(source string) []string {
 			return ast.WalkContinue, nil
 		}
 
-		switch node.Kind() {
-		case ast.KindCodeSpan, ast.KindCodeBlock, ast.KindFencedCodeBlock:
-			return ast.WalkSkipChildren, nil
-		case ast.KindText:
-			// Goldmark splits text at characters that may start emphasis, such
-			// as the underscore in "@user_name". Process the whole run of
-			// adjacent text nodes so such mentions are not cut in half, but do
-			// not merge across a soft or hard line break.
-			if previous, ok := node.PreviousSibling().(*ast.Text); ok &&
-				!previous.SoftLineBreak() && !previous.HardLineBreak() {
-				return ast.WalkContinue, nil
-			}
-
-			var text []byte
-			for current := node; current != nil && current.Kind() == ast.KindText; current = current.NextSibling() {
-				currentText := current.(*ast.Text)
-				text = append(text, currentText.Text(reader.Source())...)
-				if currentText.SoftLineBreak() || currentText.HardLineBreak() {
-					break
-				}
-			}
-
-			for _, name := range namesInText(text) {
-				if _, ok := seen[name]; ok {
-					continue
-				}
-				seen[name] = struct{}{}
-				mentions = append(mentions, name)
-			}
+		mention, ok := node.(*mentionNode)
+		if !ok {
+			return ast.WalkContinue, nil
 		}
+
+		name := strings.ToLower(mention.Name)
+		if _, ok := seen[name]; ok {
+			return ast.WalkContinue, nil
+		}
+		seen[name] = struct{}{}
+		mentions = append(mentions, name)
 
 		return ast.WalkContinue, nil
 	})
 
 	return mentions
-}
-
-// namesInText returns the mentions in a single run of text.
-func namesInText(text []byte) []string {
-	var names []string
-
-	for i := 0; i < len(text); i++ {
-		if text[i] != '@' {
-			continue
-		}
-		// A username character before the @ makes this an email-like sequence
-		// such as "a@b", not a mention.
-		if i > 0 && isUsernameByte(text[i-1]) {
-			continue
-		}
-
-		start := i + 1
-		end := start
-		for end < len(text) && isUsernameByte(text[end]) {
-			end++
-		}
-
-		length := end - start
-		if length >= minUsernameLength && length <= maxUsernameLength {
-			names = append(names, strings.ToLower(string(text[start:end])))
-		}
-		i = end - 1
-	}
-
-	return names
 }
 
 func isUsernameByte(b byte) bool {
@@ -168,9 +145,10 @@ func (n *mentionNode) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, map[string]string{"Name": n.Name}, nil)
 }
 
-// mentionParser turns @username into a mentionNode. It follows the same
-// username and email-like rules as Mentions, and inline parsers are not run
-// inside code spans or code blocks.
+// mentionParser turns @username into a mentionNode. Mentions reports these
+// nodes, so notifications and highlighting always agree. Inline parsers are not
+// run inside code spans or code blocks, so mentions there are ignored, and the
+// preceding-character check keeps email-like "a@b" sequences out.
 type mentionParser struct{}
 
 func (mentionParser) Trigger() []byte {
