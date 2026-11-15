@@ -39,7 +39,12 @@
 	<form class="comment-form" id="comment-form" method="post" action="/threads/{{.Thread.PublicID}}/comments" aria-label="Add a comment">
 		{{if .CommentError}}<p class="err" role="alert">{{.CommentError}}</p>{{end}}
 		<div class="editor">
+			<div class="tabs" role="tablist" hidden data-tabs>
+				<button type="button" class="on" role="tab" aria-selected="true" data-tab="write">write</button>
+				<button type="button" role="tab" aria-selected="false" data-tab="preview">preview</button>
+			</div>
 			<textarea name="body" maxlength="20000" required aria-label="Comment" placeholder="Add a comment. Markdown works. Type @ to mention someone.">{{.CommentBody}}</textarea>
+			<div class="preview md" hidden data-preview></div>
 			<div class="edbar">
 				<span>markdown · @mention</span>
 				<span class="sp"></span>

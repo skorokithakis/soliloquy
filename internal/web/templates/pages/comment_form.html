@@ -6,7 +6,12 @@
 	{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 	<form method="post" action="{{.Action}}">
 		<div class="editor">
+			<div class="tabs" role="tablist" hidden data-tabs>
+				<button type="button" class="on" role="tab" aria-selected="true" data-tab="write">write</button>
+				<button type="button" role="tab" aria-selected="false" data-tab="preview">preview</button>
+			</div>
 			<textarea name="body" rows="8" maxlength="20000" required autofocus aria-label="{{.Heading}}">{{.FormBody}}</textarea>
+			<div class="preview md" hidden data-preview></div>
 			<div class="edbar">
 				<span>markdown · @mention</span>
 				<span class="sp"></span>

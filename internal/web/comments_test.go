@@ -146,6 +146,38 @@ func TestDeletedCommentVisibility(t *testing.T) {
 	}
 }
 
+func TestCommentFormsKeepPreviewHiddenWithoutJS(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "a comment", server.now())
+
+	pages := []struct {
+		name string
+		path string
+	}{
+		{name: "thread", path: threadPath(thread.PublicID)},
+		{name: "reply", path: commentAction(comment.PublicID, "reply")},
+		{name: "edit", path: commentAction(comment.PublicID, "edit")},
+	}
+	for _, page := range pages {
+		t.Run(page.name, func(t *testing.T) {
+			body := doRequest(t, server, http.MethodGet, page.path, nil, cookie, "").Body.String()
+			for _, want := range []string{
+				`role="tablist" hidden data-tabs`,
+				`data-tab="write">write</button>`,
+				`data-tab="preview">preview</button>`,
+				`class="preview md" hidden data-preview`,
+			} {
+				if !strings.Contains(body, want) {
+					t.Errorf("%s page does not contain %q", page.name, want)
+				}
+			}
+		})
+	}
+}
+
 func TestCreateCommentAndReply(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

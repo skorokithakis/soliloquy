@@ -1300,6 +1300,8 @@ a.btn.pri:hover {
 	font-weight: 500;
 }
 
+/* Write/preview tabs, shared by the thread form and comment forms. They are
+   hidden in the HTML until app.js enables them. */
 .tabs {
 	display: flex;
 	border-bottom: 1px solid var(--line2);
@@ -1323,8 +1325,14 @@ a.btn.pri:hover {
 }
 
 .preview {
-	min-height: 240px;
 	padding: 10px 12px;
+}
+
+/* The thread form's preview replaces a 240px textarea. Comment previews take
+   the height of their textarea from the script instead, so the form does not
+   jump when the preview opens. */
+.thread-form .preview {
+	min-height: 240px;
 }
 
 .preview > :first-child {

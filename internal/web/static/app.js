@@ -185,6 +185,11 @@ document.addEventListener("click", (event) => {
 	textarea.placeholder = "Reply to " + author;
 	textarea.setAttribute("aria-label", "Reply");
 
+	const previewPane = document.createElement("div");
+	previewPane.className = "preview md";
+	previewPane.hidden = true;
+	previewPane.dataset.preview = "";
+
 	const bar = document.createElement("div");
 	bar.className = "edbar";
 
@@ -213,10 +218,11 @@ document.addEventListener("click", (event) => {
 	submit.textContent = "reply";
 
 	bar.append(note, spacer, counter, submit, cancel);
-	editor.append(textarea, bar);
+	editor.append(createPreviewTabs(), textarea, previewPane, bar);
 	form.append(editor);
 	actions.insertAdjacentElement("afterend", form);
 
+	setupEditorPreview(form);
 	updateCounter(textarea);
 	textarea.focus();
 });
@@ -475,94 +481,147 @@ if (usernameInput) {
 	}
 }
 
-// Thread form: show the write/preview tabs and keep the preview and mention
-// notification line in sync with the body. Without this script the tabs and
-// preview stay hidden and the textarea works normally.
+// setupEditorPreview shows the write/preview tabs on a Markdown editor and
+// keeps the preview in sync with the textarea. The tab bar and preview pane
+// are hidden in the HTML, so without this script the textarea works normally.
+// The optional mentionNote shows who would get a notification, which the thread
+// form uses but comment forms do not.
+function setupEditorPreview(form, mentionNote) {
+	const tabs = form.querySelector("[data-tabs]");
+	const previewPane = form.querySelector("[data-preview]");
+	const textarea = form.querySelector('textarea[name="body"]');
+	if (!tabs || !previewPane || !textarea) {
+		return;
+	}
+
+	const writeTab = tabs.querySelector('[data-tab="write"]');
+	const previewTab = tabs.querySelector('[data-tab="preview"]');
+	tabs.hidden = false;
+
+	let previewRequest = 0;
+	const requestPreview = async () => {
+		const request = ++previewRequest;
+		try {
+			const response = await fetch("/preview", {
+				method: "POST",
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				credentials: "same-origin",
+				body: new URLSearchParams({ body: textarea.value }),
+			});
+			if (!response.ok || request !== previewRequest) {
+				return;
+			}
+
+			const data = await response.json();
+			if (request !== previewRequest) {
+				return;
+			}
+			previewPane.innerHTML = data.html;
+			if (mentionNote) {
+				const names = (data.mentions || []).map((name) => "@" + name);
+				if (names.length === 0) {
+					mentionNote.textContent = "";
+				} else {
+					mentionNote.textContent = names.join(", ") +
+						(names.length === 1 ? " will get a notification" : " will get notifications");
+				}
+			}
+		} catch (error) {
+			// Keep the last good preview; the plain form still works.
+		}
+	};
+
+	const showTab = (name) => {
+		const showPreview = name === "preview";
+		if (writeTab) {
+			writeTab.classList.toggle("on", !showPreview);
+			writeTab.setAttribute("aria-selected", String(!showPreview));
+		}
+		if (previewTab) {
+			previewTab.classList.toggle("on", showPreview);
+			previewTab.setAttribute("aria-selected", String(showPreview));
+		}
+		if (showPreview) {
+			// Match the textarea it replaces so the form does not jump. Measure
+			// before hiding it, because a hidden element has no height.
+			previewPane.style.minHeight = textarea.offsetHeight + "px";
+		}
+		textarea.hidden = showPreview;
+		previewPane.hidden = !showPreview;
+		if (showPreview) {
+			requestPreview();
+		}
+	};
+
+	// A hidden required textarea cannot show the browser's validation message,
+	// so go back to the write tab when a submit fails validation.
+	textarea.addEventListener("invalid", () => {
+		showTab("write");
+	});
+
+	tabs.addEventListener("click", (event) => {
+		const button = event.target.closest("[data-tab]");
+		if (button) {
+			showTab(button.dataset.tab);
+		}
+	});
+
+	let previewTimer = 0;
+	textarea.addEventListener("input", () => {
+		window.clearTimeout(previewTimer);
+		previewTimer = window.setTimeout(requestPreview, 400);
+	});
+
+	if (textarea.value.trim() !== "") {
+		requestPreview();
+	}
+}
+
+// createPreviewTabs builds the tab bar for a comment form created by the
+// script. It matches the markup the templates use.
+function createPreviewTabs() {
+	const tabs = document.createElement("div");
+	tabs.className = "tabs";
+	tabs.setAttribute("role", "tablist");
+	tabs.hidden = true;
+	tabs.dataset.tabs = "";
+
+	const writeTab = document.createElement("button");
+	writeTab.type = "button";
+	writeTab.className = "on";
+	writeTab.setAttribute("role", "tab");
+	writeTab.setAttribute("aria-selected", "true");
+	writeTab.dataset.tab = "write";
+	writeTab.textContent = "write";
+
+	const previewTab = document.createElement("button");
+	previewTab.type = "button";
+	previewTab.setAttribute("role", "tab");
+	previewTab.setAttribute("aria-selected", "false");
+	previewTab.dataset.tab = "preview";
+	previewTab.textContent = "preview";
+
+	tabs.append(writeTab, previewTab);
+	return tabs;
+}
+
+// Add the write/preview tabs to every comment form the page rendered. The
+// inline reply form is set up in its click handler once it exists.
+document.querySelectorAll("[data-tabs]").forEach((tabs) => {
+	const form = tabs.closest("form");
+	if (form) {
+		setupEditorPreview(form, form.querySelector("[data-mention-note]"));
+	}
+});
+
 const threadForm = document.querySelector(".thread-form");
 if (threadForm) {
-	const tabs = threadForm.querySelector("[data-tabs]");
-	const previewPane = threadForm.querySelector("[data-preview]");
-	const textarea = threadForm.querySelector('textarea[name="body"]');
-	const mentionNote = threadForm.querySelector("[data-mention-note]");
-	const writeTab = tabs && tabs.querySelector('[data-tab="write"]');
-	const previewTab = tabs && tabs.querySelector('[data-tab="preview"]');
 	const titleInput = threadForm.querySelector('input[name="title"]');
 	const urlInput = threadForm.querySelector('input[name="url"]');
 	const titleStatus = threadForm.querySelector("[data-title-status]");
-
-	if (tabs && previewPane && textarea) {
-		tabs.hidden = false;
-
-		let previewRequest = 0;
-		const requestPreview = async () => {
-			const request = ++previewRequest;
-			try {
-				const response = await fetch("/preview", {
-					method: "POST",
-					headers: {
-						Accept: "application/json",
-						"Content-Type": "application/x-www-form-urlencoded",
-					},
-					credentials: "same-origin",
-					body: new URLSearchParams({ body: textarea.value }),
-				});
-				if (!response.ok || request !== previewRequest) {
-					return;
-				}
-
-				const data = await response.json();
-				if (request !== previewRequest) {
-					return;
-				}
-				previewPane.innerHTML = data.html;
-				if (mentionNote) {
-					const names = (data.mentions || []).map((name) => "@" + name);
-					if (names.length === 0) {
-						mentionNote.textContent = "";
-					} else {
-						mentionNote.textContent = names.join(", ") +
-							(names.length === 1 ? " will get a notification" : " will get notifications");
-					}
-				}
-			} catch (error) {
-				// Keep the last good preview; the plain form still works.
-			}
-		};
-
-		const showTab = (name) => {
-			const showPreview = name === "preview";
-			if (writeTab) {
-				writeTab.classList.toggle("on", !showPreview);
-				writeTab.setAttribute("aria-selected", String(!showPreview));
-			}
-			if (previewTab) {
-				previewTab.classList.toggle("on", showPreview);
-				previewTab.setAttribute("aria-selected", String(showPreview));
-			}
-			textarea.hidden = showPreview;
-			previewPane.hidden = !showPreview;
-			if (showPreview) {
-				requestPreview();
-			}
-		};
-
-		tabs.addEventListener("click", (event) => {
-			const button = event.target.closest("[data-tab]");
-			if (button) {
-				showTab(button.dataset.tab);
-			}
-		});
-
-		let previewTimer = 0;
-		textarea.addEventListener("input", () => {
-			window.clearTimeout(previewTimer);
-			previewTimer = window.setTimeout(requestPreview, 400);
-		});
-
-		if (textarea.value.trim() !== "") {
-			requestPreview();
-		}
-	}
 
 	// Fetch the page title when someone pastes a URL or leaves the field. The
 	// change event is the fallback for browsers whose paste event fires before
