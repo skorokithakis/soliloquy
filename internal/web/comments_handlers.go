@@ -155,7 +155,7 @@ func (s *Server) handleReplyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderCommentForm(w, r, http.StatusOK, "Reply", "reply", commentAction(comment.PublicID, "reply"), "post reply", "", "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+	s.renderCommentForm(w, r, http.StatusOK, "Reply", "comments/reply", commentAction(comment.PublicID, "reply"), "post reply", "", "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +167,7 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", "reply", commentAction(comment.PublicID, "reply"), "post reply", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", "comments/reply", commentAction(comment.PublicID, "reply"), "post reply", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 		return
 	}
 
@@ -199,7 +199,7 @@ func (s *Server) handleEditCommentPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderCommentForm(w, r, http.StatusOK, "Edit comment", "edit comment", commentAction(comment.PublicID, "edit"), "save changes", comment.Body, "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+	s.renderCommentForm(w, r, http.StatusOK, "Edit comment", "comments/edit", commentAction(comment.PublicID, "edit"), "save changes", comment.Body, "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
@@ -215,7 +215,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderCommentForm(w, r, http.StatusBadRequest, "Edit comment", "edit comment", commentAction(comment.PublicID, "edit"), "save changes", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+		s.renderCommentForm(w, r, http.StatusBadRequest, "Edit comment", "comments/edit", commentAction(comment.PublicID, "edit"), "save changes", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 		return
 	}
 

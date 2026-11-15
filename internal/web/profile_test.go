@@ -37,7 +37,7 @@ func TestProfilePageShowsMemberActivity(t *testing.T) {
 	body := doRequest(t, server, http.MethodGet, "/u/bob", nil, cookie, "").Body.String()
 
 	for _, want := range []string{
-		`<h1 class="pt"><span class="p">~/</span>bob</h1>`,
+		`<h1 class="pt"><span class="p">~/</span>users/bob</h1>`,
 		"joined " + bob.CreatedAt.Format("2006-01-02"),
 		`invited by <a href="/u/admin">admin</a>`,
 		"Older thread",
@@ -145,7 +145,7 @@ func TestProfilePageNotFoundAndCaseInsensitive(t *testing.T) {
 	cookie := signIn(t, server, admin)
 
 	response := doRequest(t, server, http.MethodGet, "/u/BOB", nil, cookie, "")
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "~/</span>bob") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "~/</span>users/bob") {
 		t.Errorf("case-insensitive profile status = %d, body missing canonical username", response.Code)
 	}
 

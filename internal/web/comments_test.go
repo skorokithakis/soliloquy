@@ -348,7 +348,7 @@ func TestCreateCommentAndReply(t *testing.T) {
 	if !strings.Contains(replyPage, "<title>Reply · "+db.DefaultForumName+"</title>") {
 		t.Error("reply page browser title changed")
 	}
-	for _, want := range []string{"~/</span>reply", ">post reply</button>"} {
+	for _, want := range []string{"~/</span>comments/reply", ">post reply</button>"} {
 		if !strings.Contains(replyPage, want) {
 			t.Errorf("reply page does not contain %q", want)
 		}
@@ -447,7 +447,7 @@ func TestEditAndDeleteCommentPermissions(t *testing.T) {
 	if !strings.Contains(editPage, "<title>Edit comment · "+db.DefaultForumName+"</title>") {
 		t.Error("edit comment page browser title changed")
 	}
-	for _, want := range []string{"~/</span>edit comment", ">save changes</button>"} {
+	for _, want := range []string{"~/</span>comments/edit", ">save changes</button>"} {
 		if !strings.Contains(editPage, want) {
 			t.Errorf("edit comment page does not contain %q", want)
 		}

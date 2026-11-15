@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="profile-page">
 	<div class="pagehead">
-		<h1 class="pt"><span class="p">~/</span>{{.Username}}</h1>
+		<h1 class="pt"><span class="p">~/</span>users/{{.Username}}</h1>
 		<span class="sp"></span>
 		{{if .IsAdmin}}<span class="flag a">admin</span>{{end}}
 		{{if .Disabled}}<span class="flag">disabled</span>{{end}}

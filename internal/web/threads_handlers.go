@@ -281,7 +281,7 @@ func (s *Server) handleEditThreadPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderThreadForm(w, r, http.StatusOK, "threads/"+thread.PublicID+"/edit", threadPath(thread.PublicID)+"/edit", "save changes", threadFormValues{
+	s.renderThreadForm(w, r, http.StatusOK, "threads/edit", threadPath(thread.PublicID)+"/edit", "save changes", threadFormValues{
 		Title: thread.Title,
 		URL:   thread.URL,
 		Body:  thread.Body,
@@ -303,7 +303,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 
 	values, err := readThreadForm(r)
 	if err != nil {
-		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/"+thread.PublicID+"/edit", action, "save changes", values, err.Error())
+		s.renderThreadForm(w, r, http.StatusBadRequest, "threads/edit", action, "save changes", values, err.Error())
 		return
 	}
 
