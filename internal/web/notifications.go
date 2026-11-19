@@ -51,6 +51,8 @@ func notificationText(notification *db.Notification) string {
 		return actor + " replied to you in " + notification.ThreadTitle
 	case db.NotificationThreadComment:
 		return actor + " commented on your thread " + notification.ThreadTitle
+	case db.NotificationFollowed:
+		return actor + " commented in " + notification.ThreadTitle
 	default:
 		return actor + " mentioned you in " + notification.ThreadTitle
 	}
@@ -127,6 +129,8 @@ func notificationKindLabel(kind string) string {
 		return "mention"
 	case db.NotificationReply:
 		return "reply"
+	case db.NotificationFollowed:
+		return "followed"
 	default:
 		return "comment"
 	}
@@ -169,8 +173,9 @@ func (s *Server) createNotification(ctx context.Context, recipientID, actorID in
 }
 
 // notifyNewComment creates the notifications caused by a new comment: a reply
-// to its parent's author, a top-level comment on the thread's author, and any
-// mentions in its body. It returns the recipients whose badge counts changed.
+// to its parent's author, a top-level comment on the thread's author, mentions
+// in its body, and a followed notification for every other active follower of
+// the thread. It returns the recipients whose badge counts changed.
 func (s *Server) notifyNewComment(ctx context.Context, threadID, threadAuthorID int64, comment *db.Comment, parent *db.Comment) ([]int64, error) {
 	now := s.now()
 	var recipients []int64
@@ -209,7 +214,36 @@ func (s *Server) notifyNewComment(ctx context.Context, threadID, threadAuthorID 
 
 	mentioned, err := s.notifyMentions(ctx, comment.AuthorID, threadID, &comment.ID, comment.Body, "", notified)
 	recipients = append(recipients, mentioned...)
-	return recipients, err
+	if err != nil {
+		return recipients, err
+	}
+	// A member who was already notified by a mention must not also get a
+	// followed notification for the same comment.
+	for _, recipientID := range mentioned {
+		notified[recipientID] = struct{}{}
+	}
+
+	// One query loads the active followers, so this stays cheap for popular
+	// threads. The author and anyone already notified above are skipped here.
+	followers, err := s.db.ThreadFollowers(ctx, threadID)
+	if err != nil {
+		return recipients, err
+	}
+	for _, followerID := range followers {
+		if followerID == comment.AuthorID {
+			continue
+		}
+		if _, seen := notified[followerID]; seen {
+			continue
+		}
+
+		if _, err := s.createNotification(ctx, followerID, comment.AuthorID, db.NotificationFollowed, threadID, &comment.ID, now); err != nil {
+			return recipients, err
+		}
+		recipients = append(recipients, followerID)
+		notified[followerID] = struct{}{}
+	}
+	return recipients, nil
 }
 
 // notifyMentions creates mention notifications for names in newSource that

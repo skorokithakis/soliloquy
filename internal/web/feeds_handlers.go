@@ -182,6 +182,8 @@ func notificationFeedTitle(notification db.Notification) string {
 		return actor + " replied to you in " + notification.ThreadTitle
 	case db.NotificationThreadComment:
 		return actor + " commented on your thread " + notification.ThreadTitle
+	case db.NotificationFollowed:
+		return actor + " commented in " + notification.ThreadTitle
 	default:
 		return actor + " mentioned you in " + notification.ThreadTitle
 	}

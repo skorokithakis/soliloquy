@@ -85,7 +85,7 @@
 						<p class="help">Anyone who knows the topic name can read the pushes, so use a name that is hard to guess. Clear the URL to stop pushes.</p>
 						<fieldset class="checks">
 							<legend>push me for</legend>
-							<label><input type="checkbox" name="ntfy_replies"{{if .NtfyReplies}} checked{{end}}> replies, comments and mentions</label>
+							<label><input type="checkbox" name="ntfy_replies"{{if .NtfyReplies}} checked{{end}}> replies, mentions and followed threads</label>
 							<label><input type="checkbox" name="ntfy_threads"{{if .NtfyThreads}} checked{{end}}> new threads</label>
 						</fieldset>
 						{{if .NtfyTestResult}}

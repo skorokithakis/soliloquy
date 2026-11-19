@@ -334,6 +334,43 @@ func TestNtfyPersonalNotificationPushes(t *testing.T) {
 	}
 }
 
+func TestNtfyFollowedNotificationPush(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	carolCookie := signIn(t, server, carol)
+	sender := newFakePushSender()
+	server.pushes = sender
+
+	// The existing replies setting covers followed notifications.
+	saveNtfySettings(t, server, bob, "https://ntfy.sh/bob", true, false)
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	if err := server.db.FollowThread(context.Background(), bob.ID, thread.ID, server.now()); err != nil {
+		t.Fatalf("FollowThread: %v", err)
+	}
+
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
+		"body": {"a comment"},
+	}, carolCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	commentID := anchorPublicID(t, response.Header().Get("Location"))
+
+	request := sender.received(t, 1)[0]
+	if request.URL != "https://ntfy.sh/bob" {
+		t.Errorf("push URL = %q, want bob's topic", request.URL)
+	}
+	if request.Message.Text != "carol commented in Thread" {
+		t.Errorf("push text = %q, want the followed wording", request.Message.Text)
+	}
+	if request.Message.Click != testBaseURL+commentAnchorPath(thread.PublicID, commentID) {
+		t.Errorf("push click = %q, want the comment anchor", request.Message.Click)
+	}
+}
+
 func TestNtfyNewThreadPush(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

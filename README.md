@@ -164,8 +164,12 @@ Members can find the full API reference, with their own tokenized links, at
 ### Notifications
 
 Members get an in-app notification for a reply to their comment, a top-level
-comment on their thread, and an @mention. In the "notifications" section of
-the account page they can also:
+comment on their thread, and an @mention. They can also follow a thread with
+the "follow" button in the line under its title. A followed thread sends one
+notification for each new comment, at any depth, through the same channels as
+the other notifications. Following is opt-in: posting a thread or a comment
+never follows it. In the "notifications" section of the account page they can
+also:
 
 - Turn on desktop alerts. The browser shows an alert for each new notification
   while a forum tab is open in the background. This setting is per browser.

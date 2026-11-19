@@ -147,13 +147,19 @@ A user gets an in-app notification when:
    Mentions are found in normal text only, not in code spans or code blocks.
    Only existing, active users get a notification. Mentions are highlighted,
    not links.
+4. someone posts a comment, at any depth, on a thread they follow. Following
+   is opt-in: only the follow button on the thread page turns it on, and
+   posting a thread or a comment does not. A member gets one notification per
+   comment: a reply, thread-comment or mention notification replaces the
+   followed one for the same comment.
 
 Users do not get notifications for their own actions. There is a
 notifications page and an unread count badge in the header.
 
 Users can also receive their notifications through a personal RSS feed,
 desktop alerts in the browser (while a forum tab is open), and ntfy pushes.
-ntfy can also send a push for each new thread, if the user turns it on.
+Followed-thread notifications use the same channels. ntfy can also send a
+push for each new thread, if the user turns it on.
 
 ### 3.8 Search
 

@@ -8,7 +8,7 @@
 				{{if .ActorDeleted}}<span class="gone">{{.Actor}}</span>{{else}}<span class="u">{{.Actor}}</span>{{end}}
 				<span class="kind-inline">{{.KindLabel}}</span>
 			</span>
-			<span class="action">{{if eq .Kind "mention"}}mentioned you in “{{.ThreadTitle}}”{{else if eq .Kind "reply"}}replied to your comment in “{{.ThreadTitle}}”{{else}}commented on your thread “{{.ThreadTitle}}”{{end}}</span>
+			<span class="action">{{if eq .Kind "mention"}}mentioned you in “{{.ThreadTitle}}”{{else if eq .Kind "reply"}}replied to your comment in “{{.ThreadTitle}}”{{else if eq .Kind "followed"}}commented in “{{.ThreadTitle}}”{{else}}commented on your thread “{{.ThreadTitle}}”{{end}}</span>
 		</a>
 		{{if .Snippet}}<div class="snip">{{.Snippet}}</div>{{end}}
 	</div>

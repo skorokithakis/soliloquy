@@ -187,6 +187,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /threads/{id}/edit", s.handleEditThreadPage)
 	mux.HandleFunc("POST /threads/{id}/edit", s.handleUpdateThread)
 	mux.HandleFunc("POST /threads/{id}/delete", s.handleDeleteThread)
+	mux.HandleFunc("POST /threads/{id}/follow", s.handleFollowThread)
+	mux.HandleFunc("POST /threads/{id}/unfollow", s.handleUnfollowThread)
 	mux.HandleFunc("POST /threads/{id}/vote", s.handleVoteThread)
 	mux.HandleFunc("POST /threads/{id}/comments", s.handleCreateComment)
 	mux.HandleFunc("GET /comments/{id}/reply", s.handleReplyPage)

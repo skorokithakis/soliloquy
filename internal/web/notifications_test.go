@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -150,6 +151,187 @@ func TestMentionNotificationsOnCreateAndEdit(t *testing.T) {
 	}
 	if got := mustListNotifications(t, server, carol.ID); len(got) != 2 {
 		t.Errorf("carol notifications = %d, want the thread mention plus the comment edit mention", len(got))
+	}
+}
+
+func TestFollowedNotifications(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	dave := createTestUser(t, server, "dave", false)
+	bobCookie := signIn(t, server, bob)
+	carolCookie := signIn(t, server, carol)
+	daveCookie := signIn(t, server, dave)
+	ctx := context.Background()
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	// The thread author follows too: a top-level comment must still produce
+	// thread_comment, and a nested one must produce followed.
+	for _, user := range []*db.User{alice, bob, carol, dave} {
+		if err := server.db.FollowThread(ctx, user.ID, thread.ID, server.now()); err != nil {
+			t.Fatalf("follow as %s: %v", user.Username, err)
+		}
+	}
+
+	// A top-level comment notifies the thread author (who also follows), the
+	// mentioned follower, and the other follower.
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
+		"body": {"hello @carol"},
+	}, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	rootID := anchorPublicID(t, response.Header().Get("Location"))
+
+	assertNotificationKinds(t, mustListNotifications(t, server, alice.ID), db.NotificationThreadComment)
+	assertNotificationKinds(t, mustListNotifications(t, server, carol.ID), db.NotificationMention)
+	assertNotificationKinds(t, mustListNotifications(t, server, dave.ID), db.NotificationFollowed)
+	assertNotificationKinds(t, mustListNotifications(t, server, bob.ID))
+	for _, user := range []*db.User{alice, carol, dave} {
+		for _, notification := range mustListNotifications(t, server, user.ID) {
+			if notification.CommentPublicID == nil || *notification.CommentPublicID != rootID {
+				t.Errorf("%s notification comment = %v, want %s", user.Username, notification.CommentPublicID, rootID)
+			}
+		}
+	}
+
+	// A nested reply notifies its parent's author, and every other follower.
+	response = postForm(t, server, "/comments/"+rootID+"/reply", url.Values{
+		"body": {"nested"},
+	}, daveCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("reply status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	replyID := anchorPublicID(t, response.Header().Get("Location"))
+
+	assertNotificationKinds(t, mustListNotifications(t, server, bob.ID), db.NotificationReply)
+	assertNotificationKinds(t, mustListNotifications(t, server, alice.ID),
+		db.NotificationFollowed, db.NotificationThreadComment)
+	assertNotificationKinds(t, mustListNotifications(t, server, carol.ID),
+		db.NotificationFollowed, db.NotificationMention)
+	assertNotificationKinds(t, mustListNotifications(t, server, dave.ID), db.NotificationFollowed)
+	// The parent author who follows gets only the reply for this comment.
+	for _, notification := range mustListNotifications(t, server, bob.ID) {
+		if notification.CommentPublicID == nil || *notification.CommentPublicID != replyID {
+			t.Errorf("bob reply notification comment = %v, want %s", notification.CommentPublicID, replyID)
+		}
+	}
+
+	// Following applies at every depth: a reply to the reply notifies the new
+	// parent author and the followers, not the commenter.
+	response = postForm(t, server, "/comments/"+replyID+"/reply", url.Values{
+		"body": {"deeper"},
+	}, carolCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("deeper reply status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	deeperID := anchorPublicID(t, response.Header().Get("Location"))
+
+	assertNotificationKinds(t, mustListNotifications(t, server, dave.ID),
+		db.NotificationReply, db.NotificationFollowed)
+	assertNotificationKinds(t, mustListNotifications(t, server, alice.ID),
+		db.NotificationFollowed, db.NotificationFollowed, db.NotificationThreadComment)
+	assertNotificationKinds(t, mustListNotifications(t, server, bob.ID),
+		db.NotificationFollowed, db.NotificationReply)
+	assertNotificationKinds(t, mustListNotifications(t, server, carol.ID),
+		db.NotificationFollowed, db.NotificationMention)
+	for _, user := range []*db.User{dave, alice, bob} {
+		notifications := mustListNotifications(t, server, user.ID)
+		if notifications[0].CommentPublicID == nil || *notifications[0].CommentPublicID != deeperID {
+			t.Errorf("%s newest notification comment = %v, want %s", user.Username, notifications[0].CommentPublicID, deeperID)
+		}
+	}
+
+	// The page and the shared one-line text use the followed wording.
+	body := doRequest(t, server, http.MethodGet, "/notifications", nil, daveCookie, "").Body.String()
+	for _, want := range []string{
+		`class="kind">followed</span>`,
+		`class="kind-inline">followed</span>`,
+		"commented in “Thread”",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("notifications page does not contain %q", want)
+		}
+	}
+}
+
+func TestFollowedNotificationWording(t *testing.T) {
+	notification := db.Notification{
+		Kind:          db.NotificationFollowed,
+		ActorUsername: "bob",
+		ThreadTitle:   "Thread",
+	}
+	if got := notificationText(&notification); got != "bob commented in Thread" {
+		t.Errorf("notificationText = %q, want %q", got, "bob commented in Thread")
+	}
+	if got := notificationFeedTitle(notification); got != "bob commented in Thread" {
+		t.Errorf("notificationFeedTitle = %q, want %q", got, "bob commented in Thread")
+	}
+	if got := notificationKindLabel(db.NotificationFollowed); got != "followed" {
+		t.Errorf("notificationKindLabel = %q, want followed", got)
+	}
+}
+
+func TestDisabledFollowerGetsNoFollowedNotification(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	carolCookie := signIn(t, server, carol)
+	ctx := context.Background()
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	if err := server.db.FollowThread(ctx, bob.ID, thread.ID, server.now()); err != nil {
+		t.Fatalf("FollowThread: %v", err)
+	}
+	if _, err := server.db.DisableUser(ctx, bob.ID, server.now()); err != nil {
+		t.Fatalf("DisableUser: %v", err)
+	}
+
+	response := postForm(t, server, threadPath(thread.PublicID)+"/comments", url.Values{
+		"body": {"a comment"},
+	}, carolCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	assertNotificationKinds(t, mustListNotifications(t, server, alice.ID), db.NotificationThreadComment)
+	assertNotificationKinds(t, mustListNotifications(t, server, bob.ID))
+}
+
+func TestNotifyNewCommentReturnsFollowers(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	carol := createTestUser(t, server, "carol", false)
+	ctx := context.Background()
+
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	if err := server.db.FollowThread(ctx, bob.ID, thread.ID, server.now()); err != nil {
+		t.Fatalf("follow as bob: %v", err)
+	}
+	if err := server.db.FollowThread(ctx, carol.ID, thread.ID, server.now()); err != nil {
+		t.Fatalf("follow as carol: %v", err)
+	}
+
+	comment := createCommentDirect(t, server, thread, bob, nil, "hello", server.now())
+	recipients, err := server.notifyNewComment(ctx, thread.ID, thread.AuthorID, comment, nil)
+	if err != nil {
+		t.Fatalf("notifyNewComment: %v", err)
+	}
+
+	// The thread author and carol changed; bob wrote the comment.
+	if len(recipients) != 2 {
+		t.Fatalf("recipients = %v, want alice and carol", recipients)
+	}
+	for _, user := range []*db.User{alice, carol} {
+		if !slices.Contains(recipients, user.ID) {
+			t.Errorf("recipients = %v, missing %s", recipients, user.Username)
+		}
+	}
+	if slices.Contains(recipients, bob.ID) {
+		t.Errorf("recipients = %v include the comment's author", recipients)
 	}
 }
 
@@ -1301,6 +1483,19 @@ func mustListNotifications(t *testing.T, server *Server, userID int64) []db.Noti
 		t.Fatalf("ListNotifications: %v", err)
 	}
 	return notifications
+}
+
+// assertNotificationKinds compares a recipient's notifications newest first.
+func assertNotificationKinds(t *testing.T, notifications []db.Notification, want ...string) {
+	t.Helper()
+
+	got := make([]string, len(notifications))
+	for i, notification := range notifications {
+		got[i] = notification.Kind
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("notification kinds = %v, want %v", got, want)
+	}
 }
 
 func readSSEEvent(t *testing.T, reader *bufio.Reader) (string, string) {

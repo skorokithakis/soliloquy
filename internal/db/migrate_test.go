@@ -88,8 +88,8 @@ func TestEmbeddedMigrationsRun(t *testing.T) {
 	if err := database.Migrate(context.Background()); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	if version := schemaVersion(t, database); version != 13 {
-		t.Fatalf("user_version = %d, want 13", version)
+	if version := schemaVersion(t, database); version != 14 {
+		t.Fatalf("user_version = %d, want 14", version)
 	}
 }
 
@@ -222,6 +222,121 @@ func TestThreadReadsMigrationBackfillsUnreadSince(t *testing.T) {
 	if threads[0].Unopened || threads[0].NewComments != 0 {
 		t.Errorf("existing thread after migration = unopened %t, %d new; want false, 0",
 			threads[0].Unopened, threads[0].NewComments)
+	}
+}
+
+// TestFollowedNotificationMigrationKeepsRowsAndSequence applies the schema as
+// it was before the 'followed' kind existed, inserts notifications, deletes the
+// newest one, then runs the current migrations. The table is rebuilt, so the
+// rows and indexes must survive and the deleted notification's ID must not be
+// reused.
+func TestFollowedNotificationMigrationKeepsRowsAndSequence(t *testing.T) {
+	database := openTestDB(t)
+	ctx := context.Background()
+
+	entries, err := fs.Glob(migrationsFS, migrationsDir+"/*.sql")
+	if err != nil {
+		t.Fatalf("list migrations: %v", err)
+	}
+	before := fstest.MapFS{}
+	for _, entry := range entries {
+		if path.Base(entry) >= "0014_thread_follows.sql" {
+			continue
+		}
+		data, err := fs.ReadFile(migrationsFS, entry)
+		if err != nil {
+			t.Fatalf("read migration %q: %v", entry, err)
+		}
+		before[entry] = &fstest.MapFile{Data: data}
+	}
+	if err := migrate(ctx, database.DB, before); err != nil {
+		t.Fatalf("migrate before followed notifications: %v", err)
+	}
+
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO users (username, password_hash, created_at)
+		VALUES ('alice', 'hash', 1), ('bob', 'hash', 1)`); err != nil {
+		t.Fatalf("insert users: %v", err)
+	}
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO threads (public_id, author_id, title, created_at, last_activity_at)
+		VALUES ('AAAAAAAA', 1, 'Thread', 1, 1)`); err != nil {
+		t.Fatalf("insert thread: %v", err)
+	}
+	for i, kind := range []string{"reply", "thread_comment", "mention"} {
+		if _, err := database.ExecContext(ctx, `
+			INSERT INTO notifications (recipient_id, kind, actor_id, thread_id, created_at)
+			VALUES (2, ?, 1, 1, ?)`, kind, 10+i); err != nil {
+			t.Fatalf("insert %s notification: %v", kind, err)
+		}
+	}
+	// Deleting the newest row leaves the AUTOINCREMENT sequence above MAX(id).
+	if _, err := database.ExecContext(ctx, `DELETE FROM notifications WHERE id = 3`); err != nil {
+		t.Fatalf("delete newest notification: %v", err)
+	}
+
+	if err := database.Migrate(ctx); err != nil {
+		t.Fatalf("migrate followed notifications: %v", err)
+	}
+
+	rows, err := database.QueryContext(ctx, `
+		SELECT id, recipient_id, kind, actor_id, thread_id, created_at
+		FROM notifications ORDER BY id`)
+	if err != nil {
+		t.Fatalf("read notifications: %v", err)
+	}
+	defer rows.Close()
+
+	type notificationRow struct {
+		id, recipientID, actorID, threadID, createdAt int64
+		kind                                          string
+	}
+	var got []notificationRow
+	for rows.Next() {
+		var row notificationRow
+		if err := rows.Scan(&row.id, &row.recipientID, &row.kind, &row.actorID, &row.threadID, &row.createdAt); err != nil {
+			t.Fatalf("scan notification: %v", err)
+		}
+		got = append(got, row)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("read notifications: %v", err)
+	}
+	want := []notificationRow{
+		{id: 1, recipientID: 2, kind: "reply", actorID: 1, threadID: 1, createdAt: 10},
+		{id: 2, recipientID: 2, kind: "thread_comment", actorID: 1, threadID: 1, createdAt: 11},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("notification rows after migration = %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("notification row %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+
+	for _, name := range []string{
+		"notifications_recipient_created_idx",
+		"notifications_recipient_unread_idx",
+	} {
+		var count int
+		if err := database.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?`, name).Scan(&count); err != nil {
+			t.Fatalf("read index %q: %v", name, err)
+		}
+		if count != 1 {
+			t.Errorf("index %q after migration = %d, want 1", name, count)
+		}
+	}
+
+	// The new kind is allowed, and IDs continue after the deleted row rather
+	// than reusing 3.
+	created, err := database.CreateNotification(ctx, 2, 1, NotificationFollowed, 1, nil, time.Unix(20, 0))
+	if err != nil {
+		t.Fatalf("create followed notification: %v", err)
+	}
+	if created.ID != 4 {
+		t.Errorf("new notification ID = %d, want 4", created.ID)
 	}
 }
 

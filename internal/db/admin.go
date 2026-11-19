@@ -63,6 +63,9 @@ func (db *DB) DeleteAccount(ctx context.Context, userID int64, now time.Time) er
 	if _, err := tx.ExecContext(ctx, `DELETE FROM notifications WHERE recipient_id = ?`, userID); err != nil {
 		return err
 	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM thread_follows WHERE user_id = ?`, userID); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM invites WHERE created_by = ? AND used_at IS NULL`, userID,
 	); err != nil {

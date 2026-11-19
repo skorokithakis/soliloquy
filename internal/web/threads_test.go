@@ -665,6 +665,138 @@ func TestRelativeTime(t *testing.T) {
 	}
 }
 
+func TestThreadFollowAndUnfollow(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Follow me", "", "body", server.now())
+	action := threadPath(thread.PublicID)
+
+	assertFollows := func(want bool) {
+		t.Helper()
+
+		follows, err := server.db.FollowsThread(context.Background(), bob.ID, thread.ID)
+		if err != nil {
+			t.Fatalf("FollowsThread: %v", err)
+		}
+		if follows != want {
+			t.Errorf("follows = %v, want %v", follows, want)
+		}
+	}
+
+	response := postForm(t, server, action+"/follow", nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("follow status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	if location := response.Header().Get("Location"); location != action {
+		t.Errorf("follow Location = %q, want %q", location, action)
+	}
+	assertFollows(true)
+
+	// The endpoints are idempotent: a second follow must not undo the first.
+	response = postForm(t, server, action+"/follow", nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("second follow status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	assertFollows(true)
+
+	body := doRequest(t, server, http.MethodGet, action, nil, bobCookie, "").Body.String()
+	for _, want := range []string{
+		`class="inline-form follow-form"`,
+		`action="` + action + `/unfollow"`,
+		`aria-pressed="true"`,
+		`>unfollow</button>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("follower's thread page does not contain %q", want)
+		}
+	}
+
+	response = postForm(t, server, action+"/unfollow", nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("unfollow status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	if location := response.Header().Get("Location"); location != action {
+		t.Errorf("unfollow Location = %q, want %q", location, action)
+	}
+	assertFollows(false)
+
+	response = postForm(t, server, action+"/unfollow", nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("second unfollow status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	assertFollows(false)
+
+	body = doRequest(t, server, http.MethodGet, action, nil, bobCookie, "").Body.String()
+	for _, want := range []string{
+		`action="` + action + `/follow"`,
+		`aria-pressed="false"`,
+		`>follow</button>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("non-follower's thread page does not contain %q", want)
+		}
+	}
+}
+
+func TestThreadFollowJSON(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Follow me", "", "body", server.now())
+	action := threadPath(thread.PublicID)
+
+	response := doJSONPost(t, server, action+"/follow", bobCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("follow status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if contentType := response.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
+		t.Errorf("Content-Type = %q, want application/json", contentType)
+	}
+
+	var body followResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode follow response: %v (body %q)", err, response.Body.String())
+	}
+	want := followResponse{Following: true, ButtonText: "unfollow", Action: action + "/unfollow"}
+	if body != want {
+		t.Errorf("follow response = %+v, want %+v", body, want)
+	}
+
+	response = doJSONPost(t, server, action+"/unfollow", bobCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("unfollow status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode unfollow response: %v (body %q)", err, response.Body.String())
+	}
+	want = followResponse{Following: false, ButtonText: "follow", Action: action + "/follow"}
+	if body != want {
+		t.Errorf("unfollow response = %+v, want %+v", body, want)
+	}
+}
+
+func TestThreadFollowDeletedThread(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Deleted", "", "body", server.now())
+	if _, err := server.db.DeleteThread(context.Background(), thread.ID, server.now()); err != nil {
+		t.Fatalf("DeleteThread: %v", err)
+	}
+
+	// This is the same refusal a vote or delete on a deleted thread gets.
+	for _, endpoint := range []string{"follow", "unfollow"} {
+		response := postForm(t, server, threadPath(thread.PublicID)+"/"+endpoint, nil, bobCookie)
+		if response.Code != http.StatusNotFound {
+			t.Errorf("%s status = %d, want %d", endpoint, response.Code, http.StatusNotFound)
+		}
+	}
+}
+
 func createThreadDirect(t *testing.T, server *Server, user *db.User, title, rawURL, body string, at time.Time) *db.Thread {
 	t.Helper()
 

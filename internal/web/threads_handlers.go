@@ -62,6 +62,7 @@ type threadPageData struct {
 	Edited        bool
 	CanEdit       bool
 	CanDelete     bool
+	Following     bool
 	Voted         bool
 	CanVote       bool
 	Comments      []commentView
@@ -251,6 +252,15 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		return
 	}
 
+	following := false
+	if user != nil {
+		following, err = s.db.FollowsThread(r.Context(), user.ID, thread.ID)
+		if err != nil {
+			s.serverError(w, err)
+			return
+		}
+	}
+
 	data := threadPageData{
 		PageData:      s.pageData(r, thread.Title),
 		Thread:        threadViewFor(*thread, now),
@@ -259,6 +269,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		Edited:        thread.EditedAt != nil,
 		CanEdit:       user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		CanDelete:     user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
+		Following:     following,
 		Voted:         voted,
 		CanVote:       user != nil && user.ID != thread.AuthorID,
 		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now, newSince),
@@ -353,6 +364,66 @@ func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// followResponse is the JSON reply to app.js. ButtonText and Action are the
+// button's new label and the form's new target, so the script need not build
+// them.
+type followResponse struct {
+	Following  bool   `json:"following"`
+	ButtonText string `json:"button_text"`
+	Action     string `json:"action"`
+}
+
+func (s *Server) handleFollowThread(w http.ResponseWriter, r *http.Request) {
+	s.setThreadFollow(w, r, true)
+}
+
+func (s *Server) handleUnfollowThread(w http.ResponseWriter, r *http.Request) {
+	s.setThreadFollow(w, r, false)
+}
+
+// setThreadFollow follows or unfollows the thread named in the path. Both
+// endpoints are idempotent: following twice keeps the first follow and
+// unfollowing twice does nothing, so a double submit cannot flip the state.
+func (s *Server) setThreadFollow(w http.ResponseWriter, r *http.Request, follow bool) {
+	thread, ok := s.visibleThread(w, r)
+	if !ok {
+		return
+	}
+
+	user := currentUser(r)
+	var err error
+	if follow {
+		err = s.db.FollowThread(r.Context(), user.ID, thread.ID, s.now())
+	} else {
+		err = s.db.UnfollowThread(r.Context(), user.ID, thread.ID)
+	}
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	if !wantsJSON(r) {
+		http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
+		return
+	}
+
+	buttonText := "follow"
+	action := threadPath(thread.PublicID) + "/follow"
+	if follow {
+		buttonText = "unfollow"
+		action = threadPath(thread.PublicID) + "/unfollow"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(followResponse{
+		Following:  follow,
+		ButtonText: buttonText,
+		Action:     action,
+	}); err != nil {
+		s.serverError(w, err)
+	}
 }
 
 // visibleThread loads the thread named in the path and sends 404s for missing,

@@ -36,7 +36,7 @@ func TestAccountPageShowsDetails(t *testing.T) {
 		`id="feeds"`,
 		`id="delete"`,
 		`data-theme-save`,
-		"replies, comments and mentions",
+		"replies, mentions and followed threads",
 		"make a new token",
 		"Changing it signs you out of all your other sessions.",
 		"Your sessions, notifications, push settings, feed token and unused invite links are removed.",

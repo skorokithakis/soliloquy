@@ -24,6 +24,7 @@
 				<span>·</span>
 				<a href="#comments" data-comment-count>{{.Thread.CommentText}}</a>
 				{{if .Edited}}<span>·</span><span data-edited>edited</span>{{end}}
+				{{if not .Visitor}}<span>·</span><form class="inline-form follow-form" method="post" action="/threads/{{.Thread.PublicID}}/{{if .Following}}unfollow{{else}}follow{{end}}"><button type="submit" aria-pressed="{{if .Following}}true{{else}}false{{end}}">{{if .Following}}unfollow{{else}}follow{{end}}</button></form>{{end}}
 				{{if .CanEdit}}<span>·</span><a href="/threads/{{.Thread.PublicID}}/edit">edit</a>{{end}}
 				{{if .CanDelete}}<span>·</span><form class="inline-form" method="post" action="/threads/{{.Thread.PublicID}}/delete" data-confirm="Delete this thread and all its comments? This cannot be undone."><button type="submit">delete</button></form>{{end}}
 			</div>

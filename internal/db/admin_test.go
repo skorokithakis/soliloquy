@@ -91,6 +91,9 @@ func TestDeleteAccountRemovesPrivateDataAndKeepsContent(t *testing.T) {
 	if _, err := database.CreateNotification(ctx, bob.ID, alice.ID, NotificationReply, thread.ID, nil, now); err != nil {
 		t.Fatalf("create notification: %v", err)
 	}
+	if err := database.FollowThread(ctx, bob.ID, thread.ID, now); err != nil {
+		t.Fatalf("create follow: %v", err)
+	}
 	if err := database.SetFeedToken(ctx, bob.ID, "bob-feed-token"); err != nil {
 		t.Fatalf("set bob feed token: %v", err)
 	}
@@ -129,6 +132,7 @@ func TestDeleteAccountRemovesPrivateDataAndKeepsContent(t *testing.T) {
 
 	assertCount(t, database, `SELECT COUNT(*) FROM sessions WHERE user_id = ?`, bob.ID, 0)
 	assertCount(t, database, `SELECT COUNT(*) FROM notifications WHERE recipient_id = ?`, bob.ID, 0)
+	assertCount(t, database, `SELECT COUNT(*) FROM thread_follows WHERE user_id = ?`, bob.ID, 0)
 	assertCount(t, database, `SELECT COUNT(*) FROM invites WHERE created_by = ? AND used_at IS NULL`, bob.ID, 0)
 	assertCount(t, database, `SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND used_at IS NULL`, bob.ID, 0)
 

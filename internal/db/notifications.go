@@ -8,11 +8,13 @@ import (
 )
 
 // Notification kinds. Replies and top-level comments are created from new
-// comments; mentions are also created when an edit adds a name.
+// comments; mentions are also created when an edit adds a name; followed is
+// created for every other active follower of a thread a comment is posted in.
 const (
 	NotificationReply         = "reply"
 	NotificationThreadComment = "thread_comment"
 	NotificationMention       = "mention"
+	NotificationFollowed      = "followed"
 )
 
 // Notification is an in-app notification for a user. CommentID is nil for a

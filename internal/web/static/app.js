@@ -54,6 +54,40 @@ document.addEventListener("submit", async (event) => {
 	}
 });
 
+// Follow or unfollow a thread without a page reload. Like the vote form, the
+// plain form still works when JavaScript is unavailable, and a failed request
+// reloads the page because the follow may already have been saved.
+document.addEventListener("submit", async (event) => {
+	const form = event.target;
+	if (!(form instanceof HTMLFormElement) || !form.classList.contains("follow-form")) {
+		return;
+	}
+
+	event.preventDefault();
+
+	try {
+		const response = await fetch(form.action, {
+			method: "POST",
+			headers: { Accept: "application/json" },
+			credentials: "same-origin",
+		});
+		if (!response.ok) {
+			window.location.reload();
+			return;
+		}
+
+		const data = await response.json();
+		const button = form.querySelector("button");
+		if (button) {
+			button.textContent = data.button_text;
+			button.setAttribute("aria-pressed", data.following ? "true" : "false");
+		}
+		form.setAttribute("action", data.action);
+	} catch (error) {
+		window.location.reload();
+	}
+});
+
 // scoreElement finds the score shown next to a vote button. Front-page rows
 // use the compact .sc column, while thread headers and comments use .score.
 function scoreElement(form) {
