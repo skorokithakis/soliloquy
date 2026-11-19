@@ -227,6 +227,509 @@ document.addEventListener("click", (event) => {
 	textarea.focus();
 });
 
+// Quote selected text from a comment or the thread body into the reply box.
+// Selecting alone inserts nothing: a floating button appears just below the
+// selection and only a click on it inserts a quote. One button serves the
+// whole page, and it stays hidden when the selection is empty, spans more
+// than one body, or has no reply box to go into.
+const quoteButton = document.createElement("button");
+quoteButton.type = "button";
+quoteButton.className = "btn quote-btn";
+quoteButton.textContent = "quote";
+quoteButton.hidden = true;
+document.body.append(quoteButton);
+
+// The quote saved when the button appeared. Touch browsers can clear the
+// selection on tap, so the click cannot read it again.
+let quoteState = null;
+// A mouse drag selection must not move the button under the pointer.
+let quoteSelecting = false;
+// A press on the button briefly ignores selection changes, which would
+// otherwise hide it before the click arrives.
+let quotePressedUntil = 0;
+
+function quotePaused() {
+	return quoteSelecting || Date.now() < quotePressedUntil;
+}
+
+// quoteSourceAt finds the comment body or thread body that holds a node.
+function quoteSourceAt(node) {
+	const element = node && (node.nodeType === Node.TEXT_NODE ? node.parentElement : node);
+	return element instanceof Element ? element.closest(".thread-body, .c > .cb") : null;
+}
+
+// quoteTargetFor finds the textarea that receives a quote from a source. A
+// comment quotes into its own reply form, which is a direct child of its
+// li.c, so several open reply boxes stay independent.
+function quoteTargetFor(source) {
+	let form = null;
+	if (source.classList.contains("thread-body")) {
+		form = document.getElementById("comment-form");
+	} else {
+		const comment = source.closest("li.c");
+		form = comment && Array.from(comment.children).find((child) => child.classList.contains("reply-form"));
+	}
+	const field = form && form.querySelector('textarea[name="body"]');
+	return field || null;
+}
+
+// quoteMarkdown converts a selected range inside a comment or thread body to
+// Markdown. The HTML comes from internal/markdown, so the element set is
+// small. A table keeps only its text, and unknown elements keep their
+// children. No Markdown characters are escaped, which keeps the code small.
+function quoteMarkdown(range, source) {
+	const fragment = range.cloneContents();
+	quotePrune(fragment);
+	const root = quoteRestore(range, source, fragment);
+	if (root instanceof Element) {
+		return quoteConvert(root);
+	}
+	return quoteParts(root).map((part) => part.text).join("\n\n");
+}
+
+// quotePrune removes empty elements from the cloned fragment. cloneContents
+// adds a shallow clone of an element that the range only touches, so a
+// triple-click leaves empty headings, list items, links and code blocks that
+// would otherwise become stray markers. An element that holds only an image,
+// checkbox, rule or line break still means something, so keep it.
+function quotePrune(fragment) {
+	for (const element of Array.from(fragment.querySelectorAll("*")).reverse()) {
+		const empty = element.textContent.trim() === "";
+		const meaningful = element.matches("img, input, hr, br") || element.querySelector("img, input, hr, br");
+		if (empty && !meaningful) {
+			element.remove();
+		}
+	}
+}
+
+// quoteRestore wraps the cloned fragment in the formatting elements that
+// contain the range. cloneContents leaves out the common ancestor, so text
+// selected fully inside one strong, em, del, code or a would lose its
+// formatting. A list comes back only when the range spans its items, because
+// a selection inside one item must stay inline text.
+function quoteRestore(range, source, fragment) {
+	let node = range.commonAncestorContainer;
+	if (node.nodeType === Node.TEXT_NODE) {
+		node = node.parentElement;
+	}
+
+	const common = node;
+	const wrappers = [];
+	while (node && node !== source) {
+		const tag = node.tagName;
+		if (tag === "PRE" || tag === "CODE" || tag === "STRONG" || tag === "EM" || tag === "DEL" || tag === "A") {
+			wrappers.push(node);
+		} else if (node === common && (tag === "UL" || tag === "OL")) {
+			wrappers.push(node);
+		}
+		node = node.parentElement;
+	}
+
+	let root = fragment;
+	// wrappers runs from the innermost ancestor outwards, so each clone wraps
+	// the previous result.
+	for (const ancestor of wrappers) {
+		const wrapper = ancestor.cloneNode(false);
+		wrapper.append(root);
+		root = wrapper;
+	}
+	return root;
+}
+
+const quoteBlockTags = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6", "PRE", "BLOCKQUOTE", "UL", "OL", "TABLE", "HR", "DIV"]);
+
+function quoteBlockElement(node) {
+	return node instanceof Element && quoteBlockTags.has(node.tagName);
+}
+
+// quoteParts splits a container into blocks, keeping the inline text between
+// them. A list is marked so an item can put a nested list on the next line
+// without a blank line, which would make the list loose.
+function quoteParts(parent) {
+	const parts = [];
+	let inline = "";
+	const flush = () => {
+		const text = quoteClean(inline).trim();
+		if (text !== "") {
+			parts.push({ text, list: false });
+		}
+		inline = "";
+	};
+
+	for (const child of parent.childNodes) {
+		if (quoteBlockElement(child)) {
+			flush();
+			const text = quoteConvert(child).trim();
+			if (text !== "") {
+				parts.push({ text, list: child.tagName === "UL" || child.tagName === "OL" });
+			}
+		} else {
+			inline += quoteConvert(child);
+		}
+	}
+	flush();
+	return parts;
+}
+
+// quoteClean removes spaces around a line break. It must not collapse runs of
+// spaces, because the text can hold a code span whose spaces are significant.
+function quoteClean(text) {
+	return text.replace(/ *\n */g, "\n");
+}
+
+// quoteConvert returns the Markdown for one node.
+function quoteConvert(node) {
+	if (node.nodeType === Node.TEXT_NODE) {
+		return node.data.replace(/\s+/g, " ");
+	}
+	if (!(node instanceof Element)) {
+		return "";
+	}
+
+	const tag = node.tagName;
+	switch (tag) {
+		case "STRONG":
+			return quoteEmphasis(node, "**");
+		case "EM":
+			return quoteEmphasis(node, "*");
+		case "DEL":
+			return quoteEmphasis(node, "~~");
+		case "CODE":
+			return quoteCodeSpan(node);
+		case "A":
+			return quoteLink(node);
+		case "IMG":
+			return "![" + (node.getAttribute("alt") || "") + "](" + (node.getAttribute("src") || "") + ")";
+		case "BR":
+			return "\n";
+		case "INPUT":
+			return node.type === "checkbox" ? (node.checked ? "[x] " : "[ ] ") : "";
+		case "HR":
+			return "---";
+		case "PRE":
+			return quoteCodeBlock(node);
+		case "BLOCKQUOTE":
+			return quoteBlockquote(quoteParts(node).map((part) => part.text).join("\n\n"));
+		case "UL":
+		case "OL":
+			return quoteList(node, tag === "OL");
+		case "TABLE":
+			return quoteTable(node);
+		case "P":
+			return quoteInline(node).trim();
+	}
+
+	if (/^H[1-6]$/.test(tag)) {
+		return "#".repeat(Number(tag[1])) + " " + quoteInline(node).trim();
+	}
+	if (quoteBlockElement(node)) {
+		return quoteParts(node).map((part) => part.text).join("\n\n");
+	}
+	return quoteInline(node);
+}
+
+function quoteInline(node) {
+	let text = "";
+	for (const child of node.childNodes) {
+		text += quoteConvert(child);
+	}
+	return quoteClean(text);
+}
+
+// quoteEmphasis wraps inline text in a marker. Whitespace at the edges goes
+// outside the markers, because CommonMark does not read **bold ** as bold.
+function quoteEmphasis(node, marker) {
+	const text = quoteInline(node);
+	const inner = text.trim();
+	if (inner === "") {
+		return text;
+	}
+	const start = text.indexOf(inner);
+	return text.slice(0, start) + marker + inner + marker + text.slice(start + inner.length);
+}
+
+// quoteCodeSpan keeps the content verbatim and uses a backtick run longer
+// than any inside it, as CommonMark requires.
+function quoteCodeSpan(node) {
+	const text = node.textContent;
+	let longest = 0;
+	for (const run of text.match(/`+/g) || []) {
+		longest = Math.max(longest, run.length);
+	}
+	const ticks = "`".repeat(longest + 1);
+	const pad = text.startsWith("`") || text.endsWith("`") ? " " : "";
+	return ticks + pad + text + pad + ticks;
+}
+
+function quoteLink(node) {
+	const text = quoteInline(node).trim();
+	const href = node.getAttribute("href") || "";
+	if (text === "") {
+		return "";
+	}
+	if (text === href) {
+		return href;
+	}
+	return "[" + text + "](" + href + ")";
+}
+
+// quoteCodeBlock turns the pre element into a fenced block. The sanitizer
+// drops the language class today, but read it if it is there.
+function quoteCodeBlock(node) {
+	const code = node.querySelector("code");
+	const content = (code || node).textContent.replace(/\n$/, "");
+	const language = code && code.className.match(/language-(\S+)/);
+	let fence = 3;
+	for (const run of content.match(/`+/g) || []) {
+		fence = Math.max(fence, run.length + 1);
+	}
+	const ticks = "`".repeat(fence);
+	return ticks + (language ? language[1] : "") + "\n" + content + "\n" + ticks;
+}
+
+function quoteBlockquote(text) {
+	return text
+		.split("\n")
+		.map((line) => (line === "" ? ">" : "> " + line))
+		.join("\n");
+}
+
+function quoteList(node, ordered) {
+	const start = ordered ? Number(node.getAttribute("start")) || 1 : 0;
+	let index = 0;
+	return Array.from(node.children)
+		.filter((child) => child.tagName === "LI")
+		.map((item) => {
+			const marker = ordered ? start + index++ + ". " : "- ";
+			return quoteListItem(item, marker);
+		})
+		.join("\n");
+}
+
+// quoteListItem puts the first block after the marker and indents continuation
+// lines under it. A nested list follows on the next line, as a tight list
+// needs, while other blocks get a blank line.
+function quoteListItem(item, marker) {
+	const parts = quoteParts(item);
+	if (parts.length === 0) {
+		return marker.trimEnd();
+	}
+	const indent = " ".repeat(marker.length);
+	let out = marker + quoteIndent(parts[0].text, indent, true);
+	for (let i = 1; i < parts.length; i++) {
+		out += (parts[i].list ? "\n" : "\n\n") + quoteIndent(parts[i].text, indent, false);
+	}
+	return out;
+}
+
+function quoteIndent(text, indent, skipFirst) {
+	return text
+		.split("\n")
+		.map((line, index) => (index === 0 && skipFirst) || line === "" ? line : indent + line)
+		.join("\n");
+}
+
+function quoteTable(node) {
+	return Array.from(node.querySelectorAll("tr"))
+		.map((row) => {
+			const cells = Array.from(row.children).filter((cell) => cell.tagName === "TH" || cell.tagName === "TD");
+			return cells
+				.map((cell) => quoteParts(cell).map((part) => part.text).join(" ").replace(/\s*\n\s*/g, " "))
+				.join(" | ");
+		})
+		.join("\n");
+}
+
+// quoteBlock prefixes each line so the quote stays one Markdown block. Empty
+// lines become ">", and no leading or trailing empty lines remain.
+function quoteBlock(text) {
+	const lines = text.replace(/\r\n?/g, "\n").split("\n");
+	while (lines.length > 0 && lines[0].trim() === "") {
+		lines.shift();
+	}
+	while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
+		lines.pop();
+	}
+	return lines.map((line) => (line.trim() === "" ? ">" : "> " + line)).join("\n");
+}
+
+// quoteSelection returns the quote and where to put it, or null when the
+// selection cannot be quoted. Chrome ends a triple-click at the start of the
+// next block, so accept an end just past the source when only whitespace
+// follows, and clip the range to the source.
+function quoteSelection(selection) {
+	if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+		return null;
+	}
+
+	const range = selection.getRangeAt(0);
+	const source = quoteSourceAt(range.startContainer);
+	if (!source) {
+		return null;
+	}
+	const target = quoteTargetFor(source);
+	if (!target) {
+		return null;
+	}
+
+	const clipped = range.cloneRange();
+	if (!source.contains(range.endContainer)) {
+		const sourceEnd = document.createRange();
+		sourceEnd.selectNodeContents(source);
+		const tail = document.createRange();
+		tail.setStart(sourceEnd.endContainer, sourceEnd.endOffset);
+		tail.setEnd(range.endContainer, range.endOffset);
+		if (tail.toString().trim() !== "") {
+			return null;
+		}
+		clipped.setEnd(sourceEnd.endContainer, sourceEnd.endOffset);
+	}
+
+	const text = quoteMarkdown(clipped, source);
+	if (text.trim() === "") {
+		return null;
+	}
+
+	const rects = clipped.getClientRects();
+	const rect = rects.length > 0 ? rects[rects.length - 1] : clipped.getBoundingClientRect();
+	return { text: quoteBlock(text), target, rect };
+}
+
+// positionQuoteButton puts the button just below the last line of the
+// selection, in page coordinates so it scrolls with the text. The horizontal
+// position stays inside the viewport, and a coarse pointer leaves room for
+// the native selection handles.
+function positionQuoteButton(rect) {
+	quoteButton.hidden = false;
+	const width = quoteButton.offsetWidth;
+	const margin = 8;
+	const room = window.matchMedia("(pointer: coarse)").matches ? 24 : 0;
+	const limit = document.documentElement.clientWidth - width - margin;
+	const left = Math.max(margin, Math.min(rect.right, limit));
+	const top = rect.bottom + room + 4;
+	quoteButton.style.left = left + window.scrollX + "px";
+	quoteButton.style.top = top + window.scrollY + "px";
+}
+
+function hideQuoteButton() {
+	quoteButton.hidden = true;
+	quoteState = null;
+}
+
+function updateQuoteButton() {
+	if (quotePaused()) {
+		return;
+	}
+	const found = quoteSelection(window.getSelection());
+	if (!found) {
+		hideQuoteButton();
+		return;
+	}
+	quoteState = { text: found.text, target: found.target };
+	positionQuoteButton(found.rect);
+}
+
+// insertQuote puts the Markdown quote at the caret of the target textarea,
+// replacing any selected text there. It keeps a blank line around the quote
+// unless one is already there, and leaves the caret on an empty line between
+// the quote and any text that follows, so typing does not extend the quote.
+// The write tab is shown first, so the quote is visible.
+function insertQuote(target, markdown) {
+	const start = target.selectionStart;
+	const end = target.selectionEnd;
+	const before = target.value.slice(0, start);
+	const after = target.value.slice(end);
+
+	let prefix = "";
+	if (before !== "" && !before.endsWith("\n\n")) {
+		prefix = before.endsWith("\n") ? "\n" : "\n\n";
+	}
+	let suffix = "";
+	if (after !== "" && !after.startsWith("\n\n")) {
+		suffix = after.startsWith("\n") ? "\n" : "\n\n";
+	}
+
+	// The newlines after the quote always put the caret on its own empty line.
+	// The suffix adds the blank line before following text unless the text
+	// already starts with one.
+	const insertion = prefix + markdown + "\n\n" + suffix;
+	const caret = start + prefix.length + markdown.length + 2;
+
+	const form = target.closest("form");
+	const writeTab = form && form.querySelector('[data-tab="write"]');
+	if (target.hidden && writeTab) {
+		writeTab.click();
+	}
+
+	// insertText keeps the native undo history and fires the input event that
+	// updates the counter and the preview. setRangeText is the fallback for
+	// browsers where insertText is unavailable or disabled.
+	target.focus();
+	target.setSelectionRange(start, end);
+	let inserted = false;
+	try {
+		inserted = document.execCommand("insertText", false, insertion);
+	} catch (error) {
+		inserted = false;
+	}
+	if (!inserted) {
+		target.setRangeText(insertion, start, end, "end");
+		target.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+	target.setSelectionRange(caret, caret);
+}
+
+quoteButton.addEventListener("mousedown", (event) => {
+	// Keep the selection (and the caret in a focused textarea) while the
+	// button is pressed; the click uses the state saved when it appeared.
+	event.preventDefault();
+	quotePressedUntil = Date.now() + 1000;
+});
+
+quoteButton.addEventListener("pointerdown", () => {
+	quotePressedUntil = Date.now() + 1000;
+});
+
+quoteButton.addEventListener("click", () => {
+	const state = quoteState;
+	hideQuoteButton();
+	quotePressedUntil = 0;
+	const selection = window.getSelection();
+	if (selection) {
+		selection.removeAllRanges();
+	}
+	if (state && state.target.isConnected) {
+		insertQuote(state.target, state.text);
+	}
+});
+
+document.addEventListener("selectionchange", updateQuoteButton);
+
+// A mouse drag runs from mousedown to mouseup, so the button appears only
+// once the drag ends and never jumps under the pointer. Touch selection
+// handles only send selectionchange, which updates the button directly.
+document.addEventListener("mousedown", (event) => {
+	if (event.button === 0) {
+		quoteSelecting = true;
+		if (!quoteButton.contains(event.target)) {
+			hideQuoteButton();
+		}
+	}
+});
+
+document.addEventListener("mouseup", (event) => {
+	if (event.button === 0) {
+		quoteSelecting = false;
+		updateQuoteButton();
+	}
+});
+
+// A click can remove the reply box the button points at, or clear the
+// selection, without a selectionchange.
+document.addEventListener("click", updateQuoteButton);
+
+window.addEventListener("resize", updateQuoteButton);
+
 // Enable the controls that need JavaScript on every existing comment.
 function enhanceComments(root) {
 	root.querySelectorAll(".tog[hidden]").forEach((toggle) => {

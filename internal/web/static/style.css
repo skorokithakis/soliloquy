@@ -1278,6 +1278,15 @@ a.btn.pri:hover {
 	margin: 8px 0 4px 32px;
 }
 
+/* The floating "quote" button that app.js shows below a selection in a
+   comment or the thread body. It stays in the page, so it scrolls with the
+   text. */
+.quote-btn {
+	position: absolute;
+	z-index: 10;
+	user-select: none;
+}
+
 .comment-form-page .editor textarea {
 	min-height: 180px;
 }
