@@ -9,7 +9,8 @@ A small, lightweight, private forum for work discussions and friendly chats.
   threads and search without an account. Visitors cannot post, vote or comment.
 - Admins can rename the forum.
 - Threads with nested comments, like Hacker News and Reddit.
-- New comments and notifications appear live, with no page reload.
+- New comments, edits, deletes, vote counts and notifications appear live, with
+  no page reload.
 - RSS feeds for new threads, all new comments and your own notifications, with
   a secret link per member so feeds work on a private forum.
 - A small read-only JSON API for threads and comments.

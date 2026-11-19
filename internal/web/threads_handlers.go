@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -266,6 +267,9 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		CommentError:  commentError,
 	}
 	data.EventThreadID = thread.PublicID
+	// The time is taken before ListComments, so a change during the load is
+	// replayed and the browser skips the duplicate.
+	data.EventSince = now.Unix()
 	data.Visitor = user == nil
 	s.renderStatus(w, status, "thread", data)
 }
@@ -326,6 +330,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 	recipients, err := s.notifyMentions(r.Context(), thread.AuthorID, thread.ID, nil, values.Body, thread.Body, nil)
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
+	s.publishThreadEdit(thread, values.Title, values.URL, bodyHTML)
 
 	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }
@@ -487,6 +492,17 @@ func threadViewFor(thread db.Thread, now time.Time) threadView {
 		NewComments:    thread.NewComments,
 		Unopened:       thread.Unopened,
 	}
+}
+
+// renderThreadTitleHTML renders the title markup the thread page shows. The
+// live thread edit event sends it so the page and the event use one
+// definition.
+func (s *Server) renderThreadTitleHTML(view threadView) (template.HTML, error) {
+	var buf bytes.Buffer
+	if err := s.commentTemplate.ExecuteTemplate(&buf, "thread-title", view); err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil
 }
 
 func threadPath(publicID string) string {

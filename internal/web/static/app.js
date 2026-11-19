@@ -774,6 +774,40 @@ if (desktopAlertsButton && desktopAlertsStatus) {
 	updateDesktopAlerts();
 }
 
+// addEditedMarker adds the 'edited' note after the given element (or at the
+// end), matching the order the templates use. Replaying an event must not add
+// a second marker, so a marker already present stops it.
+function addEditedMarker(container, after) {
+	if (!container || container.querySelector("[data-edited]")) {
+		return;
+	}
+
+	const dot = document.createElement("span");
+	dot.textContent = "·";
+	const marker = document.createElement("span");
+	marker.dataset.edited = "";
+	marker.textContent = "edited";
+
+	const fragment = document.createDocumentFragment();
+	fragment.append(dot, marker);
+	if (after) {
+		after.after(fragment);
+	} else {
+		container.append(fragment);
+	}
+}
+
+// updateCommentCount changes both places the thread page shows the comment
+// count. Other pages carry no marked counts, so this leaves them alone.
+function updateCommentCount(text) {
+	if (!text) {
+		return;
+	}
+	document.querySelectorAll("[data-comment-count]").forEach((element) => {
+		element.textContent = text;
+	});
+}
+
 // Live badge and comment updates over the page's single SSE stream.
 const eventsURL = document.body.dataset.sseUrl;
 if (eventsURL && "EventSource" in window) {
@@ -836,6 +870,9 @@ if (eventsURL && "EventSource" in window) {
 
 	stream.addEventListener("comment", (event) => {
 		const data = JSON.parse(event.data);
+		// A replayed event for a comment the page already has still carries the
+		// current count, so apply it before the duplicate check.
+		updateCommentCount(data.comment_count_text);
 		if (document.getElementById("c" + data.comment_id)) {
 			// The author's page already has this comment after its redirect.
 			return;
@@ -853,14 +890,18 @@ if (eventsURL && "EventSource" in window) {
 
 		const inserted = document.getElementById("c" + data.comment_id);
 		if (inserted) {
-			inserted.classList.add("new");
-			const header = Array.from(inserted.children).find((child) => child.classList.contains("ch"));
-			const toggle = header && header.querySelector(".tog");
-			if (header) {
-				const tag = document.createElement("span");
-				tag.className = "tag";
-				tag.textContent = "new";
-				header.insertBefore(tag, toggle);
+			// A replayed comment may already be deleted and has no new marker.
+			const body = Array.from(inserted.children).find((child) => child.classList.contains("cb"));
+			if (!body || !body.classList.contains("gone")) {
+				inserted.classList.add("new");
+				const header = Array.from(inserted.children).find((child) => child.classList.contains("ch"));
+				const toggle = header && header.querySelector(".tog");
+				if (header) {
+					const tag = document.createElement("span");
+					tag.className = "tag";
+					tag.textContent = "new";
+					header.insertBefore(tag, toggle);
+				}
 			}
 			enhanceComments(inserted);
 		}
@@ -869,6 +910,130 @@ if (eventsURL && "EventSource" in window) {
 		if (empty) {
 			empty.remove();
 		}
+	});
+
+	stream.addEventListener("comment_edit", (event) => {
+		const data = JSON.parse(event.data);
+		const comment = document.getElementById("c" + data.comment_id);
+		if (!comment) {
+			return;
+		}
+
+		const body = Array.from(comment.children).find((child) => child.classList.contains("cb"));
+		const header = Array.from(comment.children).find((child) => child.classList.contains("ch"));
+		// An edit event can arrive after the delete event of the same comment,
+		// because each request publishes when it finishes. A deleted comment
+		// must not get its text back.
+		if (!body || body.classList.contains("gone")) {
+			return;
+		}
+
+		// Only the body changes. The vote, edit and delete controls differ for
+		// each viewer, so the stream never sends them.
+		body.innerHTML = data.html;
+		if (header) {
+			addEditedMarker(header, header.querySelector(".score"));
+		}
+	});
+
+	stream.addEventListener("comment_delete", (event) => {
+		const data = JSON.parse(event.data);
+		const comment = document.getElementById("c" + data.comment_id);
+		if (!comment) {
+			return;
+		}
+
+		const source = document.createElement("template");
+		source.innerHTML = data.html.trim();
+		const deleted = source.content.firstElementChild;
+		if (!deleted) {
+			return;
+		}
+
+		const newHeader = Array.from(deleted.children).find((child) => child.classList.contains("ch"));
+		const newBody = Array.from(deleted.children).find((child) => child.classList.contains("cb"));
+		if (!newHeader || !newBody) {
+			return;
+		}
+
+		Array.from(comment.children).forEach((child) => {
+			if (child.classList.contains("ch")) {
+				child.replaceWith(newHeader);
+			} else if (child.classList.contains("cb")) {
+				child.replaceWith(newBody);
+			} else if (child.classList.contains("ca") || child.classList.contains("reply-form")) {
+				child.remove();
+			}
+		});
+
+		// Replace only the comment itself: its replies and the .collapsed class
+		// on its <li> stay. The new header's toggle must still match the state.
+		const toggle = newHeader.querySelector(".tog");
+		if (toggle && comment.classList.contains("collapsed")) {
+			toggle.textContent = "[+]";
+			toggle.setAttribute("aria-expanded", "false");
+			toggle.setAttribute("aria-label", "Expand comment");
+		}
+		// The server never marks a deleted comment as new, so drop the class
+		// that no longer matches the markup.
+		comment.classList.remove("new");
+		enhanceComments(comment);
+		updateCommentCount(data.comment_count_text);
+	});
+
+	stream.addEventListener("thread_edit", (event) => {
+		const data = JSON.parse(event.data);
+		const thread = document.querySelector("article.thread");
+		if (!thread) {
+			return;
+		}
+
+		const title = thread.querySelector(".thread-title");
+		if (title) {
+			title.innerHTML = data.title_html;
+		}
+
+		const main = thread.querySelector(".thread-main");
+		if (main) {
+			const body = Array.from(main.children).find((child) => child.classList.contains("thread-body"));
+			if (data.body_html === "") {
+				// The body block does not exist for a bodyless thread.
+				if (body) {
+					body.remove();
+				}
+			} else if (body) {
+				body.innerHTML = data.body_html;
+			} else {
+				const created = document.createElement("div");
+				created.className = "md thread-body";
+				created.innerHTML = data.body_html;
+				main.appendChild(created);
+			}
+		}
+
+		const meta = thread.querySelector(".meta");
+		if (meta) {
+			addEditedMarker(meta, meta.querySelector('a[href^="#comments"]'));
+		}
+	});
+
+	stream.addEventListener("vote", (event) => {
+		const data = JSON.parse(event.data);
+		let score = null;
+		if (data.comment_id === null) {
+			score = document.querySelector("article.thread .score");
+		} else {
+			const comment = document.getElementById("c" + data.comment_id);
+			const header = comment && Array.from(comment.children).find((child) => child.classList.contains("ch"));
+			score = header && header.querySelector(".score");
+		}
+		if (!score) {
+			return;
+		}
+
+		// Only the number changes: the event carries no voter, so the viewer's
+		// own highlight and button state stay as they are.
+		score.textContent = score.dataset.scoreFormat === "number" ? data.score : data.score_text;
 	});
 }
 

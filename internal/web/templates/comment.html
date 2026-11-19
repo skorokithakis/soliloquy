@@ -1,3 +1,8 @@
+{{/* thread-title is shared by the thread page and the live thread edit event,
+     so the link and domain markup cannot drift. This file is parsed into both
+     the page templates and the live-update template set. */}}
+{{define "thread-title"}}{{if .URL}}<a href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">{{.Domain}}</span>{{else}}{{.Title}}{{end}}{{end}}
+
 {{define "comment"}}
 <li class="c{{if .New}} new{{end}}" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
 	<div class="ch">
@@ -22,7 +27,7 @@
 		<span>{{.CreatedAt}}</span>
 		<span>·</span>
 		<span class="score">{{.ScoreText}}</span>
-		{{if .Edited}}<span>·</span><span>edited</span>{{end}}
+		{{if .Edited}}<span>·</span><span data-edited>edited</span>{{end}}
 		{{end}}
 		{{if .HasParent}}<span>·</span><a class="par" href="#c{{.ParentPublicID}}">parent</a>{{end}}
 		{{if .New}}<span class="tag">new</span>{{end}}

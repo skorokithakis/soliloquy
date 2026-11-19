@@ -213,7 +213,8 @@ func TestThreadPageCommentControls(t *testing.T) {
 	for _, want := range []string{
 		`id="comment-form"`,
 		`action="` + threadPath(thread.PublicID) + `/comments"`,
-		"2 comments · best first",
+		`<a href="#comments" data-comment-count>2 comments</a>`,
+		">2 comments</span> · best first",
 		`class="live" data-live hidden`,
 		`class="op"`,
 		`<a class="par" href="#c` + root.PublicID + `">parent</a>`,

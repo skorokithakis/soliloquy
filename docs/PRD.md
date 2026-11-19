@@ -110,14 +110,31 @@ News. New comments and notifications show up live, with no page reload.
 
 - When a user has a thread open, new comments in that thread appear in the
   correct place in the tree with no reload.
+- When a user has a thread open, these changes to that thread also appear with
+  no reload: edits of the thread and of its comments, deletes of its comments,
+  vote counts and the comment count.
 - The notification badge updates live.
 - Each page opens one Server-Sent Events stream. It carries the user's badge
-  updates and, on a thread page, that thread's new comments.
+  updates and, on a thread page, that thread's changes.
 - A new comment always has the lowest score (1) and is the newest, so it goes
   last under its parent. The browser does not need to sort.
+- A live update changes only the content that changed. The viewer's own vote
+  state and the viewer's own edit and delete links stay as they are.
+- A comment that is deleted live shows as `[deleted]` in its place. On the
+  next page load it is gone if it has no replies.
+- A thread page can miss changes while its stream is not connected, for
+  example during a network drop or a server restart. When the stream connects
+  again, the server sends the new comments, the edits and the deletes that
+  happened after the page was loaded. The server does not keep a history of
+  events. It reads the current state from the database.
+- Vote counts are not sent again after a reconnect. They are correct on the
+  next page load.
+- Live updates are for the thread page only. The front page and the other
+  pages show changes on reload.
+- A deleted thread does not update live. Its stream closes, and the next page
+  load shows that it is gone.
 - All forms work as plain POST requests with a redirect, so pages work with no
   JavaScript. JavaScript adds live updates and votes with no reload.
-- Edits, deletes and vote counts do **not** update live. They show on reload.
 
 ### 3.7 Notifications
 
@@ -263,8 +280,8 @@ Flags or environment variables:
 - Public signup, email of any kind, SSO.
 - Public write access, public profile pages and a public invite tree.
 - Downvotes, karma, categories, tags.
-- Live updates for edits, deletes and vote counts, and live updates for
-  visitors.
+- Live updates for visitors, live updates on pages other than the thread
+  page, and live updates for thread deletes.
 - Typing indicators and online presence.
 - Image or file uploads.
 - Locked threads.

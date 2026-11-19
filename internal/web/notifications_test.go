@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -399,10 +400,17 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 		if !strings.Contains(payload.HTML, "<strong>live</strong> comment") {
 			t.Errorf("comment event HTML = %q", payload.HTML)
 		}
-		for _, unwanted := range []string{"/vote", "/edit", "/delete"} {
+		// A new comment has no votes, so its vote button is safe for everyone.
+		if !strings.Contains(payload.HTML, `action="/comments/`+commentID+`/vote"`) {
+			t.Errorf("live comment HTML has no vote form: %s", payload.HTML)
+		}
+		for _, unwanted := range []string{"/edit", "/delete"} {
 			if strings.Contains(payload.HTML, unwanted) {
 				t.Errorf("live comment HTML contains viewer-specific control %q: %s", unwanted, payload.HTML)
 			}
+		}
+		if payload.CommentCountText != "1 comment" {
+			t.Errorf("comment event count = %q, want 1 comment", payload.CommentCountText)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("no comment event was published")
@@ -441,6 +449,327 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("no badge event was published")
+	}
+}
+
+func TestCommentEditPublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, bob, nil, "original", server.now())
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{
+		"body": {"edited **text**"},
+	}, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("edit status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "comment_edit" {
+			t.Fatalf("event name = %q, want comment_edit", event.Name)
+		}
+		var payload commentEditEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode comment edit event: %v", err)
+		}
+		if payload.CommentID != comment.PublicID {
+			t.Errorf("comment edit id = %q, want %q", payload.CommentID, comment.PublicID)
+		}
+		if !strings.Contains(payload.HTML, "edited <strong>text</strong>") {
+			t.Errorf("comment edit HTML = %q", payload.HTML)
+		}
+		// The event carries only the body; the controls differ per viewer.
+		for _, unwanted := range []string{"/vote", "/edit", "/delete", `class="ch"`} {
+			if strings.Contains(payload.HTML, unwanted) {
+				t.Errorf("comment edit HTML contains %q: %s", unwanted, payload.HTML)
+			}
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no comment edit event was published")
+	}
+
+	response = postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{"body": {"hijacked"}}, aliceCookie)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("edit by another user: status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	response = postForm(t, server, commentAction(comment.PublicID, "edit"), url.Values{"body": {"   "}}, bobCookie)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid edit status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	assertNoThreadEvent(t, updates)
+}
+
+func TestCommentDeletePublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	admin := createTestUser(t, server, "admin", true)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	adminCookie := signIn(t, server, admin)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, bob, nil, "original **body**", server.now())
+	reply := createCommentDirect(t, server, thread, bob, &comment.ID, "reply text", server.now())
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := postForm(t, server, commentAction(comment.PublicID, "delete"), nil, aliceCookie)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("delete by another user: status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	assertNoThreadEvent(t, updates)
+
+	response = postForm(t, server, commentAction(comment.PublicID, "delete"), nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("delete status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "comment_delete" {
+			t.Fatalf("event name = %q, want comment_delete", event.Name)
+		}
+		var payload commentDeleteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode comment delete event: %v", err)
+		}
+		if payload.CommentID != comment.PublicID {
+			t.Errorf("comment delete id = %q, want %q", payload.CommentID, comment.PublicID)
+		}
+		for _, want := range []string{`class="gone"`, "[deleted]"} {
+			if !strings.Contains(payload.HTML, want) {
+				t.Errorf("comment delete HTML does not contain %q: %s", want, payload.HTML)
+			}
+		}
+		// The deleted rendering has no actions and no replies; the page keeps
+		// the replies it already shows. The reply still counts.
+		for _, unwanted := range []string{"original", "reply text", "/vote", "/reply", "/edit", "/delete", `class="ca"`} {
+			if strings.Contains(payload.HTML, unwanted) {
+				t.Errorf("comment delete HTML contains %q: %s", unwanted, payload.HTML)
+			}
+		}
+		if payload.CommentCountText != "1 comment" {
+			t.Errorf("comment delete count = %q, want 1 comment", payload.CommentCountText)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no comment delete event was published")
+	}
+
+	// A deleted reply keeps the parent link a page load shows for it.
+	response = postForm(t, server, commentAction(reply.PublicID, "delete"), nil, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("reply delete status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	select {
+	case event := <-updates:
+		var payload commentDeleteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode comment delete event: %v", err)
+		}
+		parentLink := `<a class="par" href="#c` + comment.PublicID + `">parent</a>`
+		if payload.CommentID != reply.PublicID || !strings.Contains(payload.HTML, parentLink) {
+			t.Errorf("deleted reply = %+v, HTML = %s", payload, payload.HTML)
+		}
+		if payload.CommentCountText != "0 comments" {
+			t.Errorf("reply delete count = %q, want 0 comments", payload.CommentCountText)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no reply delete event was published")
+	}
+
+	// The reply is gone, so a second delete fails and publishes nothing.
+	response = postForm(t, server, commentAction(reply.PublicID, "delete"), nil, adminCookie)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("second delete status = %d, want %d", response.Code, http.StatusNotFound)
+	}
+	assertNoThreadEvent(t, updates)
+}
+
+func TestThreadEditPublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Original", "", "old body", server.now())
+	editPath := threadPath(thread.PublicID) + "/edit"
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := postForm(t, server, editPath, url.Values{
+		"title": {"Edited title"},
+		"url":   {"https://example.com/post"},
+		"body":  {"new **body**"},
+	}, aliceCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("edit status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "thread_edit" {
+			t.Fatalf("event name = %q, want thread_edit", event.Name)
+		}
+		var payload threadUpdateEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode thread edit event: %v", err)
+		}
+		for _, want := range []string{"Edited title", `href="https://example.com/post"`, `class="dom"`, "example.com"} {
+			if !strings.Contains(payload.TitleHTML, want) {
+				t.Errorf("thread edit title HTML does not contain %q: %s", want, payload.TitleHTML)
+			}
+		}
+		if !strings.Contains(payload.BodyHTML, "<strong>body</strong>") {
+			t.Errorf("thread edit body HTML = %q", payload.BodyHTML)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no thread edit event was published")
+	}
+
+	// A thread with a URL and no body has no body block to show.
+	response = postForm(t, server, editPath, url.Values{
+		"title": {"URL only"},
+		"url":   {"https://example.com/"},
+		"body":  {""},
+	}, aliceCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("bodyless edit status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "thread_edit" {
+			t.Fatalf("second event name = %q, want thread_edit", event.Name)
+		}
+		var payload threadUpdateEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode thread edit event: %v", err)
+		}
+		if payload.BodyHTML != "" {
+			t.Errorf("bodyless thread edit body HTML = %q, want empty", payload.BodyHTML)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no thread edit event was published")
+	}
+
+	response = postForm(t, server, editPath, url.Values{"title": {"Hijacked"}, "body": {"body"}}, bobCookie)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("edit by another user: status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	response = postForm(t, server, editPath, url.Values{"title": {""}, "body": {"body"}}, aliceCookie)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid edit status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	assertNoThreadEvent(t, updates)
+}
+
+func TestThreadVotePublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := doJSONPost(t, server, threadPath(thread.PublicID)+"/vote", bobCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("vote status = %d, want %d", response.Code, http.StatusOK)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "vote" {
+			t.Fatalf("event name = %q, want vote", event.Name)
+		}
+		var payload voteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode vote event: %v", err)
+		}
+		if payload.CommentID != nil {
+			t.Errorf("thread vote comment id = %v, want null", payload.CommentID)
+		}
+		if payload.Score != 2 || payload.ScoreText != "2 points" {
+			t.Errorf("thread vote = %+v, want score 2", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no thread vote event was published")
+	}
+
+	// The author cannot vote on their own thread, so nothing is published.
+	response = doJSONPost(t, server, threadPath(thread.PublicID)+"/vote", aliceCookie)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	assertNoThreadEvent(t, updates)
+}
+
+func TestCommentVotePublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := doJSONPost(t, server, commentAction(comment.PublicID, "vote"), bobCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("vote status = %d, want %d", response.Code, http.StatusOK)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "vote" {
+			t.Fatalf("event name = %q, want vote", event.Name)
+		}
+		var payload voteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode vote event: %v", err)
+		}
+		if payload.CommentID == nil || *payload.CommentID != comment.PublicID {
+			t.Errorf("comment vote id = %v, want %s", payload.CommentID, comment.PublicID)
+		}
+		if payload.Score != 2 || payload.ScoreText != "2 points" {
+			t.Errorf("comment vote = %+v, want score 2", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no comment vote event was published")
+	}
+
+	// The author cannot vote on their own comment, so nothing is published.
+	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), aliceCookie)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	assertNoThreadEvent(t, updates)
+}
+
+// assertNoThreadEvent reports an event published on a topic that should have
+// stayed quiet.
+func assertNoThreadEvent(t *testing.T, events <-chan hub.Event) {
+	t.Helper()
+
+	select {
+	case event := <-events:
+		t.Fatalf("unexpected %q event: %s", event.Name, event.Data)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 
@@ -604,7 +933,7 @@ func TestEventsStreamSendsInitialBadgeAndNewComments(t *testing.T) {
 	}
 
 	comment := createCommentDirect(t, server, thread, alice, nil, "streamed", server.now())
-	server.publishNewComment(thread.ID, comment)
+	server.publishNewComment(context.Background(), thread.ID, comment)
 
 	name, data = readSSEEvent(t, reader)
 	if name != "comment" {
@@ -616,6 +945,266 @@ func TestEventsStreamSendsInitialBadgeAndNewComments(t *testing.T) {
 	}
 	if payload.CommentID != comment.PublicID || !strings.Contains(payload.HTML, "streamed") {
 		t.Errorf("comment event = %+v", payload)
+	}
+}
+
+func TestEventsStreamReplaysMissedThreadChanges(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Original", "", "old body", base.Add(-time.Hour))
+
+	// Two comments older than the page, one edited and one deleted after it.
+	edited := createCommentDirect(t, server, thread, alice, nil, "old text", base.Add(-time.Minute))
+	deleted := createCommentDirect(t, server, thread, alice, nil, "gone text", base.Add(-time.Minute))
+	created := createCommentDirect(t, server, thread, alice, nil, "new **comment**", base.Add(time.Second))
+	reply := createCommentDirect(t, server, thread, alice, &created.ID, "reply text", base.Add(2*time.Second))
+	// These arrive live after the page, then change while the stream is
+	// disconnected, so each needs a second replay event.
+	newEdited := createCommentDirect(t, server, thread, alice, nil, "first version", base.Add(6*time.Second))
+	newDeleted := createCommentDirect(t, server, thread, alice, nil, "short lived", base.Add(8*time.Second))
+
+	if _, err := server.db.UpdateComment(context.Background(), edited.ID, alice.ID, "edited text", "<p>edited text</p>", base.Add(3*time.Second)); err != nil {
+		t.Fatalf("UpdateComment: %v", err)
+	}
+	if _, err := server.db.DeleteComment(context.Background(), deleted.ID, base.Add(4*time.Second)); err != nil {
+		t.Fatalf("DeleteComment: %v", err)
+	}
+	if _, err := server.db.UpdateThread(context.Background(), thread.ID, alice.ID, "New title", "https://example.com/", "new body", "<p>new body</p>", base.Add(5*time.Second)); err != nil {
+		t.Fatalf("UpdateThread: %v", err)
+	}
+	if _, err := server.db.UpdateComment(context.Background(), newEdited.ID, alice.ID, "edited **after**", "<p>edited <strong>after</strong></p>", base.Add(7*time.Second)); err != nil {
+		t.Fatalf("UpdateComment: %v", err)
+	}
+	if _, err := server.db.DeleteComment(context.Background(), newDeleted.ID, base.Add(9*time.Second)); err != nil {
+		t.Fatalf("DeleteComment: %v", err)
+	}
+	// The viewer's own vote must show in the replayed rendering.
+	if _, err := server.db.ToggleCommentVote(context.Background(), bob.ID, created.ID); err != nil {
+		t.Fatalf("ToggleCommentVote: %v", err)
+	}
+
+	// The page passes the time it rendered, before it loaded the comments.
+	page := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String()
+	wantURL := `data-sse-url="/events?thread_id=` + thread.PublicID + `&since=` + strconv.FormatInt(base.Unix(), 10) + `"`
+	if !strings.Contains(page, wantURL) {
+		t.Errorf("thread page does not contain %q", wantURL)
+	}
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+"/events?thread_id="+thread.PublicID+"&since="+strconv.FormatInt(base.Unix(), 10), nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	request.AddCookie(bobCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("open event stream: %v", err)
+	}
+	defer response.Body.Close()
+
+	reader := bufio.NewReader(response.Body)
+	if name, _ := readSSEEvent(t, reader); name != "badge" {
+		t.Fatalf("first event = %q, want badge", name)
+	}
+
+	name, data := readSSEEvent(t, reader)
+	if name != "comment_edit" {
+		t.Fatalf("first replay event = %q, want comment_edit", name)
+	}
+	var edit commentEditEvent
+	if err := json.Unmarshal([]byte(data), &edit); err != nil {
+		t.Fatalf("decode comment edit: %v", err)
+	}
+	if edit.CommentID != edited.PublicID || !strings.Contains(edit.HTML, "edited text") {
+		t.Errorf("replayed comment edit = %+v", edit)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "comment_delete" {
+		t.Fatalf("second replay event = %q, want comment_delete", name)
+	}
+	var deletion commentDeleteEvent
+	if err := json.Unmarshal([]byte(data), &deletion); err != nil {
+		t.Fatalf("decode comment delete: %v", err)
+	}
+	if deletion.CommentID != deleted.PublicID || !strings.Contains(deletion.HTML, "[deleted]") {
+		t.Errorf("replayed comment delete = %+v", deletion)
+	}
+	if deletion.CommentCountText != "4 comments" {
+		t.Errorf("replayed comment delete count = %q, want 4 comments", deletion.CommentCountText)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "comment" {
+		t.Fatalf("third replay event = %q, want comment", name)
+	}
+	var parent commentEvent
+	if err := json.Unmarshal([]byte(data), &parent); err != nil {
+		t.Fatalf("decode comment: %v", err)
+	}
+	if parent.CommentID != created.PublicID || parent.ParentID != nil {
+		t.Errorf("replayed comment = %+v", parent)
+	}
+	if !strings.Contains(parent.HTML, "<strong>comment</strong>") {
+		t.Errorf("replayed comment HTML = %q, want rendered body", parent.HTML)
+	}
+	// The replay is rendered for this viewer, including their own vote.
+	for _, want := range []string{`class="vote on"`, `data-voted="true"`} {
+		if !strings.Contains(parent.HTML, want) {
+			t.Errorf("replayed comment HTML does not contain %q: %s", want, parent.HTML)
+		}
+	}
+	if parent.CommentCountText != "4 comments" {
+		t.Errorf("replayed comment count = %q, want 4 comments", parent.CommentCountText)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "comment" {
+		t.Fatalf("fourth replay event = %q, want comment", name)
+	}
+	var child commentEvent
+	if err := json.Unmarshal([]byte(data), &child); err != nil {
+		t.Fatalf("decode reply: %v", err)
+	}
+	if child.CommentID != reply.PublicID || child.ParentID == nil || *child.ParentID != created.PublicID {
+		t.Errorf("replayed reply = %+v", child)
+	}
+
+	// A comment that arrived live and was edited while disconnected is sent
+	// twice: the comment in its current state, then the edit.
+	name, data = readSSEEvent(t, reader)
+	if name != "comment" {
+		t.Fatalf("fifth replay event = %q, want comment", name)
+	}
+	var newComment commentEvent
+	if err := json.Unmarshal([]byte(data), &newComment); err != nil {
+		t.Fatalf("decode comment: %v", err)
+	}
+	if newComment.CommentID != newEdited.PublicID || !strings.Contains(newComment.HTML, "<strong>after</strong>") {
+		t.Errorf("replayed edited comment = %+v", newComment)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "comment_edit" {
+		t.Fatalf("sixth replay event = %q, want comment_edit", name)
+	}
+	var newEdit commentEditEvent
+	if err := json.Unmarshal([]byte(data), &newEdit); err != nil {
+		t.Fatalf("decode comment edit: %v", err)
+	}
+	if newEdit.CommentID != newEdited.PublicID || !strings.Contains(newEdit.HTML, "<strong>after</strong>") {
+		t.Errorf("replayed edit of a new comment = %+v", newEdit)
+	}
+
+	// A comment that arrived live and was deleted while disconnected is also
+	// sent twice: the deleted comment, then the delete.
+	name, data = readSSEEvent(t, reader)
+	if name != "comment" {
+		t.Fatalf("seventh replay event = %q, want comment", name)
+	}
+	var goneComment commentEvent
+	if err := json.Unmarshal([]byte(data), &goneComment); err != nil {
+		t.Fatalf("decode comment: %v", err)
+	}
+	if goneComment.CommentID != newDeleted.PublicID || !strings.Contains(goneComment.HTML, "[deleted]") {
+		t.Errorf("replayed deleted comment = %+v", goneComment)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "comment_delete" {
+		t.Fatalf("eighth replay event = %q, want comment_delete", name)
+	}
+	var newDeletion commentDeleteEvent
+	if err := json.Unmarshal([]byte(data), &newDeletion); err != nil {
+		t.Fatalf("decode comment delete: %v", err)
+	}
+	if newDeletion.CommentID != newDeleted.PublicID || !strings.Contains(newDeletion.HTML, "[deleted]") {
+		t.Errorf("replayed delete of a new comment = %+v", newDeletion)
+	}
+
+	name, data = readSSEEvent(t, reader)
+	if name != "thread_edit" {
+		t.Fatalf("last replay event = %q, want thread_edit", name)
+	}
+	var threadEdit threadUpdateEvent
+	if err := json.Unmarshal([]byte(data), &threadEdit); err != nil {
+		t.Fatalf("decode thread edit: %v", err)
+	}
+	if !strings.Contains(threadEdit.TitleHTML, "New title") || !strings.Contains(threadEdit.TitleHTML, `href="https://example.com/"`) {
+		t.Errorf("replayed thread title = %q", threadEdit.TitleHTML)
+	}
+	if !strings.Contains(threadEdit.BodyHTML, "<p>new body</p>") {
+		t.Errorf("replayed thread body = %q", threadEdit.BodyHTML)
+	}
+}
+
+func TestEventsStreamDoesNotReplayWithoutSince(t *testing.T) {
+	server := newTestServer(t)
+	base := time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
+	server.now = func() time.Time { return base }
+
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", base.Add(-time.Hour))
+	createCommentDirect(t, server, thread, alice, nil, "after the page", base.Add(time.Minute))
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	for _, test := range []struct {
+		name  string
+		query string
+	}{
+		{name: "no since", query: "/events?thread_id=" + thread.PublicID},
+		{name: "invalid since", query: "/events?thread_id=" + thread.PublicID + "&since=nope"},
+		{name: "no thread", query: "/events?since=" + strconv.FormatInt(base.Unix(), 10)},
+		{name: "changes before since", query: "/events?thread_id=" + thread.PublicID + "&since=" + strconv.FormatInt(base.Add(time.Hour).Unix(), 10)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			request, err := http.NewRequestWithContext(ctx, http.MethodGet, testServer.URL+test.query, nil)
+			if err != nil {
+				t.Fatalf("create request: %v", err)
+			}
+			request.AddCookie(cookie)
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatalf("open event stream: %v", err)
+			}
+			defer response.Body.Close()
+
+			reader := bufio.NewReader(response.Body)
+			if name, _ := readSSEEvent(t, reader); name != "badge" {
+				t.Fatalf("first event = %q, want badge", name)
+			}
+
+			// Nothing must follow the badge. The read unblocks when the
+			// request ends, which happens after the timeout below.
+			readDone := make(chan string, 1)
+			go func() {
+				line, _ := reader.ReadString('\n')
+				readDone <- strings.TrimSpace(line)
+			}()
+			select {
+			case line := <-readDone:
+				t.Fatalf("stream replayed %q", line)
+			case <-time.After(200 * time.Millisecond):
+			}
+		})
 	}
 }
 

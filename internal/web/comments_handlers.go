@@ -144,7 +144,7 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	recipients, err := s.notifyNewComment(r.Context(), thread.ID, thread.AuthorID, comment, nil)
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
-	s.publishNewComment(thread.ID, comment)
+	s.publishNewComment(r.Context(), thread.ID, comment)
 
 	http.Redirect(w, r, commentAnchorPath(thread.PublicID, comment.PublicID), http.StatusSeeOther)
 }
@@ -184,7 +184,7 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	recipients, err := s.notifyNewComment(r.Context(), comment.ThreadID, 0, reply, comment)
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
-	s.publishNewComment(comment.ThreadID, reply)
+	s.publishNewComment(r.Context(), comment.ThreadID, reply)
 
 	http.Redirect(w, r, commentAnchorPath(reply.ThreadPublicID, reply.PublicID), http.StatusSeeOther)
 }
@@ -232,6 +232,9 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 	recipients, err := s.notifyMentions(r.Context(), comment.AuthorID, comment.ThreadID, &comment.ID, body, comment.Body, nil)
 	s.logNotificationError(err)
 	s.publishBadgeCounts(r.Context(), recipients)
+	// The stored HTML is already rendered and sanitised, so viewers see the
+	// same markup the author will after the redirect.
+	s.publishCommentEdit(comment, bodyHTML)
 
 	http.Redirect(w, r, commentAnchorPath(comment.ThreadPublicID, comment.PublicID), http.StatusSeeOther)
 }
@@ -248,9 +251,11 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.db.DeleteComment(r.Context(), comment.ID, s.now()); err != nil {
+	if deleted, err := s.db.DeleteComment(r.Context(), comment.ID, s.now()); err != nil {
 		s.serverError(w, err)
 		return
+	} else if deleted {
+		s.publishCommentDelete(r.Context(), comment)
 	}
 
 	http.Redirect(w, r, commentAnchorPath(comment.ThreadPublicID, comment.PublicID), http.StatusSeeOther)
@@ -267,6 +272,7 @@ func (s *Server) handleVoteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.publishVote(thread.ID, votePayload(nil, result.Score))
 	s.respondVote(w, r, result, threadPath(thread.PublicID))
 }
 
@@ -281,6 +287,7 @@ func (s *Server) handleVoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.publishVote(comment.ThreadID, votePayload(&comment.PublicID, result.Score))
 	s.respondVote(w, r, result, commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 

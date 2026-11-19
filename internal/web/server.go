@@ -93,6 +93,10 @@ type PageData struct {
 	// EventThreadID tells the layout which thread's live comment stream the
 	// page should subscribe to. Empty means no thread stream.
 	EventThreadID string
+	// EventSince is the page render time in Unix seconds. The stream replays
+	// thread changes since then, so a page that was not connected catches up.
+	// Zero means the page has no replay point.
+	EventSince int64
 	// ForumName is the site name shown in the title and logo.
 	ForumName string
 	// BaseURL is the configured site base URL, used to build absolute URLs
