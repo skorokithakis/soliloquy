@@ -100,6 +100,34 @@ document.addEventListener("submit", async (event) => {
 	}
 });
 
+// Close an open react menu when the viewer taps or clicks outside it, or
+// presses Escape. pointerdown is used and not click, because iOS Safari does
+// not send click events for taps on plain page content. A tap on the menu's
+// own "react" label is inside the details element, so the browser closes it.
+function closeReactMenus(except) {
+	document.querySelectorAll("details.react[open]").forEach((details) => {
+		if (except instanceof Node && details.contains(except)) {
+			return;
+		}
+		// Keep keyboard focus on the page when it was inside the menu.
+		const summary = details.contains(document.activeElement) && details.querySelector("summary");
+		details.open = false;
+		if (summary) {
+			summary.focus();
+		}
+	});
+}
+
+document.addEventListener("pointerdown", (event) => {
+	closeReactMenus(event.target);
+});
+
+document.addEventListener("keydown", (event) => {
+	if (event.key === "Escape") {
+		closeReactMenus(null);
+	}
+});
+
 // The reaction keys, emoji and accessible names match reactionOptions in
 // internal/web/comments_handlers.go. A live vote event carries counts rather
 // than markup, so the page builds the chips itself.
