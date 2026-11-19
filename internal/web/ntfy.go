@@ -65,7 +65,9 @@ func (s *Server) pushNotification(notification *db.Notification) {
 		Text:  notificationText(notification),
 		Click: s.absoluteURL(notificationPath(notification.ThreadPublicID, notification.CommentPublicID)),
 	}
-	if err := s.pushes.Send(ctx, user.NtfyURL, message); err != nil {
+	err = s.pushes.Send(ctx, user.NtfyURL, message)
+	s.countDelivery(metricsTargetNtfy, err)
+	if err != nil {
 		slog.Error("send push notification", "user_id", user.ID, "error", err)
 	}
 }
@@ -91,7 +93,9 @@ func (s *Server) notifyNtfyThread(thread *db.Thread) {
 			continue
 		}
 		s.goBackground(func() {
-			if err := s.pushes.Send(ctx, user.NtfyURL, message); err != nil {
+			err := s.pushes.Send(ctx, user.NtfyURL, message)
+			s.countDelivery(metricsTargetNtfy, err)
+			if err != nil {
 				slog.Error("send new thread push", "user_id", user.ID, "error", err)
 			}
 		})
@@ -148,7 +152,9 @@ func (s *Server) sendNtfyTest(ctx context.Context, user *db.User) string {
 		Text:  ntfyTestMessage,
 		Click: s.absoluteURL("/account"),
 	}
-	if err := s.pushes.Send(ctx, user.NtfyURL, message); err != nil {
+	err := s.pushes.Send(ctx, user.NtfyURL, message)
+	s.countDelivery(metricsTargetNtfy, err)
+	if err != nil {
 		slog.Error("send ntfy test push", "user_id", user.ID, "error", err)
 		return "Test push failed: " + ntfyFailureReason(err) + "."
 	}

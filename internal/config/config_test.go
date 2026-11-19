@@ -90,6 +90,18 @@ func lookup(env map[string]string) func(string) string {
 	return func(key string) string { return env[key] }
 }
 
+func TestMetricsToken(t *testing.T) {
+	cfg, err := Load(nil, func(string) string { return "" })
+	if err != nil || cfg.MetricsToken != "" {
+		t.Fatalf("default: MetricsToken = %q, err = %v; want empty", cfg.MetricsToken, err)
+	}
+
+	cfg, err = Load(nil, lookup(map[string]string{EnvMetricsToken: "  s3cret  "}))
+	if err != nil || cfg.MetricsToken != "s3cret" {
+		t.Fatalf("env: MetricsToken = %q, err = %v; want trimmed token", cfg.MetricsToken, err)
+	}
+}
+
 func TestAllowAnyOrigin(t *testing.T) {
 	cfg, err := Load(nil, func(string) string { return "" })
 	if err != nil || cfg.AllowAnyOrigin {

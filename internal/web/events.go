@@ -74,6 +74,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	s.metrics.sseConnections.Inc()
+	defer s.metrics.sseConnections.Dec()
+
 	badges, unsubscribeBadges := s.hub.Subscribe(hub.UserTopic(user.ID))
 	defer unsubscribeBadges()
 

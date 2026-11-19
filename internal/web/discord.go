@@ -45,7 +45,9 @@ func (s *Server) notifyDiscordThread(thread *db.Thread) {
 	})
 	for index, webhook := range settings.DiscordWebhooks {
 		s.goBackground(func() {
-			if err := s.webhooks.Send(context.Background(), webhook, content); err != nil {
+			err := s.webhooks.Send(context.Background(), webhook, content)
+			s.countDelivery(metricsTargetDiscord, err)
+			if err != nil {
 				slog.Error("send discord webhook", "webhook", index+1, "error", err)
 			}
 		})
@@ -82,7 +84,9 @@ func (s *Server) sendDiscordTest(ctx context.Context, webhooks []string) string 
 
 	var failed []string
 	for index, webhook := range webhooks {
-		if err := s.webhooks.Send(ctx, webhook, discordTestMessage); err != nil {
+		err := s.webhooks.Send(ctx, webhook, discordTestMessage)
+		s.countDelivery(metricsTargetDiscord, err)
+		if err != nil {
 			slog.Error("send discord test message", "webhook", index+1, "error", err)
 			failed = append(failed, fmt.Sprintf("#%d (%s)", index+1, discordFailureReason(err)))
 		}

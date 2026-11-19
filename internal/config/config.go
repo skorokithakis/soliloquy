@@ -26,6 +26,10 @@ const (
 	EnvBaseURL    = "SOLILOQUY_BASE_URL"
 	// EnvAllowAnyOrigin is for QA and debugging servers only.
 	EnvAllowAnyOrigin = "SOLILOQUY_ALLOW_ANY_ORIGIN"
+	// EnvMetricsToken is the bearer token that protects /metrics. It is read
+	// from the environment only: a flag would show up in the process listing.
+	// An empty value turns the endpoint off.
+	EnvMetricsToken = "SOLILOQUY_METRICS_TOKEN"
 )
 
 // Config is the runtime configuration of the server.
@@ -41,6 +45,9 @@ type Config struct {
 	// the CSRF defence. It exists so QA and debugging servers work at any
 	// address. Never set it on a real deployment.
 	AllowAnyOrigin bool
+	// MetricsToken is the bearer token clients must send to GET /metrics. It
+	// is empty when the endpoint is off.
+	MetricsToken string
 }
 
 // Load reads configuration from environment variables and command-line
@@ -48,9 +55,10 @@ type Config struct {
 // supply their own environment.
 func Load(args []string, getenv func(string) string) (Config, error) {
 	cfg := Config{
-		ListenAddr: envOrDefault(getenv, EnvListenAddr, DefaultListenAddr),
-		DBPath:     envOrDefault(getenv, EnvDBPath, DefaultDBPath),
-		BaseURL:    envOrDefault(getenv, EnvBaseURL, DefaultBaseURL),
+		ListenAddr:   envOrDefault(getenv, EnvListenAddr, DefaultListenAddr),
+		DBPath:       envOrDefault(getenv, EnvDBPath, DefaultDBPath),
+		BaseURL:      envOrDefault(getenv, EnvBaseURL, DefaultBaseURL),
+		MetricsToken: strings.TrimSpace(getenv(EnvMetricsToken)),
 	}
 
 	if value := strings.TrimSpace(getenv(EnvAllowAnyOrigin)); value != "" {

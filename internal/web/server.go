@@ -49,6 +49,8 @@ type Server struct {
 	// titleFetcher fetches page titles for POST /title. Tests set
 	// AllowPrivateAddresses so it can reach httptest servers on 127.0.0.1.
 	titleFetcher *linktitle.Fetcher
+	// metrics holds this server's private Prometheus registry and collectors.
+	metrics *metrics
 	// background tracks fire-and-forget work such as webhook deliveries and
 	// pushes. Tests wait for it before closing the database; requests never
 	// wait for it.
@@ -165,6 +167,7 @@ func NewServer(database *db.DB, cfg config.Config) (*Server, error) {
 		webhooks:        discord.NewClient(),
 		pushes:          ntfy.NewClient(),
 		titleFetcher:    linktitle.NewFetcher(),
+		metrics:         newMetrics(database, cfg.DBPath),
 	}, nil
 }
 
@@ -229,7 +232,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /favicon.ico", s.handleFavicon)
 	mux.Handle("GET /static/", s.static)
 
-	return s.originCheck(s.loadUser(mux))
+	// /metrics is registered on an outer mux so it never goes through
+	// loadUser, which would send an unauthenticated scraper to /login. The
+	// metrics middleware wraps the application mux directly (see httpMetrics)
+	// so it can read the pattern the mux matches, and /metrics requests are
+	// therefore not measured.
+	root := http.NewServeMux()
+	root.Handle("GET /metrics", http.HandlerFunc(s.handleMetrics))
+	root.Handle("/", s.loadUser(s.httpMetrics(mux)))
+
+	return s.originCheck(root)
 }
 
 // handleFavicon serves the icon at the site root because browsers and bots

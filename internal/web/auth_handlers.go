@@ -52,6 +52,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	now := s.now()
 
 	if allowed, wait := s.throttle.Allowed(username); !allowed {
+		s.metrics.logins.WithLabelValues(metricsResultThrottled).Inc()
 		seconds := int((wait + time.Second - 1) / time.Second)
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", seconds))
 		s.renderStatus(w, http.StatusTooManyRequests, "login", loginPageData{
@@ -72,6 +73,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	passwordOK := user != nil && auth.CheckPassword(user.PasswordHash, password)
 	if !passwordOK || !user.Active() {
+		s.metrics.logins.WithLabelValues(metricsResultFailure).Inc()
 		s.throttle.Fail(username)
 		s.renderStatus(w, http.StatusUnauthorized, "login", loginPageData{
 			PageData: s.pageDataWithError(r, "Log in", "Login incorrect."),
@@ -88,6 +90,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !created {
+		s.metrics.logins.WithLabelValues(metricsResultFailure).Inc()
 		s.renderStatus(w, http.StatusUnauthorized, "login", loginPageData{
 			PageData: s.pageDataWithError(r, "Log in", "Login incorrect."),
 			Username: username,
@@ -96,6 +99,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.metrics.logins.WithLabelValues(metricsResultSuccess).Inc()
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
