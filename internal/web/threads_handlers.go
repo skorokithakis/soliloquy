@@ -201,6 +201,7 @@ func (s *Server) handleCreateThread(w http.ResponseWriter, r *http.Request) {
 	s.goBackground(func() { s.notifyDiscordThread(thread) })
 	s.goBackground(func() { s.notifyNtfyThread(thread) })
 
+	s.setDraftPostedCookie(w, r)
 	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }
 
@@ -343,6 +344,7 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 	s.publishBadgeCounts(r.Context(), recipients)
 	s.publishThreadEdit(thread, values.Title, values.URL, bodyHTML)
 
+	s.setDraftPostedCookie(w, r)
 	http.Redirect(w, r, threadPath(thread.PublicID), http.StatusSeeOther)
 }
 

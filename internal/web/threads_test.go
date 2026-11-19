@@ -60,7 +60,7 @@ func TestThreadFormKeepsPreviewHiddenWithoutJS(t *testing.T) {
 		`class="preview md" hidden data-preview`,
 		`data-counter="title">0 / 200`,
 		`data-counter="body">0 / 20000`,
-		`href="/">cancel</a>`,
+		`href="/" data-draft-cancel>cancel</a>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("thread form does not contain %q", want)

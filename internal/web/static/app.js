@@ -418,37 +418,17 @@ document.addEventListener("click", (event) => {
 	toggle.setAttribute("aria-label", collapsed ? "Expand comment" : "Collapse comment");
 });
 
-// Open the reply form inline. Without JavaScript the reply link goes to the
-// standalone reply page instead.
-document.addEventListener("click", (event) => {
-	const link = event.target.closest("a.reply-link");
-	if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-		return;
-	}
-
-	const comment = link.closest(".c");
-	if (!comment) {
-		return;
-	}
-
-	const existing = Array.from(comment.children).find((child) => child.classList.contains("reply-form"));
-	if (existing) {
-		event.preventDefault();
-		const textarea = existing.querySelector("textarea");
-		if (textarea) {
-			textarea.focus();
-		}
-		return;
-	}
-
-	const actions = Array.from(comment.children).find((child) => child.classList.contains("ca"));
+// buildReplyForm creates the inline reply form inside a comment and returns
+// it, or null when the comment has nowhere to put it. The click handler below
+// and the page-load draft restore both use it, so they build the same markup.
+// Only the click handler focuses the textarea.
+function buildReplyForm(link, comment) {
+	const actions = commentChild(comment, "ca");
 	if (!actions) {
-		return;
+		return null;
 	}
 
-	event.preventDefault();
-
-	const header = Array.from(comment.children).find((child) => child.classList.contains("ch"));
+	const header = commentChild(comment, "ch");
 	const authorElement = header && header.querySelector(".u, .gone");
 	const author = authorElement ? authorElement.textContent : "this comment";
 
@@ -478,6 +458,7 @@ document.addEventListener("click", (event) => {
 	bar.className = "edbar";
 
 	const note = document.createElement("span");
+	note.dataset.replyNote = "";
 	note.textContent = "replying to " + author;
 
 	const spacer = document.createElement("span");
@@ -493,6 +474,11 @@ document.addEventListener("click", (event) => {
 	cancel.textContent = "cancel";
 	cancel.addEventListener("click", (cancelEvent) => {
 		cancelEvent.preventDefault();
+		if (!confirmDiscard(form)) {
+			return;
+		}
+		removeDraft(form);
+		clearUnsaved(form);
 		form.remove();
 	});
 
@@ -507,8 +493,45 @@ document.addEventListener("click", (event) => {
 	actions.insertAdjacentElement("afterend", form);
 
 	setupEditorPreview(form);
+	restoreDraft(form);
 	updateCounter(textarea);
-	textarea.focus();
+	return form;
+}
+
+// Open the reply form inline. Without JavaScript the reply link goes to the
+// standalone reply page instead.
+document.addEventListener("click", (event) => {
+	const link = event.target.closest("a.reply-link");
+	if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+		return;
+	}
+
+	const comment = link.closest(".c");
+	if (!comment) {
+		return;
+	}
+
+	const existing = commentChild(comment, "reply-form");
+	if (existing) {
+		event.preventDefault();
+		const textarea = existing.querySelector("textarea");
+		if (textarea) {
+			textarea.focus();
+		}
+		return;
+	}
+
+	if (!commentChild(comment, "ca")) {
+		return;
+	}
+
+	event.preventDefault();
+
+	const form = buildReplyForm(link, comment);
+	const textarea = form && form.querySelector("textarea");
+	if (textarea) {
+		textarea.focus();
+	}
 });
 
 // Quote selected text from a comment or the thread body into the reply box.
@@ -1460,6 +1483,9 @@ if (threadForm) {
 				) {
 					titleInput.value = data.title;
 					updateCounter(titleInput);
+					// The fill sets the value directly, without an input event,
+					// so save the draft here or the title is lost on a reload.
+					saveDraft(threadForm);
 				}
 			} catch (error) {
 				// The title is a convenience; the plain form still works.
@@ -1477,6 +1503,310 @@ if (threadForm) {
 		});
 		urlInput.addEventListener("change", requestTitle);
 	}
+}
+
+// Drafts. Text typed into the thread form, the comment form and the reply and
+// edit forms is kept in localStorage, so a reload, a closed tab or a failed
+// post does not lose it. A draft belongs to the member and to the address its
+// form posts to: the inline reply form and the standalone reply page share a
+// draft, and another account on the same browser sees nothing. Pages without
+// data-user, meaning visitors, keep no drafts.
+const draftUser = document.body.dataset.user || "";
+const draftFields = ["body", "title", "url"];
+
+// Storage can be full, blocked or absent. Every access is wrapped, and a form
+// whose save failed is marked so leaving the page can still warn.
+function draftStorageKey(path) {
+	return "draft:" + draftUser + ":" + path;
+}
+
+function draftKey(form) {
+	return draftStorageKey(new URL(form.action, window.location.href).pathname);
+}
+
+// draftForm is true for the forms this feature covers: the member's forms that
+// hold a body textarea. Vote, follow, search and settings forms keep no draft.
+function draftForm(form) {
+	return draftUser !== "" && form.querySelector('textarea[name="body"]') !== null;
+}
+
+function storedDraft(key) {
+	try {
+		return window.localStorage.getItem(key);
+	} catch (error) {
+		return null;
+	}
+}
+
+function hasDraft(form) {
+	return draftForm(form) && storedDraft(draftKey(form)) !== null;
+}
+
+function removeDraft(form) {
+	if (!draftForm(form)) {
+		return;
+	}
+	try {
+		window.localStorage.removeItem(draftKey(form));
+	} catch (error) {
+		// Storage is unavailable; there is nothing else to remove.
+	}
+}
+
+// draftValues collects the fields a form's draft keeps. Only the thread form
+// has a title and a url; the other forms just carry the body.
+function draftValues(form) {
+	const values = {};
+	draftFields.forEach((name) => {
+		const field = form.querySelector('[name="' + name + '"]');
+		if (field) {
+			values[name] = field.value;
+		}
+	});
+	return values;
+}
+
+// saveDraft writes the form's text on every change and reports whether the
+// text is now protected. An emptied form drops its draft instead. If the write
+// fails the text is unprotected: the form is marked and leaving the page asks
+// first.
+function saveDraft(form) {
+	if (!draftForm(form)) {
+		return true;
+	}
+
+	const values = draftValues(form);
+	const empty = Object.values(values).every((value) => value.trim() === "");
+	if (empty) {
+		removeDraft(form);
+		clearUnsaved(form);
+		return true;
+	}
+
+	try {
+		window.localStorage.setItem(draftKey(form), JSON.stringify(values));
+	} catch (error) {
+		markUnsaved(form);
+		return false;
+	}
+	clearUnsaved(form);
+	return true;
+}
+
+// restoreDraft replaces the server's values with the saved ones, which is what
+// the member last typed. On the error re-render the two are equal, so nothing
+// changes and no note appears. It returns whether anything changed.
+function restoreDraft(form) {
+	if (!draftForm(form)) {
+		return false;
+	}
+
+	const stored = storedDraft(draftKey(form));
+	if (stored === null) {
+		return false;
+	}
+
+	let values;
+	try {
+		values = JSON.parse(stored);
+	} catch (error) {
+		return false;
+	}
+	if (!values || typeof values !== "object") {
+		return false;
+	}
+
+	let changed = false;
+	draftFields.forEach((name) => {
+		if (typeof values[name] !== "string") {
+			return;
+		}
+		const field = form.querySelector('[name="' + name + '"]');
+		if (field && field.value !== values[name]) {
+			field.value = values[name];
+			changed = true;
+		}
+	});
+	if (!changed) {
+		return false;
+	}
+
+	form.querySelectorAll("textarea, input[data-counter-name]").forEach(updateCounter);
+	showDraftNote(form);
+	return true;
+}
+
+// showDraftNote adds the 'draft restored' line once, next to the form's
+// counter or actions. It is text only; the design has no such note, so it is
+// kept to the same muted style as the help text around it.
+function showDraftNote(form) {
+	if (form.querySelector("[data-draft-note]")) {
+		return;
+	}
+
+	const note = document.createElement("span");
+	note.className = "draft-note";
+	note.dataset.draftNote = "";
+	note.textContent = "draft restored";
+
+	const bar = form.querySelector(".edbar");
+	if (bar) {
+		const counter = bar.querySelector("[data-counter]");
+		if (counter) {
+			counter.after(note);
+		} else {
+			bar.append(note);
+		}
+		return;
+	}
+
+	const actions = form.querySelector(".thread-form-actions");
+	if (actions) {
+		actions.append(note);
+	}
+}
+
+// The beforeunload listener exists only while some form's text could not be
+// saved. A permanent listener would keep the browser's back/forward cache from
+// working, so the marker on the form decides when to remove it.
+function warnBeforeLeaving(event) {
+	if (!document.querySelector("[data-draft-unsaved]")) {
+		window.removeEventListener("beforeunload", warnBeforeLeaving);
+		return;
+	}
+	event.preventDefault();
+	// Chrome shows its own message only when returnValue is set.
+	event.returnValue = "";
+}
+
+function markUnsaved(form) {
+	form.dataset.draftUnsaved = "";
+	window.addEventListener("beforeunload", warnBeforeLeaving);
+}
+
+function clearUnsaved(form) {
+	delete form.dataset.draftUnsaved;
+	if (!document.querySelector("[data-draft-unsaved]")) {
+		window.removeEventListener("beforeunload", warnBeforeLeaving);
+	}
+}
+
+// confirmDiscard asks before a cancel throws text away. A draft in storage or a
+// form whose save failed both count as text that would be lost.
+function confirmDiscard(form) {
+	if (!hasDraft(form) && !form.hasAttribute("data-draft-unsaved")) {
+		return true;
+	}
+	return window.confirm("Discard this draft?");
+}
+
+// cookieValue returns a cookie's decoded value, or null. Go may quote the
+// value, so the quotes come off before decoding.
+function cookieValue(name) {
+	const entry = document.cookie.split(";")
+		.map((part) => part.trim())
+		.find((part) => part.startsWith(name + "="));
+	if (!entry) {
+		return null;
+	}
+
+	let value = entry.slice(name.length + 1);
+	if (value.startsWith('"') && value.endsWith('"')) {
+		value = value.slice(1, -1);
+	}
+	try {
+		return decodeURIComponent(value);
+	} catch (error) {
+		return value;
+	}
+}
+
+// clearPostedDraft removes the draft of a form that was posted successfully
+// and expires the marker cookie.
+function clearPostedDraft() {
+	const posted = cookieValue("draft_posted");
+	if (posted === null) {
+		return;
+	}
+
+	document.cookie = "draft_posted=; Path=/; Max-Age=0; SameSite=Lax" +
+		(window.location.protocol === "https:" ? "; Secure" : "");
+
+	if (draftUser === "" || posted === "") {
+		return;
+	}
+	try {
+		window.localStorage.removeItem(draftStorageKey(posted));
+	} catch (error) {
+		// Storage is unavailable, so there is no draft to remove.
+	}
+}
+
+document.addEventListener("input", (event) => {
+	if (event.target.form instanceof HTMLFormElement) {
+		saveDraft(event.target.form);
+	}
+});
+
+// Save once more on submit. The post itself must never ask about unsaved text,
+// so the warning marker goes even when the final save failed. A failed save here
+// leaves an older draft behind, while a validation error re-renders the newer
+// submitted text, so drop the older draft rather than let it replace that copy.
+// A submit that another handler cancelled posts nothing, so it changes nothing
+// here: the reply box kept on a deleted comment must keep its draft and warning.
+document.addEventListener("submit", (event) => {
+	const form = event.target;
+	if (event.defaultPrevented || !(form instanceof HTMLFormElement) || !draftForm(form)) {
+		return;
+	}
+	if (!saveDraft(form)) {
+		removeDraft(form);
+	}
+	clearUnsaved(form);
+});
+
+// The cancel links on the reply, edit and thread forms drop their draft.
+document.addEventListener("click", (event) => {
+	const link = event.target.closest("a[data-draft-cancel]");
+	if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+		return;
+	}
+
+	const form = link.closest("form");
+	if (!form || !draftForm(form)) {
+		return;
+	}
+	if (!confirmDiscard(form)) {
+		event.preventDefault();
+		return;
+	}
+	removeDraft(form);
+	clearUnsaved(form);
+});
+
+// A successful post leaves this cookie on the redirect. Clear its draft before
+// any form restores it, so the page shows the server's result. The cookie is
+// expired even for a visitor, who has no draft to remove.
+clearPostedDraft();
+
+if (draftUser !== "") {
+	document.querySelectorAll("form").forEach((form) => {
+		restoreDraft(form);
+	});
+
+	// A reply draft opens its box where the comment is. This must not focus the
+	// textarea or scroll to it, because the member was reading the page.
+	document.querySelectorAll(".c").forEach((comment) => {
+		const actions = commentChild(comment, "ca");
+		const link = actions && actions.querySelector("a.reply-link");
+		if (!link) {
+			return;
+		}
+		const path = new URL(link.href, window.location.href).pathname;
+		if (storedDraft(draftStorageKey(path)) !== null) {
+			buildReplyForm(link, comment);
+		}
+	});
 }
 
 // Desktop alerts for personal notifications. The preference is per browser,
@@ -1582,6 +1912,28 @@ function addEditedMarker(container, after) {
 	} else {
 		container.append(fragment);
 	}
+}
+
+// preventReplySubmit stops a reply box kept on a deleted comment from posting.
+function preventReplySubmit(event) {
+	event.preventDefault();
+}
+
+// keepDeletedReplyForm leaves a non-empty reply box on a deleted comment so its
+// text can still be copied, but the box must not post. Disabling the button is
+// not enough, because Ctrl+Enter calls form.requestSubmit() without it.
+function keepDeletedReplyForm(form) {
+	const note = form.querySelector("[data-reply-note]");
+	if (note) {
+		note.textContent = "comment deleted · copy your text";
+	}
+
+	const submit = form.querySelector('button[type="submit"]');
+	if (submit) {
+		submit.disabled = true;
+	}
+
+	form.addEventListener("submit", preventReplySubmit);
 }
 
 // updateCommentCount changes both places the thread page shows the comment
@@ -1748,7 +2100,16 @@ if (eventsURL && "EventSource" in window) {
 				child.replaceWith(newHeader);
 			} else if (child.classList.contains("cb")) {
 				child.replaceWith(newBody);
-			} else if (child.classList.contains("ca") || child.classList.contains("rx") || child.classList.contains("reply-form")) {
+			} else if (child.classList.contains("reply-form")) {
+				// A deleted comment has no reply link, so a draft in a box left
+				// here could never be restored. Keep text the member can copy.
+				const textarea = child.querySelector('textarea[name="body"]');
+				if (textarea && textarea.value.trim() !== "") {
+					keepDeletedReplyForm(child);
+				} else {
+					child.remove();
+				}
+			} else if (child.classList.contains("ca") || child.classList.contains("rx")) {
 				child.remove();
 			}
 		});

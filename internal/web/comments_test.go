@@ -349,7 +349,7 @@ func TestCreateCommentAndReply(t *testing.T) {
 	if !strings.Contains(replyPage, "<title>Reply · "+db.DefaultForumName+"</title>") {
 		t.Error("reply page browser title changed")
 	}
-	for _, want := range []string{"~/</span>comments/reply", ">post reply</button>"} {
+	for _, want := range []string{"~/</span>comments/reply", ">post reply</button>", "data-draft-cancel>cancel</a>"} {
 		if !strings.Contains(replyPage, want) {
 			t.Errorf("reply page does not contain %q", want)
 		}

@@ -17,6 +17,8 @@ A small, lightweight, private forum for work discussions and friendly chats.
 - Notifications outside the forum: desktop alerts in the browser, and phone
   pushes through [ntfy](https://ntfy.sh/).
 - Markdown, upvotes, emoji reactions, @mentions, full-text search and dark mode.
+- Drafts. Text you have not posted yet stays in your browser, so a closed tab
+  or a failed post does not lose it.
 - One Go binary and one SQLite file, taking up 5 MB of RAM, to make Sam Altman livid.
   Put a reverse proxy in front of it and you are done.
 

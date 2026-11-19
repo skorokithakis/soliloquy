@@ -878,6 +878,17 @@ a.btn.pri:hover {
 	order: 1;
 }
 
+/* Deliberate addition to the design: a saved draft replaced the text the
+   server sent. It is plain muted text, like the counters and help next to it. */
+.draft-note {
+	color: var(--muted);
+	font: 12px var(--font-mono);
+}
+
+.edbar .draft-note {
+	font: inherit;
+}
+
 .notice {
 	padding: 12px 14px;
 	border: 1px solid var(--accent);

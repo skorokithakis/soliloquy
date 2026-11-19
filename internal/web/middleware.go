@@ -275,6 +275,25 @@ func (s *Server) secureCookies() bool {
 	return strings.HasPrefix(s.cfg.BaseURL, "https://")
 }
 
+// draftPostedCookieName is the cookie that tells app.js a form it was
+// watching was posted successfully. Its value is the path of the POST, so the
+// script only clears the draft for that form.
+const draftPostedCookieName = "draft_posted"
+
+// setDraftPostedCookie marks the request's path as a successful post. The
+// script reads and deletes the cookie, so it must not be HttpOnly. The short
+// lifetime keeps a stale marker from outliving the redirect it was set for.
+func (s *Server) setDraftPostedCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     draftPostedCookieName,
+		Value:    r.URL.Path,
+		Path:     "/",
+		MaxAge:   60,
+		Secure:   s.secureCookies(),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 // startSession creates a session for userID and sends the session cookie.
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, userID int64, now time.Time) error {
 	token, err := auth.GenerateToken()

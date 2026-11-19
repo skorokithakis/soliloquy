@@ -220,6 +220,7 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	s.publishBadgeCounts(r.Context(), recipients)
 	s.publishNewComment(r.Context(), thread.ID, comment)
 
+	s.setDraftPostedCookie(w, r)
 	http.Redirect(w, r, commentAnchorPath(thread.PublicID, comment.PublicID), http.StatusSeeOther)
 }
 
@@ -260,6 +261,7 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	s.publishBadgeCounts(r.Context(), recipients)
 	s.publishNewComment(r.Context(), comment.ThreadID, reply)
 
+	s.setDraftPostedCookie(w, r)
 	http.Redirect(w, r, commentAnchorPath(reply.ThreadPublicID, reply.PublicID), http.StatusSeeOther)
 }
 
@@ -310,6 +312,7 @@ func (s *Server) handleUpdateComment(w http.ResponseWriter, r *http.Request) {
 	// same markup the author will after the redirect.
 	s.publishCommentEdit(comment, bodyHTML)
 
+	s.setDraftPostedCookie(w, r)
 	http.Redirect(w, r, commentAnchorPath(comment.ThreadPublicID, comment.PublicID), http.StatusSeeOther)
 }
 

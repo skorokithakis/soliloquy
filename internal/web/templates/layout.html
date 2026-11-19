@@ -20,7 +20,7 @@
 	<link rel="stylesheet" href="{{static "style.css"}}">
 	<script src="{{static "app.js"}}" defer></script>
 </head>
-<body{{if .CurrentUser}} data-sse-url="/events{{if .EventThreadID}}?thread_id={{.EventThreadID}}{{if .EventSince}}&since={{.EventSince}}{{end}}{{end}}"{{end}}>
+<body{{if .CurrentUser}} data-user="{{.CurrentUser.Username}}" data-sse-url="/events{{if .EventThreadID}}?thread_id={{.EventThreadID}}{{if .EventSince}}&since={{.EventSince}}{{end}}{{end}}"{{end}}>
 {{if or .CurrentUser .Visitor}}
 	<header class="top"><div class="wrap">
 		<a class="logo" href="/" aria-label="{{.ForumName}} home"><span class="p">›</span>{{.ForumName}}<span class="cur"></span></a>
