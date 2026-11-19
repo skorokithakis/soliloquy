@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/skorokithakis/soliloquy/compare/v0.2.0...v0.3.0) (2026-11-19)
+
+
+### Features
+
+* add Prometheus metrics endpoint (STA-738) ([6dfff53](https://github.com/skorokithakis/soliloquy/commit/6dfff533451c97fd0a8916d2a8eb4c8c0205354f))
+
 ## [0.2.0](https://github.com/skorokithakis/soliloquy/compare/v0.1.0...v0.2.0) (2026-11-15)
 
 
