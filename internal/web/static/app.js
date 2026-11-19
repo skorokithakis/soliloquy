@@ -1131,17 +1131,23 @@ if (themeForm) {
 	});
 }
 
-// Account page: keep the section menu in step with the section being read.
+// Keep a section menu in step with the section being read. The account page
+// uses it for its sidebar and the thread page for its table of contents.
 // Without this script the link marked in the HTML stays marked.
-const accountNav = document.querySelector(".account-page .toc");
-if (accountNav) {
-	const sections = Array.from(accountNav.querySelectorAll('a[href^="#"]'))
+function trackSectionMenu(menu, selector) {
+	if (!menu) {
+		return;
+	}
+
+	const sections = Array.from(menu.querySelectorAll(selector))
 		.map((link) => ({ link, section: document.getElementById(link.hash.slice(1)) }))
 		.filter((entry) => entry.section);
 
 	const markCurrent = (current) => {
 		sections.forEach((entry) => {
-			if (entry === current) {
+			const on = entry === current;
+			entry.link.classList.toggle("on", on);
+			if (on) {
 				entry.link.setAttribute("aria-current", "true");
 			} else {
 				entry.link.removeAttribute("aria-current");
@@ -1181,6 +1187,9 @@ if (accountNav) {
 	});
 	updateCurrent();
 }
+
+trackSectionMenu(document.querySelector(".account-page .toc"), 'a[href^="#"]');
+trackSectionMenu(document.querySelector(".thread-page .toc"), 'ol a[href^="#"]');
 
 // Filter the admin user table in the browser. Without JavaScript every row is
 // visible.

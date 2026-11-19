@@ -797,12 +797,111 @@ func TestThreadFollowDeletedThread(t *testing.T) {
 	}
 }
 
+func TestThreadPageTableOfContents(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Long post", "", `# Why we did it
+
+## The setup
+
+### A detail
+
+# Results
+
+## The numbers`, server.now())
+
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+
+	for _, want := range []string{
+		`<nav class="toc" aria-label="Contents">`,
+		`<details class="tocn">`,
+		`<summary>contents</summary>`,
+		`<a href="#h-why-we-did-it" class="on" aria-current="true">Why we did it</a>`,
+		`<a href="#h-the-setup">The setup</a>`,
+		`<a href="#h-results">Results</a>`,
+		`<a href="#h-the-numbers">The numbers</a>`,
+		`<a class="tc" href="#comments">0 comments ↓</a>`,
+		`<h2 id="h-why-we-did-it">Why we did it</h2>`,
+		`<h3 id="h-the-setup">The setup</h3>`,
+		`<h4 id="h-a-detail">A detail</h4>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("thread page does not contain %q", want)
+		}
+	}
+
+	// An h3 nests under the preceding h2, not at the top level.
+	nested := strings.Index(body, `<a href="#h-the-setup">The setup</a>`)
+	nextTop := strings.Index(body, `<a href="#h-results">Results</a>`)
+	if nested < 0 || nextTop < 0 || nested > nextTop {
+		t.Error("the h3 entry is not inside the h2 entry in the contents list")
+	}
+}
+
+func TestThreadPageHidesShortTableOfContents(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Short post", "", "# One\n\n## Two", server.now())
+
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+
+	if strings.Contains(body, `class="toc"`) || strings.Contains(body, `class="tocn"`) {
+		t.Error("a body with two headings shows a contents list")
+	}
+	if !strings.Contains(body, `<h2 id="h-one">One</h2>`) {
+		t.Error("a short body does not get heading ids")
+	}
+}
+
+func TestCommentHeadingsShiftWithoutIDs(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Comments", "", "body", server.now())
+	createCommentDirect(t, server, thread, alice, nil, "# A comment heading", server.now())
+
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+
+	if !strings.Contains(body, "<h2>A comment heading</h2>") {
+		t.Error("a comment heading did not shift down to h2")
+	}
+	if strings.Contains(body, `id="h-a-comment-heading"`) {
+		t.Error("a comment heading got a heading id")
+	}
+}
+
+func TestCreateThreadStoresHeadingIDs(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+
+	response := postForm(t, server, "/threads", url.Values{
+		"title": {"Long thread"},
+		"body":  {"# One\n\n## Two\n\n# Three"},
+	}, cookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("create status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	threads, err := server.db.ListThreads(context.Background(), alice.ID, 10, 0)
+	if err != nil || len(threads) != 1 {
+		t.Fatalf("ListThreads: threads = %v, err = %v", threads, err)
+	}
+	for _, want := range []string{`<h2 id="h-one">One</h2>`, `<h3 id="h-two">Two</h3>`, `<h2 id="h-three">Three</h2>`} {
+		if !strings.Contains(threads[0].BodyHTML, want) {
+			t.Errorf("stored HTML = %q, want it to contain %q", threads[0].BodyHTML, want)
+		}
+	}
+}
+
 func createThreadDirect(t *testing.T, server *Server, user *db.User, title, rawURL, body string, at time.Time) *db.Thread {
 	t.Helper()
 
 	bodyHTML := ""
 	if body != "" {
-		rendered, err := markdown.Render(body)
+		rendered, err := markdown.RenderThread(body)
 		if err != nil {
 			t.Fatalf("render body: %v", err)
 		}

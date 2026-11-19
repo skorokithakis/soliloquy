@@ -3,7 +3,7 @@
 `../design_reference.html` is the original export. It is a self-unpacking
 bundle and needs a browser with JavaScript.
 
-This folder has the same 14 screens unpacked, for easy reading:
+This folder has the same 15 screens unpacked, for easy reading:
 
 - `NN-name.html` is the markup and CSS of one screen. Each file has its own
   copy of the shared CSS. The `{{...}}` placeholders and the `<script>` tags

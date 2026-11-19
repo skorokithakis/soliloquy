@@ -58,6 +58,7 @@ type threadPageData struct {
 	PageData
 	Thread        threadView
 	Body          template.HTML
+	TOC           []markdown.TOCEntry
 	CreatedAt     string
 	Edited        bool
 	CanEdit       bool
@@ -140,11 +141,12 @@ type previewResponse struct {
 	Mentions []string `json:"mentions"`
 }
 
-// handlePreview renders Markdown with the same renderer used when saving and
-// reports which mentioned users would receive a notification.
+// handlePreview renders Markdown with the same parser used when saving and
+// reports which mentioned users would receive a notification. Thread heading
+// ids are added on save, not here, because a preview has no table of contents.
 func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("body")
-	rendered, err := renderThreadBody(body)
+	rendered, err := markdown.Render(body)
 	if err != nil {
 		s.serverError(w, err)
 		return
@@ -165,7 +167,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(previewResponse{HTML: rendered, Mentions: mentions}); err != nil {
+	if err := json.NewEncoder(w).Encode(previewResponse{HTML: string(rendered), Mentions: mentions}); err != nil {
 		s.serverError(w, err)
 	}
 }
@@ -266,6 +268,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		PageData:      s.pageData(r, thread.Title),
 		Thread:        threadViewFor(*thread, now),
 		Body:          template.HTML(thread.BodyHTML),
+		TOC:           threadTOC(thread.BodyHTML),
 		CreatedAt:     relativeTime(thread.CreatedAt, now),
 		Edited:        thread.EditedAt != nil,
 		CanEdit:       user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
@@ -536,11 +539,25 @@ func renderThreadBody(body string) (string, error) {
 		return "", nil
 	}
 
-	rendered, err := markdown.Render(body)
+	rendered, err := markdown.RenderThread(body)
 	if err != nil {
 		return "", err
 	}
 	return string(rendered), nil
+}
+
+// threadTOC builds the contents list from stored body_html. The list is only
+// worth showing when it has at least three headings.
+func threadTOC(bodyHTML string) []markdown.TOCEntry {
+	entries := markdown.TableOfContents(bodyHTML)
+	headings := 0
+	for _, entry := range entries {
+		headings += 1 + len(entry.Children)
+	}
+	if headings < 3 {
+		return nil
+	}
+	return entries
 }
 
 func threadViewFor(thread db.Thread, now time.Time) threadView {

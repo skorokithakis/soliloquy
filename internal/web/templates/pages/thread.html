@@ -1,3 +1,19 @@
+{{/* toc-list is shared by the desktop sidebar and the mobile details box, so
+     the two contents lists cannot drift. It takes a []markdown.TOCEntry. */}}
+{{define "toc-list"}}
+<ol>
+	{{- range .}}
+	<li><a href="#{{.ID}}"{{if .Current}} class="on" aria-current="true"{{end}}>{{.Text}}</a>{{if .Children}}
+		<ol>
+			{{- range .Children}}
+			<li><a href="#{{.ID}}">{{.Text}}</a></li>
+			{{- end}}
+		</ol>{{end}}
+	</li>
+	{{- end}}
+</ol>
+{{end}}
+
 {{define "content"}}
 <div class="thread-page">
 	<a class="back" href="/">‹ ~/threads</a>
@@ -28,7 +44,25 @@
 				{{if .CanEdit}}<span>·</span><a href="/threads/{{.Thread.PublicID}}/edit">edit</a>{{end}}
 				{{if .CanDelete}}<span>·</span><form class="inline-form" method="post" action="/threads/{{.Thread.PublicID}}/delete" data-confirm="Delete this thread and all its comments? This cannot be undone."><button type="submit">delete</button></form>{{end}}
 			</div>
-			{{if .Body}}<div class="md thread-body">{{.Body}}</div>{{end}}
+			{{if .Body}}
+			{{if .TOC}}
+			<details class="tocn">
+				<summary>contents</summary>
+				{{template "toc-list" .TOC}}
+				<a class="tc" href="#comments">{{.Thread.CommentText}} ↓</a>
+			</details>
+			{{end}}
+			<div class="doc">
+				<div class="md thread-body">{{.Body}}</div>
+				{{if .TOC}}
+				<nav class="toc" aria-label="Contents">
+					<div class="label">contents</div>
+					{{template "toc-list" .TOC}}
+					<a class="tc" href="#comments">{{.Thread.CommentText}} ↓</a>
+				</nav>
+				{{end}}
+			</div>
+			{{end}}
 		</div>
 	</article>
 

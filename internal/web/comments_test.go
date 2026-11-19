@@ -231,6 +231,10 @@ func TestThreadPageCommentControls(t *testing.T) {
 		t.Error("the comment box is not above the comment list")
 	}
 
+	if strings.Contains(body, `href="#c`+root.PublicID+`">link</a>`) {
+		t.Error("the comment action row still has the link action")
+	}
+
 	// The viewer's own comment has no vote form, but the score is still shown.
 	if strings.Contains(body, `action="/comments/`+reply.PublicID+`/vote"`) {
 		t.Error("the viewer's own comment has a vote form")

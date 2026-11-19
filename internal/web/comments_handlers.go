@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/skorokithakis/soliloquy/internal/db"
+	"github.com/skorokithakis/soliloquy/internal/markdown"
 )
 
 const maxCommentBodyLength = 20000
@@ -492,7 +493,11 @@ func renderCommentBody(body string) (string, error) {
 		return "", fmt.Errorf("Comment must be %d characters or fewer.", maxCommentBodyLength)
 	}
 
-	return renderThreadBody(body)
+	rendered, err := markdown.Render(body)
+	if err != nil {
+		return "", err
+	}
+	return string(rendered), nil
 }
 
 func commentAction(publicID string, action string) string {
