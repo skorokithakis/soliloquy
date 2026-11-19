@@ -14,6 +14,11 @@ before you change templates or CSS, and compare your result with it.
 The app must match the design unless a deviation is deliberate. Deliberate
 deviations are recorded in gnosis. Run `gn show design-reference` to see them.
 
+## Finishing work
+
+When you finish a task, commit and push the changes. Do not wait to be asked.
+Skip this only when the user tells you not to commit or push.
+
 ## Commit messages
 
 Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/).
