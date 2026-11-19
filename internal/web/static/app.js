@@ -871,3 +871,131 @@ if (eventsURL && "EventSource" in window) {
 		}
 	});
 }
+
+// Keyboard shortcuts: n and p jump between unread comments and ? shows the
+// shortcut list. The target comes from the current viewport, not a stored
+// index, so manual scrolling changes where n and p go next.
+const shortcutsDialogID = "keyboard-shortcuts";
+
+// A focused unread comment that is at least partly in the viewport is the
+// reference point, so repeated presses still move through unread comments that
+// cannot reach the top of the viewport, such as those at the end of the page.
+function jumpToUnread(forward) {
+	const comments = Array.from(document.querySelectorAll(".c.new")).filter((comment) => {
+		const parent = comment.parentElement;
+		return !(parent && parent.closest(".c.collapsed"));
+	});
+
+	const active = document.activeElement;
+	// Only the comment the last jump focused counts, and only while its own
+	// header is on screen. The whole <li> also holds its replies, so its box can
+	// stay on screen long after the user has scrolled past it.
+	const current = active instanceof Element && active.matches(".c.new") ? active : null;
+	const header = current && Array.from(current.children).find((child) => child.classList.contains("ch"));
+	const rect = header && header.getBoundingClientRect();
+	let target = null;
+	if (rect && rect.bottom > 0 && rect.top < window.innerHeight) {
+		const index = comments.indexOf(current);
+		target = index === -1 ? null : comments[index + (forward ? 1 : -1)] || null;
+	} else {
+		for (const comment of comments) {
+			const top = comment.getBoundingClientRect().top;
+			if (forward) {
+				if (top > 20) {
+					target = comment;
+					break;
+				}
+			} else if (top < 0) {
+				target = comment;
+			}
+		}
+	}
+
+	if (!target) {
+		return false;
+	}
+
+	target.tabIndex = -1;
+	target.scrollIntoView({ behavior: "smooth", block: "start" });
+	target.focus({ preventScroll: true });
+	return true;
+}
+
+// shortcutsDialog builds the shortcut list the first time ? is pressed. The
+// dialog is native, so Escape closes it and it traps focus by itself.
+function shortcutsDialog() {
+	let dialog = document.getElementById(shortcutsDialogID);
+	if (dialog) {
+		return dialog;
+	}
+
+	dialog = document.createElement("dialog");
+	dialog.id = shortcutsDialogID;
+	dialog.className = "shortcuts";
+	dialog.setAttribute("aria-labelledby", "shortcuts-title");
+	// The padding sits on the inner div, so a click inside the box never has
+	// the dialog itself as its target.
+	dialog.innerHTML = `<div class="shortcuts-body">
+		<div class="shortcuts-head">
+			<h2 id="shortcuts-title">keyboard shortcuts</h2>
+			<button class="btn ghost" type="button" data-close>close</button>
+		</div>
+		<dl>
+			<dt><kbd>n</kbd></dt><dd>next unread comment</dd>
+			<dt><kbd>p</kbd></dt><dd>previous unread comment</dd>
+			<dt><kbd>?</kbd></dt><dd>show this list</dd>
+			<dt><kbd>Ctrl+Enter</kbd></dt><dd>submit form (Cmd+Enter on macOS)</dd>
+		</dl>
+	</div>`;
+
+	dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+	// A click on the backdrop reports the dialog itself as the target, but so
+	// do its border and rounded corners, so check the coordinates as well.
+	dialog.addEventListener("click", (event) => {
+		if (event.target !== dialog) {
+			return;
+		}
+		const box = dialog.getBoundingClientRect();
+		if (
+			event.clientX < box.left ||
+			event.clientX > box.right ||
+			event.clientY < box.top ||
+			event.clientY > box.bottom
+		) {
+			dialog.close();
+		}
+	});
+
+	document.body.append(dialog);
+	return dialog;
+}
+
+document.addEventListener("keydown", (event) => {
+	if (event.defaultPrevented || event.isComposing || event.repeat ||
+		event.ctrlKey || event.metaKey || event.altKey) {
+		return;
+	}
+	const field = event.target;
+	if (field instanceof Element &&
+		(field.isContentEditable || field.closest("input, textarea, select"))) {
+		return;
+	}
+
+	if (event.key === "?") {
+		event.preventDefault();
+		const dialog = shortcutsDialog();
+		if (dialog.open) {
+			dialog.close();
+		} else {
+			dialog.showModal();
+		}
+		return;
+	}
+
+	// The shortcut list is modal; leave the page behind it alone.
+	const dialog = document.getElementById(shortcutsDialogID);
+	if ((event.key === "n" || event.key === "p") && !(dialog && dialog.open) &&
+		jumpToUnread(event.key === "n")) {
+		event.preventDefault();
+	}
+});
