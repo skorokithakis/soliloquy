@@ -197,6 +197,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /comments/{id}/edit", s.handleUpdateComment)
 	mux.HandleFunc("POST /comments/{id}/delete", s.handleDeleteComment)
 	mux.HandleFunc("POST /comments/{id}/vote", s.handleVoteComment)
+	mux.HandleFunc("POST /comments/{id}/reaction", s.handleReactComment)
 	mux.HandleFunc("GET /login", s.handleLoginPage)
 	mux.HandleFunc("POST /login", s.handleLogin)
 	mux.HandleFunc("POST /logout", s.handleLogout)

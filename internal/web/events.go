@@ -61,10 +61,14 @@ type threadUpdateEvent struct {
 
 // voteEvent updates one score. CommentID is null for the thread, and the event
 // deliberately does not say who voted, so each page keeps its own highlight.
+// A comment vote also carries the comment's reaction counts, because the
+// viewer's arrow can remove their reaction; the event still does not say whose
+// reactions they are.
 type voteEvent struct {
-	CommentID *string `json:"comment_id"`
-	Score     int64   `json:"score"`
-	ScoreText string  `json:"score_text"`
+	CommentID *string                 `json:"comment_id"`
+	Score     int64                   `json:"score"`
+	ScoreText string                  `json:"score_text"`
+	Reactions []reactionCountResponse `json:"reactions,omitempty"`
 }
 
 // handleEvents is the single SSE stream used by a page. It always carries the
@@ -448,10 +452,16 @@ func (s *Server) publishVote(threadID int64, payload voteEvent) {
 	})
 }
 
-// votePayload builds the score update after a vote. score_text is the points
-// text comments show; the thread page uses the plain score.
-func votePayload(commentID *string, score int64) voteEvent {
-	return voteEvent{CommentID: commentID, Score: score, ScoreText: pointsText(score)}
+// votePayload builds the score update after a vote or reaction change.
+// score_text is the points text comments show; the thread page uses the plain
+// score. Thread results have no reaction counts, so the field is omitted.
+func votePayload(commentID *string, result db.VoteResult) voteEvent {
+	return voteEvent{
+		CommentID: commentID,
+		Score:     result.Score,
+		ScoreText: pointsText(result.Score),
+		Reactions: reactionCountResponses(result.ReactionCounts),
+	}
 }
 
 // publishNewComment sends a new comment to everyone watching the thread.

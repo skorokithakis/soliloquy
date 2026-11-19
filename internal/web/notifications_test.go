@@ -943,6 +943,45 @@ func TestCommentVotePublishesLiveUpdate(t *testing.T) {
 	assertNoThreadEvent(t, updates)
 }
 
+func TestCommentReactionPublishesLiveUpdate(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
+
+	updates, unsubscribe := server.hub.Subscribe(hub.ThreadTopic(thread.ID))
+	defer unsubscribe()
+
+	response := doJSONFormPost(t, server, commentAction(comment.PublicID, "reaction"), url.Values{"reaction": {"party"}}, bobCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("reaction status = %d, want %d", response.Code, http.StatusOK)
+	}
+
+	select {
+	case event := <-updates:
+		if event.Name != "vote" {
+			t.Fatalf("event name = %q, want vote", event.Name)
+		}
+		var payload voteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode vote event: %v", err)
+		}
+		if payload.CommentID == nil || *payload.CommentID != comment.PublicID {
+			t.Errorf("reaction comment id = %v, want %s", payload.CommentID, comment.PublicID)
+		}
+		if payload.Score != 2 || payload.ScoreText != "2 points" {
+			t.Errorf("reaction event = %+v, want score 2", payload)
+		}
+		if counts := reactionCountsByKey(payload.Reactions); counts["party"] != 1 || len(payload.Reactions) != len(db.CommentReactions) {
+			t.Errorf("reaction event counts = %v, want every reaction with party 1", counts)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no reaction event was published")
+	}
+}
+
 // assertNoThreadEvent reports an event published on a topic that should have
 // stayed quiet.
 func assertNoThreadEvent(t *testing.T, events <-chan hub.Event) {

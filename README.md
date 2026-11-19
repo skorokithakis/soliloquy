@@ -16,7 +16,7 @@ A small, lightweight, private forum for work discussions and friendly chats.
 - A small read-only JSON API for threads and comments.
 - Notifications outside the forum: desktop alerts in the browser, and phone
   pushes through [ntfy](https://ntfy.sh/).
-- Markdown, upvotes, @mentions, full-text search and dark mode.
+- Markdown, upvotes, emoji reactions, @mentions, full-text search and dark mode.
 - One Go binary and one SQLite file, taking up 5 MB of RAM, to make Sam Altman livid.
   Put a reverse proxy in front of it and you are done.
 

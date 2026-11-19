@@ -507,6 +507,7 @@ func TestCommentWritesOnDeletedThread(t *testing.T) {
 		commentAction(comment.PublicID, "edit"),
 		commentAction(comment.PublicID, "delete"),
 		commentAction(comment.PublicID, "vote"),
+		commentAction(comment.PublicID, "reaction"),
 	} {
 		response = postForm(t, server, path, url.Values{"body": {"too late"}}, bobCookie)
 		if response.Code != http.StatusNotFound {
@@ -578,6 +579,158 @@ func TestVotes(t *testing.T) {
 	}
 }
 
+// TestCommentReactions covers the reaction route, its JSON response, the
+// chips each kind of viewer sees, and the database rules the chips rely on.
+func TestCommentReactions(t *testing.T) {
+	server := newTestServer(t)
+	// Visitors see the chips only when the forum is readable without an
+	// account, which the last part of this test checks.
+	setPublic(t, server, true)
+	alice := createTestUser(t, server, "alice", false)
+	bob := createTestUser(t, server, "bob", false)
+	aliceCookie := signIn(t, server, alice)
+	bobCookie := signIn(t, server, bob)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
+
+	reactionPath := commentAction(comment.PublicID, "reaction")
+
+	// A plain form submission redirects to the comment anchor, like a vote.
+	response := postForm(t, server, reactionPath, url.Values{"reaction": {"heart"}}, bobCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("reaction status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	if location := response.Header().Get("Location"); location != commentAnchorPath(thread.PublicID, comment.PublicID) {
+		t.Errorf("reaction Location = %q, want %q", location, commentAnchorPath(thread.PublicID, comment.PublicID))
+	}
+
+	// The member who reacted sees a lit chip and the react control.
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String()
+	for _, want := range []string{
+		`class="rx"`,
+		`class="chip on"`,
+		`<span class="rx-emoji" aria-hidden="true">❤️</span><span class="rx-count">1</span>`,
+		`aria-label="Love, 1 reaction"`,
+		`<details class="react">`,
+		`aria-label="React with Love"`,
+		`action="` + reactionPath + `"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("reaction page does not contain %q", want)
+		}
+	}
+	// Another reaction with no count gets no chip.
+	if strings.Contains(body, `class="chip" data-reaction="laugh"`) {
+		t.Error("a reaction with no count is shown as a chip")
+	}
+
+	// Changing the reaction relabels the vote and leaves the score alone.
+	vote := doJSONFormPost(t, server, reactionPath, url.Values{"reaction": {"laugh"}}, bobCookie)
+	if vote.Code != http.StatusOK {
+		t.Fatalf("change reaction status = %d, want %d", vote.Code, http.StatusOK)
+	}
+	var payload voteResponse
+	if err := json.Unmarshal(vote.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode reaction response: %v (body %q)", err, vote.Body.String())
+	}
+	if payload.Reaction != "laugh" || payload.Score != 2 || !payload.Voted || payload.ScoreText != "2 points" {
+		t.Errorf("reaction response = %+v", payload)
+	}
+	counts := reactionCountsByKey(payload.Reactions)
+	if counts["laugh"] != 1 || counts["heart"] != 0 {
+		t.Errorf("reaction counts = %v", counts)
+	}
+
+	// The same reaction again removes both the emoji and the vote.
+	vote = doJSONFormPost(t, server, reactionPath, url.Values{"reaction": {"laugh"}}, bobCookie)
+	if vote.Code != http.StatusOK {
+		t.Fatalf("remove reaction status = %d, want %d", vote.Code, http.StatusOK)
+	}
+	if err := json.Unmarshal(vote.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode reaction removal: %v", err)
+	}
+	if payload.Reaction != "" || payload.Voted || payload.Score != 1 {
+		t.Errorf("reaction removal = %+v", payload)
+	}
+	body = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String()
+	if strings.Contains(body, `class="rx"`) {
+		t.Error("a comment with no reactions still shows a chips row")
+	}
+
+	// A reaction key outside the fixed set is a bad request.
+	for _, form := range []url.Values{{"reaction": {"shock"}}, {"reaction": {""}}} {
+		response = postForm(t, server, reactionPath, form, bobCookie)
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("unknown reaction status = %d, want %d", response.Code, http.StatusBadRequest)
+		}
+		response = doJSONFormPost(t, server, reactionPath, form, bobCookie)
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("unknown reaction JSON status = %d, want %d", response.Code, http.StatusBadRequest)
+		}
+	}
+
+	// The comment's author cannot vote, so they cannot react either.
+	response = postForm(t, server, reactionPath, url.Values{"reaction": {"heart"}}, aliceCookie)
+	if response.Code != http.StatusForbidden {
+		t.Errorf("own comment reaction status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+
+	// Put a reaction back for the viewer and visitor checks below.
+	if response = postForm(t, server, reactionPath, url.Values{"reaction": {"thanks"}}, bobCookie); response.Code != http.StatusSeeOther {
+		t.Fatalf("re-reaction status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+
+	// The author and a visitor see plain chips with no controls.
+	for name, cookie := range map[string]*http.Cookie{"visitor": nil, "author": aliceCookie} {
+		body = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+		if !strings.Contains(body, `class="chip" role="img" data-reaction="thanks"`) {
+			t.Errorf("%s does not see a plain Thanks chip", name)
+		}
+		if strings.Contains(body, `class="reaction-form"`) || strings.Contains(body, `<details class="react">`) {
+			t.Errorf("%s gets reaction controls", name)
+		}
+	}
+
+	// A live view of the comment keeps the viewer's own highlight, and the
+	// delete rendering drops the chips entirely.
+	stored, err := server.db.CommentByPublicID(context.Background(), comment.PublicID, bob.ID)
+	if err != nil || stored == nil {
+		t.Fatalf("CommentByPublicID: comment = %v, err = %v", stored, err)
+	}
+	live, err := server.commentPayload(thread, stored, bob)
+	if err != nil {
+		t.Fatalf("commentPayload: %v", err)
+	}
+	if !strings.Contains(live.HTML, `class="chip on"`) || !strings.Contains(live.HTML, `data-reaction="thanks"`) {
+		t.Errorf("live comment does not keep the viewer's highlight: %s", live.HTML)
+	}
+	deleted, err := server.commentDeletePayload(thread, stored)
+	if err != nil {
+		t.Fatalf("commentDeletePayload: %v", err)
+	}
+	if strings.Contains(deleted.HTML, `class="rx"`) {
+		t.Errorf("deleted comment markup still has reaction chips: %s", deleted.HTML)
+	}
+
+	// A deleted comment cannot take a reaction.
+	if _, err := server.db.DeleteComment(context.Background(), comment.ID, server.now()); err != nil {
+		t.Fatalf("delete comment: %v", err)
+	}
+	response = postForm(t, server, reactionPath, url.Values{"reaction": {"heart"}}, bobCookie)
+	if response.Code != http.StatusNotFound {
+		t.Errorf("reaction on a deleted comment: status = %d, want %d", response.Code, http.StatusNotFound)
+	}
+}
+
+// reactionCountsByKey turns the response's ordered list into a lookup.
+func reactionCountsByKey(list []reactionCountResponse) map[string]int64 {
+	counts := make(map[string]int64, len(list))
+	for _, entry := range list {
+		counts[entry.Key] = entry.Count
+	}
+	return counts
+}
+
 func createCommentDirect(t *testing.T, server *Server, thread *db.Thread, user *db.User, parentID *int64, body string, at time.Time) *db.Comment {
 	t.Helper()
 
@@ -598,6 +751,22 @@ func doJSONPost(t *testing.T, server *Server, path string, cookie *http.Cookie) 
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, path, nil)
+	request.Header.Set("Origin", testBaseURL)
+	request.Header.Set("Accept", "application/json")
+	request.AddCookie(cookie)
+
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	return response
+}
+
+// doJSONFormPost submits a form value with the JSON Accept header, the way
+// app.js submits a reaction.
+func doJSONFormPost(t *testing.T, server *Server, path string, form url.Values, cookie *http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	request.Header.Set("Origin", testBaseURL)
 	request.Header.Set("Accept", "application/json")
 	request.AddCookie(cookie)

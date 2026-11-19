@@ -16,6 +16,34 @@ import (
 
 const maxCommentBodyLength = 20000
 
+// reactionOption is one supported reaction, with the emoji and the name shown
+// to assistive technology.
+type reactionOption struct {
+	Key   db.Reaction
+	Emoji string
+	Name  string
+}
+
+// reactionOptions lists the supported reactions in display order. The keys
+// match db.CommentReactions; app.js keeps the same list for live updates.
+var reactionOptions = []reactionOption{
+	{Key: db.ReactionHeart, Emoji: "❤️", Name: "Love"},
+	{Key: db.ReactionLaugh, Emoji: "😂", Name: "Funny"},
+	{Key: db.ReactionIdea, Emoji: "💡", Name: "Insightful"},
+	{Key: db.ReactionThanks, Emoji: "🙏", Name: "Thanks"},
+	{Key: db.ReactionParty, Emoji: "🎉", Name: "Congratulations"},
+}
+
+// reactionView is one reaction with the count a comment shows. Mine marks the
+// viewer's own reaction, which the template highlights.
+type reactionView struct {
+	Key   string
+	Emoji string
+	Name  string
+	Count int64
+	Mine  bool
+}
+
 // commentView is a comment prepared for the comment template. The thread page
 // and live updates both render comments through renderCommentHTML so they look
 // the same. Viewer-specific controls are only emitted when IsAuthor or CanVote
@@ -38,6 +66,12 @@ type commentView struct {
 	Voted          bool
 	CanVote        bool
 	IsOP           bool
+	// Reactions holds the reactions with a count above zero, in display
+	// order. Mine marks the viewer's own reaction.
+	Reactions []reactionView
+	// ReactionOptions lists every reaction, so the "react" control can offer
+	// the keys that have no count yet.
+	ReactionOptions []reactionOption
 	// LoggedIn says whether the viewer has an account. Visitors get no vote,
 	// reply, edit or delete controls, and no account link on the author name.
 	LoggedIn bool
@@ -57,11 +91,35 @@ type commentFormPageData struct {
 	CancelURL   string
 }
 
+// reactionCountResponse is one reaction's count in a JSON vote response or a
+// live vote event. The list keeps the display order and includes reactions
+// with no votes, so a page can rebuild the chips from it.
+type reactionCountResponse struct {
+	Key   string `json:"key"`
+	Count int64  `json:"count"`
+}
+
+func reactionCountResponses(counts map[db.Reaction]int64) []reactionCountResponse {
+	if counts == nil {
+		return nil
+	}
+
+	list := make([]reactionCountResponse, 0, len(reactionOptions))
+	for _, option := range reactionOptions {
+		list = append(list, reactionCountResponse{Key: string(option.Key), Count: counts[option.Key]})
+	}
+	return list
+}
+
 type voteResponse struct {
 	Score      int64  `json:"score"`
 	ScoreText  string `json:"score_text"`
 	Voted      bool   `json:"voted"`
 	ButtonText string `json:"button_text"`
+	// Reaction is the member's own reaction, empty when they have none.
+	// Reactions is nil for thread votes.
+	Reaction  string                  `json:"reaction"`
+	Reactions []reactionCountResponse `json:"reactions,omitempty"`
 }
 
 // renderCommentHTML renders one comment with the same template the thread page
@@ -107,6 +165,9 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		// cutoff means this comment list does not mark new comments at all.
 		New:     viewer != nil && !newSince.IsZero() && comment.DeletedAt == nil && comment.AuthorID != viewer.ID && comment.CreatedAt.After(newSince),
 		Replies: commentViews(node.Replies, viewer, threadAuthorID, now, newSince),
+		// Every reaction is offered by the control; only those with a count
+		// are shown as chips.
+		ReactionOptions: reactionOptions,
 	}
 	if comment.ParentPublicID != nil {
 		view.ParentPublicID = *comment.ParentPublicID
@@ -114,6 +175,19 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 	}
 	if comment.DeletedAt == nil {
 		view.Body = template.HTML(comment.BodyHTML)
+		for _, option := range reactionOptions {
+			count := comment.ReactionCounts[option.Key]
+			if count == 0 {
+				continue
+			}
+			view.Reactions = append(view.Reactions, reactionView{
+				Key:   string(option.Key),
+				Emoji: option.Emoji,
+				Name:  option.Name,
+				Count: count,
+				Mine:  comment.Reaction == option.Key,
+			})
+		}
 	}
 	return view
 }
@@ -272,7 +346,7 @@ func (s *Server) handleVoteThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.publishVote(thread.ID, votePayload(nil, result.Score))
+	s.publishVote(thread.ID, votePayload(nil, result))
 	s.respondVote(w, r, result, threadPath(thread.PublicID))
 }
 
@@ -287,7 +361,31 @@ func (s *Server) handleVoteComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.publishVote(comment.ThreadID, votePayload(&comment.PublicID, result.Score))
+	s.publishVote(comment.ThreadID, votePayload(&comment.PublicID, result))
+	s.respondVote(w, r, result, commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+}
+
+// handleReactComment sets, replaces, or removes the viewer's emoji reaction on
+// a comment. The rules live in the database layer; this handler only rejects
+// an unknown key and mirrors the vote handler's responses.
+func (s *Server) handleReactComment(w http.ResponseWriter, r *http.Request) {
+	comment, ok := s.visibleComment(w, r)
+	if !ok {
+		return
+	}
+
+	reaction := db.Reaction(r.FormValue("reaction"))
+	if !reaction.Valid() {
+		http.Error(w, "Unknown reaction.", http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.db.SetCommentReaction(r.Context(), currentUser(r).ID, comment.ID, reaction)
+	if !s.voteError(w, err) {
+		return
+	}
+
+	s.publishVote(comment.ThreadID, votePayload(&comment.PublicID, result))
 	s.respondVote(w, r, result, commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
@@ -326,6 +424,8 @@ func (s *Server) respondVote(w http.ResponseWriter, r *http.Request, result db.V
 		ScoreText:  pointsText(result.Score),
 		Voted:      result.Voted,
 		ButtonText: buttonText,
+		Reaction:   string(result.Reaction),
+		Reactions:  reactionCountResponses(result.ReactionCounts),
 	}); err != nil {
 		s.serverError(w, err)
 	}

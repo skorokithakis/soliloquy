@@ -21,6 +21,10 @@ import (
 // Voted is true when the viewer passed to the query has an active vote on the
 // comment. It is false for viewer 0, which callers use when no user is
 // involved.
+//
+// Reaction is the viewer's own reaction and is empty when they have none, as
+// it is for viewer 0. ReactionCounts holds the number of votes for each
+// supported reaction and is the same for every viewer.
 type Comment struct {
 	ID              int64
 	PublicID        string
@@ -38,6 +42,8 @@ type Comment struct {
 	AuthorUsername  string
 	AuthorDeletedAt *time.Time
 	Voted           bool
+	Reaction        Reaction
+	ReactionCounts  map[Reaction]int64
 }
 
 // AuthorName is the name shown for the comment's author, including on
@@ -57,13 +63,18 @@ type CommentNode struct {
 	Replies []*CommentNode
 }
 
-const commentColumns = `c.id, c.public_id, c.thread_id, t.public_id, c.parent_id,
+// commentColumns is the SELECT list for a comment. Queries using it must pass
+// the viewer's ID twice, once for Voted and once for Reaction.
+var commentColumns = `c.id, c.public_id, c.thread_id, t.public_id, c.parent_id,
 	(SELECT p.public_id FROM comments p WHERE p.id = c.parent_id),
 	c.author_id, c.body,
 	c.body_html, c.created_at, c.edited_at, c.deleted_at, c.score, u.username,
 	u.deleted_at,
 	EXISTS(SELECT 1 FROM votes v
-		WHERE v.item_type = 'comment' AND v.item_id = c.id AND v.user_id = ?)`
+		WHERE v.item_type = 'comment' AND v.item_id = c.id AND v.user_id = ?),
+	(SELECT v.reaction FROM votes v
+		WHERE v.item_type = 'comment' AND v.item_id = c.id AND v.user_id = ?)` +
+	reactionCountColumns("c.id")
 
 func scanComment(row rowScanner) (*Comment, error) {
 	var (
@@ -74,8 +85,10 @@ func scanComment(row rowScanner) (*Comment, error) {
 		editedAt        sql.NullInt64
 		deletedAt       sql.NullInt64
 		authorDeletedAt sql.NullInt64
+		viewerReaction  sql.NullString
 	)
-	if err := row.Scan(
+	reactionCounts := make([]int64, len(CommentReactions))
+	dest := []any{
 		&comment.ID,
 		&comment.PublicID,
 		&comment.ThreadID,
@@ -92,7 +105,12 @@ func scanComment(row rowScanner) (*Comment, error) {
 		&comment.AuthorUsername,
 		&authorDeletedAt,
 		&comment.Voted,
-	); err != nil {
+		&viewerReaction,
+	}
+	for i := range reactionCounts {
+		dest = append(dest, &reactionCounts[i])
+	}
+	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}
 
@@ -104,6 +122,13 @@ func scanComment(row rowScanner) (*Comment, error) {
 	comment.EditedAt = nullTimePtr(editedAt)
 	comment.DeletedAt = nullTimePtr(deletedAt)
 	comment.AuthorDeletedAt = nullTimePtr(authorDeletedAt)
+	if viewerReaction.Valid {
+		comment.Reaction = Reaction(viewerReaction.String)
+	}
+	comment.ReactionCounts = newReactionCounts()
+	for i, reaction := range CommentReactions {
+		comment.ReactionCounts[reaction] = reactionCounts[i]
+	}
 	return &comment, nil
 }
 
@@ -198,7 +223,7 @@ func (db *DB) commentBy(ctx context.Context, viewerID int64, where string, value
 		FROM comments c
 		JOIN users u ON u.id = c.author_id
 		JOIN threads t ON t.id = c.thread_id
-		WHERE `+where, viewerID, value))
+		WHERE `+where, viewerID, viewerID, value))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -217,7 +242,7 @@ func (db *DB) ListComments(ctx context.Context, threadID, viewerID int64) ([]Com
 		JOIN users u ON u.id = c.author_id
 		JOIN threads t ON t.id = c.thread_id
 		WHERE c.thread_id = ?
-		ORDER BY c.created_at, c.id`, viewerID, threadID)
+		ORDER BY c.created_at, c.id`, viewerID, viewerID, threadID)
 	if err != nil {
 		return nil, err
 	}

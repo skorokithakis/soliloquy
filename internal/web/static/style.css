@@ -1249,6 +1249,111 @@ a.btn.pri:hover {
 	color: var(--accent);
 }
 
+/* Reaction chips sit between the comment body and the action row. A chip is
+   a button when the viewer can vote and plain text for everyone else. */
+.rx {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 6px 0 0 32px;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 22px;
+	padding: 0 7px;
+	border: 1px solid var(--line);
+	border-radius: 11px;
+	background: none;
+	color: var(--muted);
+	font: 12px/1 var(--font-mono);
+}
+
+button.chip {
+	cursor: pointer;
+}
+
+button.chip:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.chip.on {
+	border-color: var(--accent);
+	background: var(--soft);
+	color: var(--accent);
+}
+
+.rx-emoji {
+	font-size: 13px;
+	line-height: 1;
+}
+
+.rx-count {
+	font-weight: 500;
+}
+
+/* The "react" control is a details element, so it opens without JavaScript.
+   The emoji menu floats above the action row and keeps the row's height. */
+.ca .react {
+	position: relative;
+}
+
+.ca .react summary {
+	display: inline-flex;
+	align-items: center;
+	list-style: none;
+	cursor: pointer;
+}
+
+.ca .react summary::-webkit-details-marker {
+	display: none;
+}
+
+.ca .react summary:hover {
+	color: var(--accent);
+}
+
+.react-menu {
+	position: absolute;
+	z-index: 5;
+	bottom: 100%;
+	left: 0;
+	display: flex;
+	gap: 2px;
+	margin-bottom: 4px;
+	padding: 4px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--card);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
+.react-menu .reaction-form {
+	display: flex;
+}
+
+.ca .rx-option {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 26px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: none;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.ca .rx-option:hover {
+	background: var(--soft);
+}
+
 .kids {
 	margin: 0 0 0 11px;
 	padding: 0 0 0 20px;
@@ -1261,6 +1366,7 @@ a.btn.pri:hover {
 }
 
 .c.collapsed > .cb,
+.c.collapsed > .rx,
 .c.collapsed > .ca,
 .c.collapsed > .kids,
 .c.collapsed > .reply-form {
@@ -2868,6 +2974,7 @@ a.btn.pri:hover {
 	}
 
 	.cb,
+	.rx,
 	.ca,
 	.reply-form {
 		margin-left: 26px;
@@ -2883,6 +2990,15 @@ a.btn.pri:hover {
 		align-items: center;
 		min-height: 32px;
 		padding-right: 8px;
+	}
+
+	.ca .react summary {
+		min-height: 32px;
+	}
+
+	.chip {
+		height: 26px;
+		padding: 0 8px;
 	}
 
 	.kids {

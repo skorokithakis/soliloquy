@@ -105,6 +105,17 @@ News. New comments and notifications show up live, with no page reload.
 - One vote per user per item. Clicking again removes the vote.
 - Users cannot upvote their own posts.
 - There are no downvotes and no karma totals.
+- A user can put one emoji reaction on a comment. The set is fixed: ❤️ 😂 💡
+  🙏 🎉. A reaction is an upvote with a label, so it counts as that user's one
+  vote and never as a second vote.
+  - To react with no vote adds the vote and the emoji.
+  - To react after an upvote adds the emoji. The score does not change.
+  - To pick a different emoji replaces the first one.
+  - To click the active emoji removes the emoji and the vote.
+  - To remove the upvote also removes the emoji.
+- All reactions are positive. Threads have no reactions.
+- Each comment shows a count for each emoji in use. It does not show who
+  reacted.
 
 ### 3.6 Real-time updates
 
@@ -127,8 +138,9 @@ News. New comments and notifications show up live, with no page reload.
   again, the server sends the new comments, the edits and the deletes that
   happened after the page was loaded. The server does not keep a history of
   events. It reads the current state from the database.
-- Vote counts are not sent again after a reconnect. They are correct on the
-  next page load.
+- Reaction counts update live together with vote counts.
+- Vote counts and reaction counts are not sent again after a reconnect. They
+  are correct on the next page load.
 - Live updates are for the thread page only. The front page and the other
   pages show changes on reload.
 - A deleted thread does not update live. Its stream closes, and the next page
@@ -195,8 +207,8 @@ An admin can:
 - Visitors see the usual header with the forum name, the "threads" link and
   the search box. They see a "log in" link instead of the new-thread,
   notifications and account links.
-- Visitors see scores but no vote buttons. They see no comment form, and no
-  reply, edit or delete links. In place of the comment form, the thread page
+- Visitors see scores and reaction counts but no vote or reaction buttons.
+  They see no comment form, and no reply, edit or delete links. In place of the comment form, the thread page
   shows a "Log in to comment" link.
 
 ### 3.11 Appearance
@@ -285,7 +297,7 @@ Flags or environment variables:
 
 - Public signup, email of any kind, SSO.
 - Public write access, public profile pages and a public invite tree.
-- Downvotes, karma, categories, tags.
+- Downvotes, negative reactions, karma, categories, tags.
 - Live updates for visitors, live updates on pages other than the thread
   page, and live updates for thread deletes.
 - Typing indicators and online presence.

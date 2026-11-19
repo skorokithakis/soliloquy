@@ -36,6 +36,14 @@ document.addEventListener("submit", async (event) => {
 		}
 
 		const data = await response.json();
+		const comment = form.closest(".c");
+		if (comment) {
+			// A comment vote also carries the reaction counts, because the
+			// arrow can remove the viewer's reaction.
+			applyCommentVote(comment, data);
+			return;
+		}
+
 		const score = scoreElement(form);
 		if (score) {
 			score.element.textContent = score.format === "number" ? data.score : data.score_text;
@@ -53,6 +61,220 @@ document.addEventListener("submit", async (event) => {
 		window.location.reload();
 	}
 });
+
+// React to a comment without a page reload. The chips are plain forms, and the
+// react control is a details element, so both work without JavaScript. As with
+// votes, a failed request reloads the page because the reaction may already
+// have been saved.
+document.addEventListener("submit", async (event) => {
+	const form = event.target;
+	if (!(form instanceof HTMLFormElement) || !form.classList.contains("reaction-form")) {
+		return;
+	}
+
+	event.preventDefault();
+
+	const comment = form.closest(".c");
+	const details = form.closest("details");
+	try {
+		const response = await fetch(form.action, {
+			method: "POST",
+			headers: { Accept: "application/json" },
+			credentials: "same-origin",
+			body: new URLSearchParams(new FormData(form)),
+		});
+		if (!response.ok) {
+			window.location.reload();
+			return;
+		}
+
+		const data = await response.json();
+		if (comment) {
+			applyCommentVote(comment, data);
+		}
+		if (details) {
+			details.open = false;
+		}
+	} catch (error) {
+		window.location.reload();
+	}
+});
+
+// The reaction keys, emoji and accessible names match reactionOptions in
+// internal/web/comments_handlers.go. A live vote event carries counts rather
+// than markup, so the page builds the chips itself.
+const reactions = [
+	{ key: "heart", emoji: "❤️", name: "Love" },
+	{ key: "laugh", emoji: "😂", name: "Funny" },
+	{ key: "idea", emoji: "💡", name: "Insightful" },
+	{ key: "thanks", emoji: "🙏", name: "Thanks" },
+	{ key: "party", emoji: "🎉", name: "Congratulations" },
+];
+
+// reactionCounts turns the response's ordered list into a lookup by key.
+function reactionCounts(list) {
+	const counts = new Map();
+	(list || []).forEach((entry) => counts.set(entry.key, Number(entry.count) || 0));
+	return counts;
+}
+
+// commentChild returns a comment's own child with the given class. Replies are
+// nested inside the comment's <li>, so lookups on a comment must not reach into
+// them.
+function commentChild(comment, className) {
+	return Array.from(comment.children).find((child) => child.classList.contains(className)) || null;
+}
+
+// applyCommentVote updates a comment's arrow, score and chips after a vote or
+// a reaction response.
+function applyCommentVote(comment, data) {
+	const header = commentChild(comment, "ch");
+	if (header) {
+		const score = header.querySelector(".score");
+		if (score) {
+			score.textContent = score.dataset.scoreFormat === "number" ? data.score : data.score_text;
+			score.classList.toggle("on", Boolean(data.voted));
+		}
+
+		const button = header.querySelector(".vote-form button");
+		if (button) {
+			button.classList.toggle("on", Boolean(data.voted));
+			button.dataset.voted = data.voted ? "true" : "false";
+			button.setAttribute("aria-pressed", data.voted ? "true" : "false");
+			button.setAttribute("aria-label", data.voted ? "Remove upvote" : "Upvote");
+		}
+	}
+
+	if (data.reactions) {
+		updateReactions(comment, reactionCounts(data.reactions), data.reaction || "");
+	}
+}
+
+// currentReaction is the reaction the viewer has highlighted on a comment.
+// Live events do not say who voted, so this is how the viewer's own highlight
+// survives an update from another member.
+function currentReaction(comment) {
+	const row = commentChild(comment, "rx");
+	const chip = row && row.querySelector(".chip.on");
+	return chip && chip.dataset.reaction ? chip.dataset.reaction : "";
+}
+
+// updateReactions rebuilds a comment's chip row from reaction counts. The row
+// is only shown when a reaction has a count. Existing chips are reused and
+// moved into order rather than recreated, so a chip keeps keyboard focus when
+// the viewer's own click updates it.
+function updateReactions(comment, counts, mine) {
+	// A delete event can replace the comment while a vote event or a fetch
+	// response is still on its way; a late update must not give it chips back.
+	const body = commentChild(comment, "cb");
+	if (body && body.classList.contains("gone")) {
+		return;
+	}
+
+	let row = commentChild(comment, "rx");
+	// The react control only exists for viewers who can vote, and it is what
+	// decides whether a chip is a button or plain text. It belongs to this
+	// comment, not to a reply.
+	const actions = commentChild(comment, "ca");
+	const canVote = Boolean(actions && actions.querySelector(".react"));
+	const visible = reactions.filter((reaction) => (counts.get(reaction.key) || 0) > 0);
+
+	if (!row) {
+		if (!visible.length) {
+			return;
+		}
+		row = document.createElement("div");
+		row.className = "rx";
+		if (body) {
+			body.after(row);
+		} else {
+			comment.appendChild(row);
+		}
+	}
+
+	if (!visible.length) {
+		row.remove();
+		return;
+	}
+
+	for (const reaction of visible) {
+		const count = counts.get(reaction.key) || 0;
+		let chip = Array.from(row.querySelectorAll(".chip")).find((element) => element.dataset.reaction === reaction.key);
+		if (!chip) {
+			let wrapper;
+			if (canVote) {
+				wrapper = document.createElement("form");
+				wrapper.className = "reaction-form";
+				wrapper.method = "post";
+				wrapper.action = "/comments/" + comment.dataset.commentId + "/reaction";
+
+				const input = document.createElement("input");
+				input.type = "hidden";
+				input.name = "reaction";
+				input.value = reaction.key;
+
+				chip = document.createElement("button");
+				chip.type = "submit";
+				wrapper.append(input, chip);
+			} else {
+				chip = document.createElement("span");
+				wrapper = chip;
+				chip.setAttribute("role", "img");
+			}
+
+			chip.className = "chip";
+			chip.dataset.reaction = reaction.key;
+
+			const emoji = document.createElement("span");
+			emoji.className = "rx-emoji";
+			emoji.setAttribute("aria-hidden", "true");
+			emoji.textContent = reaction.emoji;
+
+			const number = document.createElement("span");
+			number.className = "rx-count";
+			number.textContent = count;
+
+			chip.append(emoji, number);
+			row.appendChild(wrapper);
+		}
+
+		const active = reaction.key === mine;
+		chip.classList.toggle("on", active);
+		if (chip.tagName === "BUTTON") {
+			chip.setAttribute("aria-pressed", active ? "true" : "false");
+		}
+		const number = chip.querySelector(".rx-count");
+		if (number) {
+			number.textContent = count;
+		}
+		const suffix = count === 1 ? " reaction" : " reactions";
+		chip.setAttribute("aria-label", reaction.name + ", " + count + suffix);
+	}
+
+	// Drop chips whose count went to zero before ordering the rest.
+	for (const child of Array.from(row.children)) {
+		const chip = child.classList.contains("chip") ? child : child.querySelector(".chip");
+		if (!chip || !visible.some((reaction) => reaction.key === chip.dataset.reaction)) {
+			child.remove();
+		}
+	}
+
+	// Move a wrapper only when it is out of place, so a row that is already
+	// in order keeps keyboard focus on the chip the viewer just used.
+	let previous = null;
+	for (const reaction of visible) {
+		const chip = Array.from(row.querySelectorAll(".chip")).find((element) => element.dataset.reaction === reaction.key);
+		if (!chip) {
+			continue;
+		}
+		const wrapper = chip.parentElement === row ? chip : chip.parentElement;
+		const reference = previous ? previous.nextElementSibling : row.firstElementChild;
+		if (wrapper !== reference) {
+			row.insertBefore(wrapper, reference);
+		}
+		previous = wrapper;
+	}
+}
 
 // Follow or unfollow a thread without a page reload. Like the vote form, the
 // plain form still works when JavaScript is unavailable, and a failed request
@@ -1498,7 +1720,7 @@ if (eventsURL && "EventSource" in window) {
 				child.replaceWith(newHeader);
 			} else if (child.classList.contains("cb")) {
 				child.replaceWith(newBody);
-			} else if (child.classList.contains("ca") || child.classList.contains("reply-form")) {
+			} else if (child.classList.contains("ca") || child.classList.contains("rx") || child.classList.contains("reply-form")) {
 				child.remove();
 			}
 		});
@@ -1556,21 +1778,32 @@ if (eventsURL && "EventSource" in window) {
 
 	stream.addEventListener("vote", (event) => {
 		const data = JSON.parse(event.data);
-		let score = null;
 		if (data.comment_id === null) {
-			score = document.querySelector("article.thread .score");
-		} else {
-			const comment = document.getElementById("c" + data.comment_id);
-			const header = comment && Array.from(comment.children).find((child) => child.classList.contains("ch"));
-			score = header && header.querySelector(".score");
-		}
-		if (!score) {
+			const score = document.querySelector("article.thread .score");
+			if (score) {
+				score.textContent = score.dataset.scoreFormat === "number" ? data.score : data.score_text;
+			}
 			return;
 		}
 
-		// Only the number changes: the event carries no voter, so the viewer's
-		// own highlight and button state stay as they are.
-		score.textContent = score.dataset.scoreFormat === "number" ? data.score : data.score_text;
+		const comment = document.getElementById("c" + data.comment_id);
+		if (!comment) {
+			return;
+		}
+
+		const header = Array.from(comment.children).find((child) => child.classList.contains("ch"));
+		const score = header && header.querySelector(".score");
+		if (score) {
+			// Only the number changes: the event carries no voter, so the
+			// viewer's own highlight and button state stay as they are.
+			score.textContent = score.dataset.scoreFormat === "number" ? data.score : data.score_text;
+		}
+
+		// Reaction counts are the same for every viewer, but the highlight is
+		// the viewer's own and is kept from the page.
+		if (data.reactions) {
+			updateReactions(comment, reactionCounts(data.reactions), currentReaction(comment));
+		}
 	});
 }
 
