@@ -131,6 +131,27 @@ func TestCommentPageVisitor(t *testing.T) {
 	}
 }
 
+func TestCommentPageAuthorSeesOwnVote(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	focused := createCommentDirect(t, server, thread, alice, nil, "own comment", server.now())
+
+	body := doRequest(t, server, http.MethodGet, commentPagePath(focused.PublicID), nil, cookie, "").Body.String()
+	for _, want := range []string{
+		`action="/comments/` + focused.PublicID + `/vote"`,
+		`class="vote on" type="submit" aria-label="Remove upvote"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("author's comment page does not contain %q", want)
+		}
+	}
+	if strings.Contains(body, `<details class="react">`) {
+		t.Error("the author's own comment has a react control")
+	}
+}
+
 func TestCommentPageNotFound(t *testing.T) {
 	server := newTestServer(t)
 	alice := createTestUser(t, server, "alice", false)

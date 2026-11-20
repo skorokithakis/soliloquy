@@ -1738,8 +1738,8 @@ a.btn.pri:hover {
 	margin-left: 0;
 }
 
-/* The card has no left indent, so a hidden vote placeholder (own comment,
-   visitor, deleted) would push the author off the body's line. STA-749 adds
+/* The card has no left indent, so a hidden vote placeholder (visitor or
+   deleted comment) would push the author off the body's line. STA-749 adds
    the spacer only to indented comments. */
 .comment-page .focus > .ch .vote.none {
 	display: none;
