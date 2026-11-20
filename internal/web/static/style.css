@@ -3155,6 +3155,10 @@ a.btn.pri:hover {
 
 	.ca .react summary {
 		min-height: 32px;
+		/* The other action row items get their 8px from padding-right; the
+		   summary needs the same so "react" and the first chip are 12px
+		   apart like the rest of the row. */
+		padding-right: 8px;
 	}
 
 	/* The chip and picker buttons are also .ca buttons, so keep the design
