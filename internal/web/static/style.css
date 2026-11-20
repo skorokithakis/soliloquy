@@ -1733,10 +1733,16 @@ a.btn.pri:hover {
 }
 
 .focus > .cb,
-.focus > .rx,
 .focus > .ca,
 .focus > form {
 	margin-left: 0;
+}
+
+/* The card has no left indent, so a hidden vote placeholder (own comment,
+   visitor, deleted) would push the author off the body's line. STA-749 adds
+   the spacer only to indented comments. */
+.comment-page .focus > .ch .vote.none {
+	display: none;
 }
 
 .focus > .cb {
