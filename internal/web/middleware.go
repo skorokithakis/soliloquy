@@ -207,8 +207,8 @@ func publicPath(r *http.Request) bool {
 }
 
 // readOnlyPath reports whether a request is one visitors may make when the
-// forum is public: the front page, a thread page and search. Everything else,
-// including every write, still needs a logged-in user.
+// forum is public: the front page, a thread page, a single-comment page and
+// search. Everything else, including every write, still needs a logged-in user.
 func readOnlyPath(r *http.Request) bool {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return false
@@ -222,8 +222,14 @@ func readOnlyPath(r *http.Request) bool {
 	// visitor sees the same 404 as a logged-in user instead of a login
 	// redirect. /threads/new and subpaths such as /threads/{id}/edit still need
 	// an account.
-	rest, found := strings.CutPrefix(r.URL.Path, "/threads/")
-	return found && rest != "" && rest != "new" && !strings.Contains(rest, "/")
+	if rest, found := strings.CutPrefix(r.URL.Path, "/threads/"); found {
+		return rest != "" && rest != "new" && !strings.Contains(rest, "/")
+	}
+
+	// A single /comments/{id} path is the same kind of read-only page. Subpaths
+	// such as /comments/{id}/reply still need an account.
+	rest, found := strings.CutPrefix(r.URL.Path, "/comments/")
+	return found && rest != "" && !strings.Contains(rest, "/")
 }
 
 // validPublicID reports whether id has the shape of a thread or comment public

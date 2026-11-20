@@ -4,12 +4,12 @@
 {{define "thread-title"}}{{if .URL}}<a href="{{.URL}}" rel="nofollow noopener">{{.Title}}</a> <span class="dom">{{.Domain}}</span>{{else}}{{.Title}}{{end}}{{end}}
 
 {{define "comment"}}
-<li class="c{{if .New}} new{{end}}" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
+<li class="c{{if .New}} new{{end}}{{if .Focus}} focus{{end}}" id="c{{.PublicID}}" data-comment-id="{{.PublicID}}">
 	<div class="ch">
 		{{if .Deleted}}
 		{{if .LoggedIn}}<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>{{else}}<span class="vote none" aria-hidden="true"></span>{{end}}
 		<span class="gone">[deleted]</span>
-		<span>{{.CreatedAt}}</span>
+		<a class="ts" href="/comments/{{.PublicID}}" title="{{.CreatedAtTitle}}">{{.CreatedAt}}</a>
 		{{else}}
 		{{if .CanVote}}
 		<form class="vote-form" method="post" action="/comments/{{.PublicID}}/vote">
@@ -22,7 +22,7 @@
 		{{end}}
 		{{if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if .LoggedIn}}<a class="u" href="/u/{{.AuthorUsername}}">{{.Author}}</a>{{else}}<span class="u">{{.Author}}</span>{{end}}
 		{{if .IsOP}}<span class="op">op</span>{{end}}
-		<span>{{.CreatedAt}}</span>
+		<a class="ts" href="/comments/{{.PublicID}}" title="{{.CreatedAtTitle}}">{{.CreatedAt}}</a>
 		<span>·</span>
 		<span class="score">{{.ScoreText}}</span>
 		{{if .Edited}}<span>·</span><span data-edited>edited</span>{{end}}
@@ -36,7 +36,8 @@
 	</div>
 	{{if not .Deleted}}
 	<div class="ca">
-		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply">reply</a>{{end}}
+		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply{{if .ReplyReturnTo}}?return_to={{.ReplyReturnTo}}{{end}}">reply</a>{{end}}
+		{{if and (not .LoggedIn) .Focus}}<a class="lg" href="/login">log in to reply</a>{{end}}
 		{{if .IsAuthor}}<a href="/comments/{{.PublicID}}/edit">edit</a>{{end}}
 		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.PublicID}}/delete" data-confirm="Delete this comment? This cannot be undone. Replies to it stay."><button type="submit">delete</button></form>{{end}}
 		{{if .CanReact}}
@@ -68,6 +69,6 @@
 		{{end}}
 	</div>
 	{{end}}
-	<ol class="kids" data-parent-id="{{.PublicID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>
+	{{if not .Focus}}<ol class="kids" data-parent-id="{{.PublicID}}">{{range .Replies}}{{template "comment" .}}{{end}}</ol>{{end}}
 </li>
 {{end}}

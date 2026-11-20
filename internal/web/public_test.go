@@ -31,6 +31,7 @@ func TestVisitorReadsNothingWhenForumIsPrivate(t *testing.T) {
 	gets := []string{
 		"/",
 		threadPath(thread.PublicID),
+		commentPagePath(comment.PublicID),
 		"/search?q=Thread",
 		"/u/alice",
 		"/threads/new",
@@ -291,6 +292,49 @@ func TestVisitorCannotUsePrivateRoutesWhenPublic(t *testing.T) {
 	}
 	if !settings.Public || settings.ForumName != db.DefaultForumName {
 		t.Errorf("visitor changed settings: %+v", settings)
+	}
+}
+
+// TestPublicModeAllowsOnlyCommentPaths is the comment-page counterpart of the
+// thread path check: a single comment can be read, but its write subpaths
+// still need an account, and IDs that do not resolve get a 404 instead of a
+// login redirect.
+func TestPublicModeAllowsOnlyCommentPaths(t *testing.T) {
+	server := newTestServer(t)
+	setPublic(t, server, true)
+
+	alice := createTestUser(t, server, "alice", false)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
+
+	response := doRequest(t, server, http.MethodGet, commentPagePath(comment.PublicID), nil, nil, "")
+	if response.Code != http.StatusOK {
+		t.Errorf("%s: status = %d, want %d", commentPagePath(comment.PublicID), response.Code, http.StatusOK)
+	}
+
+	for _, path := range []string{
+		"/comments/",
+		commentPagePath(comment.PublicID) + "/",
+		commentPagePath(comment.PublicID) + "/reply",
+		commentPagePath(comment.PublicID) + "/edit",
+		commentPagePath(comment.PublicID) + "/delete",
+	} {
+		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
+		if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/login" {
+			t.Errorf("%s: status = %d, Location = %q, want a redirect to /login", path, response.Code, response.Header().Get("Location"))
+		}
+	}
+
+	for _, path := range []string{
+		"/comments/abc",
+		"/comments/0",
+		"/comments/999",
+		"/comments/aaaaaaaa",
+	} {
+		response := doRequest(t, server, http.MethodGet, path, nil, nil, "")
+		if response.Code != http.StatusNotFound {
+			t.Errorf("%s: status = %d, want %d", path, response.Code, http.StatusNotFound)
+		}
 	}
 }
 

@@ -1378,6 +1378,15 @@ a.btn.pri:hover {
 	margin: 2px 0 0 32px;
 }
 
+/* Comment text is capped at a readable width. Code blocks and tables are not
+   capped, because they need the full column. */
+.cb > p,
+.cb > blockquote,
+.cb > ul,
+.cb > ol {
+	max-width: 72ch;
+}
+
 .ca {
 	display: flex;
 	flex-wrap: wrap;
@@ -1534,6 +1543,105 @@ a.btn.pri:hover {
 
 .reply-form {
 	margin: 8px 0 4px 32px;
+}
+
+/* Timestamp link, shared by the thread page and the single-comment page. */
+.ts {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 3px;
+	color: inherit;
+	white-space: nowrap;
+}
+
+.ts:hover {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.ts:focus-visible,
+.tl:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+/* Single-comment page ----------------------------------------------- */
+
+.tl {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	min-height: 24px;
+	color: var(--muted);
+	font: 12px var(--font-mono);
+}
+
+.tl .tt {
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The focused comment sits at the top of the page at full column width. */
+.focus {
+	margin-top: 6px;
+	padding: 8px 16px 12px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--card);
+}
+
+.focus > .cb,
+.focus > .rx,
+.focus > .ca,
+.focus > form {
+	margin-left: 0;
+}
+
+.focus > .cb {
+	margin-top: 8px;
+	font-size: 15.5px;
+	line-height: 1.6;
+}
+
+.focus > .ca {
+	margin-top: 10px;
+}
+
+.focus > form {
+	margin-top: 10px;
+}
+
+/* The replies are the page's own tree, so the first level is not drawn as a
+   nested list beside the card. */
+.kids.replies {
+	margin-left: 0;
+	padding-left: 0;
+	border-left: 0;
+}
+
+.rh {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 20px 0 2px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--line);
+}
+
+.none {
+	margin: 18px 0 0;
+	color: var(--muted);
+	font: 12px var(--font-mono);
+}
+
+.ca .lg {
+	text-decoration: underline;
+	text-decoration-color: var(--line);
+	text-underline-offset: 3px;
 }
 
 /* The floating "quote" button that app.js shows below a selection in a
@@ -3193,6 +3301,37 @@ a.btn.pri:hover {
 		padding-left: 10px;
 	}
 
+	.tl {
+		min-height: 32px;
+	}
+
+	.ts {
+		min-height: 32px;
+		padding: 0 4px;
+		margin: 0 -4px;
+	}
+
+	/* The card goes edge to edge on phones. */
+	.focus {
+		margin: 6px -16px 0;
+		padding: 4px 16px 8px;
+		border-width: 1px 0;
+		border-radius: 0;
+	}
+
+	.focus > .cb {
+		margin-top: 4px;
+		font-size: 15px;
+	}
+
+	.focus > .ca {
+		margin-top: 6px;
+	}
+
+	.rh {
+		margin-top: 16px;
+	}
+
 	.vote {
 		width: 32px;
 		height: 28px;
@@ -3235,6 +3374,10 @@ a.btn.pri:hover {
 		padding-bottom: 72px;
 	}
 
+	.comment-page {
+		padding-bottom: 72px;
+	}
+
 	.thread-form-layout {
 		gap: 18px;
 	}
@@ -3258,6 +3401,10 @@ a.btn.pri:hover {
 	}
 
 	.thread-page + .foot {
+		padding-bottom: 96px;
+	}
+
+	.comment-page + .foot {
 		padding-bottom: 96px;
 	}
 

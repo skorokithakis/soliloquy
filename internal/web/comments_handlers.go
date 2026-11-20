@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -59,6 +60,9 @@ type commentView struct {
 	Score          int64
 	ScoreText      string
 	CreatedAt      string
+	// CreatedAtTitle is the full UTC date and time, shown as the timestamp
+	// link's title.
+	CreatedAtTitle string
 	Edited         bool
 	Body           template.HTML
 	Deleted        bool
@@ -82,8 +86,22 @@ type commentView struct {
 	LoggedIn bool
 	// New marks a comment newer than the viewer's read cutoff, so the page
 	// shows it the way app.js shows a comment that arrived live.
-	New     bool
-	Replies []commentView
+	New bool
+	// Focus marks the comment at the top of the single-comment page. The
+	// template then renders it as a card and omits its parent link.
+	Focus bool
+	// ReplyReturnTo is the comment page an inline reply should return to. It
+	// is empty on the thread page, where replies keep the thread anchor.
+	ReplyReturnTo string
+	Replies       []commentView
+}
+
+type commentPageData struct {
+	PageData
+	Thread    threadView
+	Focused   commentView
+	Replies   []commentView
+	ReplyText string
 }
 
 type commentFormPageData struct {
@@ -156,6 +174,7 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		Score:          comment.Score,
 		ScoreText:      pointsText(comment.Score),
 		CreatedAt:      relativeTime(comment.CreatedAt, now),
+		CreatedAtTitle: comment.CreatedAt.UTC().Format("2006-01-02 15:04"),
 		Edited:         comment.EditedAt != nil,
 		Deleted:        comment.DeletedAt != nil,
 		IsAuthor:       viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
@@ -198,6 +217,125 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 	return view
 }
 
+func (s *Server) handleCommentPage(w http.ResponseWriter, r *http.Request) {
+	publicID := r.PathValue("id")
+	if !validPublicID(publicID) {
+		http.NotFound(w, r)
+		return
+	}
+
+	user := currentUser(r)
+	viewerID := int64(0)
+	if user != nil {
+		viewerID = user.ID
+	}
+
+	comment, err := s.db.CommentByPublicID(r.Context(), publicID, viewerID)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	if comment == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	thread, err := s.db.ThreadByID(r.Context(), comment.ThreadID)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	if thread == nil || thread.DeletedAt != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// The render time is taken before ListComments, so a change during the
+	// load is replayed and the browser skips the duplicate. The page does not
+	// mark the thread read and has no new-since-last-visit markers.
+	now := s.now()
+	comments, err := s.db.ListComments(r.Context(), thread.ID, viewerID)
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+
+	// A deleted comment with no visible replies is omitted from the tree, so
+	// the focused comment not being found is the 404 case.
+	node := findCommentNode(db.BuildCommentTree(comments), publicID)
+	if node == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	focused := commentViewFor(node, user, thread.AuthorID, now, time.Time{})
+	focused.Focus = true
+	// The focused comment is the root of this page, so its header has no
+	// parent link, and its replies are rendered outside the card below.
+	focused.HasParent = false
+	focused.ParentPublicID = ""
+	focused.ReplyReturnTo = node.Comment.PublicID
+	focused.Replies = nil
+
+	replies := commentViews(node.Replies, user, thread.AuthorID, now, time.Time{})
+	setReplyReturnTo(replies, node.Comment.PublicID)
+
+	data := commentPageData{
+		PageData:  s.pageData(r, thread.Title),
+		Thread:    threadViewFor(*thread, now),
+		Focused:   focused,
+		Replies:   replies,
+		ReplyText: repliesText(countVisibleReplies(node.Replies)),
+	}
+	data.EventThreadID = thread.PublicID
+	data.EventSince = now.Unix()
+	data.Visitor = user == nil
+	s.render(w, "comment_page", data)
+}
+
+// findCommentNode returns the node for a public ID anywhere in a comment tree.
+func findCommentNode(nodes []*db.CommentNode, publicID string) *db.CommentNode {
+	for _, node := range nodes {
+		if node.Comment.PublicID == publicID {
+			return node
+		}
+		if found := findCommentNode(node.Replies, publicID); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// countVisibleReplies counts the replies a focused comment shows. Deleted
+// comments keep their place when they have live replies, but they are not
+// counted in the "N replies" header.
+func countVisibleReplies(nodes []*db.CommentNode) int64 {
+	var count int64
+	for _, node := range nodes {
+		if node.Comment.DeletedAt == nil {
+			count++
+		}
+		count += countVisibleReplies(node.Replies)
+	}
+	return count
+}
+
+// setReplyReturnTo makes every reply box in a branch return to the same
+// comment page after posting.
+func setReplyReturnTo(views []commentView, publicID string) {
+	for i := range views {
+		views[i].ReplyReturnTo = publicID
+		setReplyReturnTo(views[i].Replies, publicID)
+	}
+}
+
+func repliesText(replies int64) string {
+	if replies == 1 {
+		return "1 reply"
+	}
+	return fmt.Sprintf("%d replies", replies)
+}
+
 func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	thread, ok := s.visibleThread(w, r)
 	if !ok {
@@ -236,7 +374,8 @@ func (s *Server) handleReplyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.renderCommentForm(w, r, http.StatusOK, "Reply", "comments/reply", commentAction(comment.PublicID, "reply"), "post reply", "", "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+	returnTo := replyReturnTo(r)
+	s.renderCommentForm(w, r, http.StatusOK, "Reply", "comments/reply", replyAction(comment.PublicID, returnTo), "post reply", "", "", commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 }
 
 func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
@@ -245,10 +384,11 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	returnTo := replyReturnTo(r)
 	body := r.FormValue("body")
 	bodyHTML, err := renderCommentBody(body)
 	if err != nil {
-		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", "comments/reply", commentAction(comment.PublicID, "reply"), "post reply", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
+		s.renderCommentForm(w, r, http.StatusBadRequest, "Reply", "comments/reply", replyAction(comment.PublicID, returnTo), "post reply", body, err.Error(), commentAnchorPath(comment.ThreadPublicID, comment.PublicID))
 		return
 	}
 
@@ -268,7 +408,33 @@ func (s *Server) handleCreateReply(w http.ResponseWriter, r *http.Request) {
 	s.publishNewComment(r.Context(), comment.ThreadID, reply)
 
 	s.setDraftPostedCookie(w, r)
-	http.Redirect(w, r, commentAnchorPath(reply.ThreadPublicID, reply.PublicID), http.StatusSeeOther)
+	redirect := commentAnchorPath(reply.ThreadPublicID, reply.PublicID)
+	if returnTo != "" {
+		redirect = commentPagePath(returnTo) + "#c" + reply.PublicID
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
+// replyReturnTo reads the comment page a reply should return to. Only a
+// well-formed comment ID is accepted and the redirect path is built from it,
+// so a hand-edited link cannot turn the form into an open redirect.
+func replyReturnTo(r *http.Request) string {
+	id := r.URL.Query().Get("return_to")
+	if !validPublicID(id) {
+		return ""
+	}
+	return id
+}
+
+// replyAction builds the reply form's action, keeping the return path through
+// the standalone reply page as well as the inline form app.js builds from the
+// same link.
+func replyAction(commentPublicID, returnTo string) string {
+	action := commentAction(commentPublicID, "reply")
+	if returnTo != "" {
+		action += "?return_to=" + url.QueryEscape(returnTo)
+	}
+	return action
 }
 
 func (s *Server) handleEditCommentPage(w http.ResponseWriter, r *http.Request) {
@@ -507,6 +673,10 @@ func renderCommentBody(body string) (string, error) {
 
 func commentAction(publicID string, action string) string {
 	return "/comments/" + publicID + "/" + action
+}
+
+func commentPagePath(publicID string) string {
+	return "/comments/" + publicID
 }
 
 func commentAnchorPath(threadPublicID, commentPublicID string) string {

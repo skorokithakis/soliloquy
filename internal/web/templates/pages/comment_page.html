@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="comment-page">
+	<a class="tl" href="/threads/{{.Thread.PublicID}}#c{{.Focused.PublicID}}" title="Back to the full thread"><span aria-hidden="true">‹</span><span class="tt">{{.Thread.Title}}</span></a>
+
+	<ol class="comment-list">
+		{{template "comment" .Focused}}
+	</ol>
+
+	{{if .Replies}}
+	<div class="rh"><span class="label">{{.ReplyText}} · best first</span></div>
+	{{end}}
+	<section class="comments" aria-label="Replies">
+		{{/* This list deliberately has no id="comments": app.js would then also
+		     insert a new top-level comment of the thread, which does not belong
+		     on this page. */}}
+		<ol class="kids replies" data-parent-id="{{.Focused.PublicID}}">
+			{{range .Replies}}{{template "comment" .}}{{end}}
+		</ol>
+		{{if not .Replies}}<p class="none no-comments">no replies yet</p>{{end}}
+	</section>
+
+	{{if not .Visitor}}
+	<div class="dock">
+		<a class="fake" href="/comments/{{.Focused.PublicID}}/reply?return_to={{.Focused.PublicID}}" data-reply-dock="{{.Focused.PublicID}}">reply to {{.Focused.Author}}…</a>
+	</div>
+	{{end}}
+</div>
+{{end}}

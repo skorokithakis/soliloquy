@@ -553,8 +553,31 @@ function buildReplyForm(link, comment) {
 	return form;
 }
 
-// Open the reply form inline. Without JavaScript the reply link goes to the
+// openReply opens or focuses a comment's inline reply box and reports whether
+// it handled the click. Without JavaScript the reply link goes to the
 // standalone reply page instead.
+function openReply(link, comment) {
+	const existing = commentChild(comment, "reply-form");
+	if (existing) {
+		const textarea = existing.querySelector("textarea");
+		if (textarea) {
+			textarea.focus();
+		}
+		return true;
+	}
+
+	if (!commentChild(comment, "ca")) {
+		return false;
+	}
+
+	const form = buildReplyForm(link, comment);
+	const textarea = form && form.querySelector("textarea");
+	if (textarea) {
+		textarea.focus();
+	}
+	return true;
+}
+
 document.addEventListener("click", (event) => {
 	const link = event.target.closest("a.reply-link");
 	if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -566,26 +589,24 @@ document.addEventListener("click", (event) => {
 		return;
 	}
 
-	const existing = commentChild(comment, "reply-form");
-	if (existing) {
+	if (openReply(link, comment)) {
 		event.preventDefault();
-		const textarea = existing.querySelector("textarea");
-		if (textarea) {
-			textarea.focus();
-		}
+	}
+});
+
+// The single-comment page's phone bar is a link to the standalone reply page,
+// so it works without JavaScript. With the script, it opens the focused
+// comment's inline reply box instead.
+document.addEventListener("click", (event) => {
+	const dock = event.target.closest("[data-reply-dock]");
+	if (!dock || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
 		return;
 	}
 
-	if (!commentChild(comment, "ca")) {
-		return;
-	}
-
-	event.preventDefault();
-
-	const form = buildReplyForm(link, comment);
-	const textarea = form && form.querySelector("textarea");
-	if (textarea) {
-		textarea.focus();
+	const comment = document.getElementById("c" + dock.dataset.replyDock);
+	const link = comment && comment.querySelector("a.reply-link");
+	if (link && openReply(link, comment)) {
+		event.preventDefault();
 	}
 });
 
@@ -2107,6 +2128,16 @@ if (eventsURL && "EventSource" in window) {
 				}
 			}
 			enhanceComments(inserted);
+
+			// On the single-comment page, a reply sent from a live-inserted
+			// comment must also return to the focused comment.
+			const focused = document.querySelector(".c.focus[data-comment-id]");
+			if (focused) {
+				const returnTo = encodeURIComponent(focused.dataset.commentId);
+				inserted.querySelectorAll("a.reply-link").forEach((link) => {
+					link.setAttribute("href", link.getAttribute("href") + "?return_to=" + returnTo);
+				});
+			}
 		}
 
 		const empty = document.querySelector(".no-comments");
@@ -2157,6 +2188,20 @@ if (eventsURL && "EventSource" in window) {
 		const newBody = Array.from(deleted.children).find((child) => child.classList.contains("cb"));
 		if (!newHeader || !newBody) {
 			return;
+		}
+
+		// The focused comment has no parent link, and its page may not contain
+		// the parent. A live delete re-renders the header, so remove the link
+		// and the separator before it.
+		if (comment.classList.contains("focus")) {
+			const parent = newHeader.querySelector("a.par");
+			if (parent) {
+				const separator = parent.previousElementSibling;
+				if (separator && separator.textContent === "·") {
+					separator.remove();
+				}
+				parent.remove();
+			}
 		}
 
 		Array.from(comment.children).forEach((child) => {

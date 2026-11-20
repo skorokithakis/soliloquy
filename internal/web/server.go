@@ -191,6 +191,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /threads/{id}/unfollow", s.handleUnfollowThread)
 	mux.HandleFunc("POST /threads/{id}/vote", s.handleVoteThread)
 	mux.HandleFunc("POST /threads/{id}/comments", s.handleCreateComment)
+	mux.HandleFunc("GET /comments/{id}", s.handleCommentPage)
 	mux.HandleFunc("GET /comments/{id}/reply", s.handleReplyPage)
 	mux.HandleFunc("POST /comments/{id}/reply", s.handleCreateReply)
 	mux.HandleFunc("GET /comments/{id}/edit", s.handleEditCommentPage)
