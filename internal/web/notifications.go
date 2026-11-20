@@ -32,11 +32,12 @@ func (n notificationView) Link() string {
 	return notificationPath(n.ThreadPublicID, n.CommentPublicID)
 }
 
-// notificationPath is the site-relative link for a notification: the anchor
-// of the comment it is about, or the thread for a mention in the thread body.
+// notificationPath is the site-relative link for a notification: the
+// single-comment page for a comment notification, or the thread for a mention
+// in the thread body.
 func notificationPath(threadPublicID string, commentPublicID *string) string {
 	if commentPublicID != nil {
-		return commentAnchorPath(threadPublicID, *commentPublicID)
+		return commentPagePath(*commentPublicID)
 	}
 	return threadPath(threadPublicID)
 }

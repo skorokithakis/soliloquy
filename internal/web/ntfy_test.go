@@ -306,8 +306,8 @@ func TestNtfyPersonalNotificationPushes(t *testing.T) {
 		t.Error("alice did not get a push for a comment on her thread")
 	} else if !strings.Contains(request.Message.Text, "bob commented on your thread Thread") {
 		t.Errorf("alice push text = %q", request.Message.Text)
-	} else if !strings.HasSuffix(request.Message.Click, commentAnchorPath(thread.PublicID, commentID)) {
-		t.Errorf("alice push click = %q, want the comment anchor", request.Message.Click)
+	} else if !strings.HasSuffix(request.Message.Click, commentPagePath(commentID)) {
+		t.Errorf("alice push click = %q, want the comment page", request.Message.Click)
 	}
 	if request, ok := byURL["https://ntfy.sh/carol"]; !ok {
 		t.Error("carol did not get a push for the mention")
@@ -366,8 +366,8 @@ func TestNtfyFollowedNotificationPush(t *testing.T) {
 	if request.Message.Text != "carol commented in Thread" {
 		t.Errorf("push text = %q, want the followed wording", request.Message.Text)
 	}
-	if request.Message.Click != testBaseURL+commentAnchorPath(thread.PublicID, commentID) {
-		t.Errorf("push click = %q, want the comment anchor", request.Message.Click)
+	if request.Message.Click != testBaseURL+commentPagePath(commentID) {
+		t.Errorf("push click = %q, want the comment page", request.Message.Click)
 	}
 }
 

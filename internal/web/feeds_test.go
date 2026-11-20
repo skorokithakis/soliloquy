@@ -330,13 +330,13 @@ func TestNotificationsFeedListsOnlyOwnNotifications(t *testing.T) {
 		{
 			notification: commentNotification,
 			title:        "carol commented on your thread Other thread",
-			link:         testBaseURL + commentAnchorPath(otherThread.PublicID, topLevel.PublicID),
+			link:         testBaseURL + commentPagePath(topLevel.PublicID),
 			body:         "top level body",
 		},
 		{
 			notification: replyNotification,
 			title:        "bob replied to you in Thread title",
-			link:         testBaseURL + commentAnchorPath(thread.PublicID, reply.PublicID),
+			link:         testBaseURL + commentPagePath(reply.PublicID),
 			body:         "reply <strong>body</strong>",
 		},
 	}

@@ -363,7 +363,7 @@ func TestNotificationsPageMarksReadAndShowsBadge(t *testing.T) {
 		"Thread",
 		`class="snip">hello</div>`,
 		"unread · 1",
-		commentAnchorPath(thread.PublicID, comment.PublicID),
+		commentPagePath(comment.PublicID),
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("notifications page does not contain %q", want)
@@ -610,7 +610,7 @@ func TestNewCommentPublishesLiveUpdates(t *testing.T) {
 		if payload.Text != "bob commented on your thread Thread" {
 			t.Errorf("notification text = %q", payload.Text)
 		}
-		if payload.URL != commentAnchorPath(thread.PublicID, commentID) {
+		if payload.URL != commentPagePath(commentID) {
 			t.Errorf("notification URL = %q", payload.URL)
 		}
 	case <-time.After(time.Second):
@@ -1049,7 +1049,7 @@ func TestNotificationEventsCarryTextAndURL(t *testing.T) {
 		t.Fatalf("comment status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 	rootID := anchorPublicID(t, response.Header().Get("Location"))
-	assertNotificationEvent(t, aliceEvents, "bob commented on your thread A thread", commentAnchorPath(thread.PublicID, rootID))
+	assertNotificationEvent(t, aliceEvents, "bob commented on your thread A thread", commentPagePath(rootID))
 
 	select {
 	case event := <-bobEvents:
@@ -1065,7 +1065,7 @@ func TestNotificationEventsCarryTextAndURL(t *testing.T) {
 		t.Fatalf("reply status = %d, want %d", response.Code, http.StatusSeeOther)
 	}
 	replyID := anchorPublicID(t, response.Header().Get("Location"))
-	assertNotificationEvent(t, bobEvents, "alice replied to you in A thread", commentAnchorPath(thread.PublicID, replyID))
+	assertNotificationEvent(t, bobEvents, "alice replied to you in A thread", commentPagePath(replyID))
 
 	// A mention in a thread body has no comment, so it links to the thread.
 	response = postForm(t, server, "/threads", url.Values{
