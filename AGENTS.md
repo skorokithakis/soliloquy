@@ -1,11 +1,17 @@
 # Notes for agents
 
+## Product intent
+
+Soliloquy is a forum that promotes long-form discussion. When you design or
+change a feature, prefer the option that makes long posts and deep comment
+threads easier to write and to read.
+
 ## Design reference
 
 The repository has a design reference for every screen of the app. Read it
 before you change templates or CSS, and compare your result with it.
 
-- `misc/design/` has one HTML file and one PNG screenshot for each of the 14
+- `misc/design/` has one HTML file and one PNG screenshot for each of the 22
   screens (desktop, mobile and dark). `misc/design/README.md` explains the
   files.
 - `misc/design_reference.html` is the original export. It needs a browser with

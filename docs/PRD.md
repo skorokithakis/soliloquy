@@ -12,6 +12,9 @@ visitors. It is easy to deploy: you copy one binary, run it, and put a reverse
 proxy in front of it. Threads have nested comments, like Reddit and Hacker
 News. New comments and notifications show up live, with no page reload.
 
+Soliloquy is made for long-form discussion: long posts, long replies and deep
+threads must be comfortable to write and to read.
+
 ## 2. Users and scale
 
 - Fewer than 100 users.
@@ -96,6 +99,22 @@ News. New comments and notifications show up live, with no page reload.
     is decided when the page renders.
 - A deleted thread does not show on the front page or in search. Its page
   returns 404. Its rows stay in the database.
+- Each comment has its own page. The time of a comment is the link to it.
+  - The page shows the comment with no indent and its replies below it, so a
+    deeply nested comment is as wide as a top-level one.
+  - Above the comment, the page shows its parent comments, from the top-level
+    comment down to the direct parent. They are flat and read-only. Each one
+    shows the author, the age and an excerpt, and can be opened to show the
+    full text. When there are more than three parents, only the direct parent
+    shows until the reader opens the list.
+  - A link at the top goes back to the full thread at that comment.
+  - A reply sent from this page returns the user to this page.
+  - Opening this page does not mark the thread as read.
+  - The page of a deleted comment follows the rules above: it shows
+    "[deleted]" when the comment has visible replies and returns 404 when it
+    has none.
+- Paragraphs, lists and quotes in comments are at most 72 characters wide. Code
+  blocks and tables can use the full width.
 
 ### 3.5 Upvotes
 
@@ -123,6 +142,8 @@ News. New comments and notifications show up live, with no page reload.
 
 - When a user has a thread open, new comments in that thread appear in the
   correct place in the tree with no reload.
+- The page of a single comment gets the same live changes for the comments
+  that it shows. Its parent comments and its reply count do not change live.
 - When a user has a thread open, these changes to that thread also appear with
   no reload: edits of the thread and of its comments, deletes of its comments,
   vote counts and the comment count.
@@ -170,6 +191,9 @@ A user gets an in-app notification when:
 Users do not get notifications for their own actions. There is a
 notifications page and an unread count badge in the header.
 
+A notification about a comment links to the page of that comment, on every
+channel. A mention in a thread body links to the thread.
+
 Users can also receive their notifications through a personal RSS feed,
 desktop alerts in the browser (while a forum tab is open), and ntfy pushes.
 Followed-thread notifications use the same channels. ntfy can also send a
@@ -200,8 +224,8 @@ An admin can:
 
 - The forum is private by default. Visitors are sent to the login page.
 - An admin can make the forum public on the admin settings page.
-- When it is public, a visitor can read the front page, thread pages and
-  search. Paging works as it does for members.
+- When it is public, a visitor can read the front page, thread pages, the
+  pages of single comments and search. Paging works as it does for members.
 - Visitors cannot write. Every POST redirects them to the login page.
 - Account, notifications, invites, the invite tree, member profiles, admin pages, the thread
   form, edit and reply pages, and live updates are for logged-in users only.

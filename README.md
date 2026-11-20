@@ -2,6 +2,9 @@
 
 A small, lightweight, private forum for work discussions and friendly chats.
 
+Soliloquy is made for long-form discussion: long posts, long replies and deep
+threads should be comfortable to write and to read.
+
 <a href="docs/images/front-page.png"><img src="docs/images/front-page.png" alt="Soliloquy front page" width="400"></a>
 
 - Invite-only. Any member can invite others, and everyone can see who invited whom.
@@ -9,6 +12,9 @@ A small, lightweight, private forum for work discussions and friendly chats.
   threads and search without an account. Visitors cannot post, vote or comment.
 - Admins can rename the forum.
 - Threads with nested comments, like Hacker News and Reddit.
+- Every comment has its own page that shows the comment and its replies at full
+  width, so a deep thread stays readable. Click the time of a comment to open
+  it.
 - New comments, edits, deletes, vote counts and notifications appear live, with
   no page reload.
 - RSS feeds for new threads, all new comments and your own notifications, with
