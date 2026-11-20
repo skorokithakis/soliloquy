@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <title>Soliloquy: thread</title>
-<script src="468e96bb-b9d5-4b32-a660-c6a00afb8551"></script>
+<script src="ec1f087d-66f5-44b7-86e9-9c0fdf09d83f"></script>
 </head>
 <body>
 <x-dc>
@@ -36,7 +36,10 @@ body{margin:0}
 .btn.ghost{background:none;border-color:transparent;color:var(--muted)}
 .ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0}
 .badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
-.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted)}
+.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted);white-space:nowrap}
+.top .search{flex:0 1 210px;min-width:110px}
+@media (max-width:780px){.top .search{display:none}}
+@media (min-width:641px){.top .wrap{flex-wrap:nowrap}.top .logo,.top .nav,.top .btn,.top .ib{flex:none}}
 .label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .vote{width:24px;height:22px;border:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:3px;cursor:pointer;padding:0;flex:none}
 .vote.on{color:var(--accent)}
@@ -60,11 +63,16 @@ body{margin:0}
 .c:target>.ch{background:var(--soft);box-shadow:0 0 0 4px var(--soft)}
 .par{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .par:hover{text-decoration-color:var(--accent)}
+.ts{display:inline-flex;align-items:center;color:inherit;white-space:nowrap;border-radius:3px}
+.ts:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.ts:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:640px){.ts{min-height:32px;padding:0 4px;margin:0 -4px}}
 .hid{color:var(--accent)}
 .op{font:600 10px/14px 'IBM Plex Mono',monospace;color:var(--accent);border:1px solid currentColor;border-radius:3px;padding:0 4px}
 .tog{font:600 12px 'IBM Plex Mono',monospace;color:var(--ink);background:none;border:0;cursor:pointer;padding:2px 4px;border-radius:3px;margin-left:-2px}
 .tog:hover{color:var(--accent);background:var(--soft)}
 .cb{margin:2px 0 0 32px}
+.cb>p,.cb>blockquote,.cb>ul,.cb>ol{max-width:72ch}
 .ca{margin:4px 0 0 32px;display:flex;gap:14px;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
 .ca button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 .ca button:hover{color:var(--accent)}
@@ -80,6 +88,14 @@ body{margin:0}
 .editor textarea{display:block;width:100%;border:0;outline:0;background:none;resize:vertical;min-height:84px;padding:9px 11px;font:13px/1.5 'IBM Plex Mono',monospace;color:var(--ink)}
 .editor textarea::placeholder{color:var(--muted)}
 .edbar{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 11px;border-top:1px solid var(--line2);background:var(--panel);font:11.5px 'IBM Plex Mono',monospace;color:var(--muted)}
+.ca{align-items:center;flex-wrap:wrap}
+.rw{position:relative;display:inline-flex}
+.rx{display:inline-flex;gap:6px}
+.ca .chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);font:500 11.5px 'IBM Plex Mono',monospace}
+.ca .chip.on{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+.ca .pick{position:absolute;left:-8px;bottom:calc(100% + 6px);z-index:5;display:flex;gap:2px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--card);box-shadow:0 4px 14px rgba(0,0,0,.16)}
+.ca .pick button{width:36px;height:36px;border-radius:4px;font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.ca .pick button:hover,.ca .pick button.on{background:var(--soft)}
 .foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
 @media (max-width:640px){.search,.me{display:none}.nav{order:3;width:100%;padding-bottom:10px}.kids{margin-left:6px;padding-left:10px}}
 </style>
@@ -129,7 +145,7 @@ body{margin:0}
 <section aria-label="Comments">
 
 <div class="c" id="c1">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">jules</a><span>3h</span><span>·</span><span>12 points</span><sc-if value="{{k.c1.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c1.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c1.toggle}}" aria-label="{{k.c1.aria}}" aria-expanded="{{k.c1.open}}">{{k.c1.label}}</button></div>
+<div class="ch"><button class="{{k.c1.vcls}}" type="button" sc-camel-on-click="{{k.c1.vote}}" aria-label="{{k.c1.varia}}" aria-pressed="{{k.c1.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">jules</a><a class="ts" href="Comment.dc.html" title="2026-11-20 11:02">3h</a><span>·</span><span>{{k.c1.pts}}</span><sc-if value="{{k.c1.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c1.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c1.toggle}}" aria-label="{{k.c1.aria}}" aria-expanded="{{k.c1.open}}">{{k.c1.label}}</button></div>
 <sc-if value="{{k.c1.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md">
 <p>We tried it last week on a copy of the reporting box (NVMe, 64 GB RAM). Cold cache, same rollup query:</p>
@@ -139,35 +155,35 @@ worker      4m 02s   169
 io_uring    3m 18s   207</code></pre>
 <p>Warm cache is flat across all three. So the gain is real, but only when you hit disk.</p>
 </div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c1.rtog}}" aria-expanded="{{k.c1.ropen}}">react</button><sc-if value="{{k.c1.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c1.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c1.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c1.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 
 <div class="kids">
 <div class="c" id="c2">
-<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><a class="u" href="Account.dc.html">mira</a><span>2h</span><span>·</span><span>8 points</span><span>·</span><a class="par" href="#c1">parent</a><sc-if value="{{k.c2.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c2.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c2.toggle}}" aria-label="{{k.c2.aria}}" aria-expanded="{{k.c2.open}}">{{k.c2.label}}</button></div>
+<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><a class="u" href="Account.dc.html">mira</a><a class="ts" href="Comment.dc.html" title="2026-11-20 12:10">2h</a><span>·</span><span>8 points</span><span>·</span><a class="par" href="#c1">parent</a><sc-if value="{{k.c2.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c2.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c2.toggle}}" aria-label="{{k.c2.aria}}" aria-expanded="{{k.c2.open}}">{{k.c2.label}}</button></div>
 <sc-if value="{{k.c2.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Did you also raise <code>effective_io_concurrency</code>? The default is low for NVMe and I think it changes the result a lot.</p></div>
-<div class="ca"><button>reply</button><button>link</button><button>edit</button><button>delete</button></div>
+<div class="ca"><button>reply</button><button>edit</button><button>delete</button><span class="rx"><span class="chip" role="img" aria-label="2 thumbs up reactions">👍 2</span></span></div>
 
 <div class="kids">
 <div class="c" id="c3">
-<div class="ch"><button class="vote on" aria-label="Remove upvote" aria-pressed="true"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">jules</a><span>1h</span><span>·</span><span>5 points</span><span>·</span><a class="par" href="#c2">parent</a><sc-if value="{{k.c3.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c3.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c3.toggle}}" aria-label="{{k.c3.aria}}" aria-expanded="{{k.c3.open}}">{{k.c3.label}}</button></div>
+<div class="ch"><button class="{{k.c3.vcls}}" type="button" sc-camel-on-click="{{k.c3.vote}}" aria-label="{{k.c3.varia}}" aria-pressed="{{k.c3.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">jules</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:05">1h</a><span>·</span><span>{{k.c3.pts}}</span><span>·</span><a class="par" href="#c2">parent</a><sc-if value="{{k.c3.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c3.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c3.toggle}}" aria-label="{{k.c3.aria}}" aria-expanded="{{k.c3.open}}">{{k.c3.label}}</button></div>
 <sc-if value="{{k.c3.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p><span class="ment">@mira</span> yes, 200 for all three runs. With the default of 16, <code>io_uring</code> was only about 20% faster.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c3.rtog}}" aria-expanded="{{k.c3.ropen}}">react</button><sc-if value="{{k.c3.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c3.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c3.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c3.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 
 <div class="kids">
 <div class="c" id="c4">
-<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><a class="u" href="Account.dc.html">mira</a><span>40m</span><span>·</span><span>2 points</span><span>·</span><a class="par" href="#c3">parent</a><sc-if value="{{k.c4.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c4.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c4.toggle}}" aria-label="{{k.c4.aria}}" aria-expanded="{{k.c4.open}}">{{k.c4.label}}</button></div>
+<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><a class="u" href="Account.dc.html">mira</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:31">40m</a><span>·</span><span>2 points</span><span>·</span><a class="par" href="#c3">parent</a><sc-if value="{{k.c4.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c4.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c4.toggle}}" aria-label="{{k.c4.aria}}" aria-expanded="{{k.c4.open}}">{{k.c4.label}}</button></div>
 <sc-if value="{{k.c4.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Thanks. That is the number I needed for the upgrade ticket.</p></div>
-<div class="ca"><button>reply</button><button>link</button><button>edit</button><button>delete</button></div>
+<div class="ca"><button>reply</button><button>edit</button><button>delete</button><span class="rx"><span class="chip" role="img" aria-label="1 heart reaction">❤️ 1</span></span></div>
 
 <div class="kids">
 <div class="c new" id="c5">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">theo</a><span>just now</span><span>·</span><a class="par" href="#c4">parent</a><span class="tag">new</span><sc-if value="{{k.c5.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c5.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c5.toggle}}" aria-label="{{k.c5.aria}}" aria-expanded="{{k.c5.open}}">{{k.c5.label}}</button></div>
+<div class="ch"><button class="{{k.c5.vcls}}" type="button" sc-camel-on-click="{{k.c5.vote}}" aria-label="{{k.c5.varia}}" aria-pressed="{{k.c5.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">theo</a><a class="ts" href="Comment.dc.html" title="2026-11-20 14:11">just now</a><span>·</span><a class="par" href="#c4">parent</a><span class="tag">new</span><sc-if value="{{k.c5.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c5.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c5.toggle}}" aria-label="{{k.c5.aria}}" aria-expanded="{{k.c5.open}}">{{k.c5.label}}</button></div>
 <sc-if value="{{k.c5.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p><span class="ment">@jules</span> can you share the script? I want to run it on the staging replica tonight.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c5.rtog}}" aria-expanded="{{k.c5.ropen}}">react</button><sc-if value="{{k.c5.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c5.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c5.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c5.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 </sc-if>
 </div>
 </div>
@@ -181,15 +197,15 @@ io_uring    3m 18s   207</code></pre>
 </div>
 
 <div class="c" id="c6">
-<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><span class="gone">[deleted]</span><span>3h</span><span>·</span><a class="par" href="#c1">parent</a><sc-if value="{{k.c6.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c6.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c6.toggle}}" aria-label="{{k.c6.aria}}" aria-expanded="{{k.c6.open}}">{{k.c6.label}}</button></div>
+<div class="ch"><button class="vote none" aria-hidden="true" tabindex="-1"></button><span class="gone">[deleted]</span><a class="ts" href="Comment.dc.html" title="2026-11-20 11:20">3h</a><span>·</span><a class="par" href="#c1">parent</a><sc-if value="{{k.c6.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c6.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c6.toggle}}" aria-label="{{k.c6.aria}}" aria-expanded="{{k.c6.open}}">{{k.c6.label}}</button></div>
 <sc-if value="{{k.c6.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md gone"><p>[deleted]</p></div>
 <div class="kids">
 <div class="c" id="c7">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">k_tanaka</a><span>2h</span><span>·</span><span>3 points</span><span>·</span><a class="par" href="#c6">parent</a><sc-if value="{{k.c7.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c7.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c7.toggle}}" aria-label="{{k.c7.aria}}" aria-expanded="{{k.c7.open}}">{{k.c7.label}}</button></div>
+<div class="ch"><button class="{{k.c7.vcls}}" type="button" sc-camel-on-click="{{k.c7.vote}}" aria-label="{{k.c7.varia}}" aria-pressed="{{k.c7.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">k_tanaka</a><a class="ts" href="Comment.dc.html" title="2026-11-20 12:02">2h</a><span>·</span><span>{{k.c7.pts}}</span><span>·</span><a class="par" href="#c6">parent</a><sc-if value="{{k.c7.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c7.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c7.toggle}}" aria-label="{{k.c7.aria}}" aria-expanded="{{k.c7.open}}">{{k.c7.label}}</button></div>
 <sc-if value="{{k.c7.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><blockquote>does the replica use the same disks?</blockquote><p>No. The replica is on network storage, so expect much smaller gains there.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c7.rtog}}" aria-expanded="{{k.c7.ropen}}">react</button><sc-if value="{{k.c7.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c7.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c7.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c7.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 </sc-if>
 </div>
 </div>
@@ -200,22 +216,22 @@ io_uring    3m 18s   207</code></pre>
 </div>
 
 <div class="c" id="c8">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">k_tanaka</a><span>3h</span><span>·</span><span>9 points</span><sc-if value="{{k.c8.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c8.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c8.toggle}}" aria-label="{{k.c8.aria}}" aria-expanded="{{k.c8.open}}">{{k.c8.label}}</button></div>
+<div class="ch"><button class="{{k.c8.vcls}}" type="button" sc-camel-on-click="{{k.c8.vote}}" aria-label="{{k.c8.varia}}" aria-pressed="{{k.c8.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">k_tanaka</a><a class="ts" href="Comment.dc.html" title="2026-11-20 11:14">3h</a><span>·</span><span>{{k.c8.pts}}</span><sc-if value="{{k.c8.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c8.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c8.toggle}}" aria-label="{{k.c8.aria}}" aria-expanded="{{k.c8.open}}">{{k.c8.label}}</button></div>
 <sc-if value="{{k.c8.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Check the kernel first. Our containers run with a seccomp profile that blocks <code>io_uring</code>, and Postgres falls back to <code>worker</code> with only a log line.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c8.rtog}}" aria-expanded="{{k.c8.ropen}}">react</button><sc-if value="{{k.c8.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c8.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c8.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c8.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 <div class="kids">
 <div class="c" id="c9">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">pvh</a><span class="op">op</span><span>2h</span><span>·</span><span>4 points</span><span>·</span><a class="par" href="#c8">parent</a><sc-if value="{{k.c9.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c9.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c9.toggle}}" aria-label="{{k.c9.aria}}" aria-expanded="{{k.c9.open}}">{{k.c9.label}}</button></div>
+<div class="ch"><button class="{{k.c9.vcls}}" type="button" sc-camel-on-click="{{k.c9.vote}}" aria-label="{{k.c9.varia}}" aria-pressed="{{k.c9.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">pvh</a><span class="op">op</span><a class="ts" href="Comment.dc.html" title="2026-11-20 12:25">2h</a><span>·</span><span>{{k.c9.pts}}</span><span>·</span><a class="par" href="#c8">parent</a><sc-if value="{{k.c9.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c9.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c9.toggle}}" aria-label="{{k.c9.aria}}" aria-expanded="{{k.c9.open}}">{{k.c9.label}}</button></div>
 <sc-if value="{{k.c9.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Good catch. The reporting box is bare metal, so we should be fine there.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c9.rtog}}" aria-expanded="{{k.c9.ropen}}">react</button><sc-if value="{{k.c9.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c9.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c9.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c9.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 <div class="kids">
 <div class="c" id="c10">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">dvorak</a><span>1h</span><span>·</span><span>1 point</span><span>·</span><span>edited</span><span>·</span><a class="par" href="#c9">parent</a><sc-if value="{{k.c10.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c10.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c10.toggle}}" aria-label="{{k.c10.aria}}" aria-expanded="{{k.c10.open}}">{{k.c10.label}}</button></div>
+<div class="ch"><button class="{{k.c10.vcls}}" type="button" sc-camel-on-click="{{k.c10.vote}}" aria-label="{{k.c10.varia}}" aria-pressed="{{k.c10.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">dvorak</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:12">1h</a><span>·</span><span>{{k.c10.pts}}</span><span>·</span><span>edited</span><span>·</span><a class="par" href="#c9">parent</a><sc-if value="{{k.c10.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c10.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c10.toggle}}" aria-label="{{k.c10.aria}}" aria-expanded="{{k.c10.open}}">{{k.c10.label}}</button></div>
 <sc-if value="{{k.c10.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Run <code>SHOW io_method;</code> after the restart to be sure. It caught us once.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c10.rtog}}" aria-expanded="{{k.c10.ropen}}">react</button><sc-if value="{{k.c10.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c10.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c10.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c10.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 </sc-if>
 </div>
 </div>
@@ -226,16 +242,16 @@ io_uring    3m 18s   207</code></pre>
 </div>
 
 <div class="c" id="c11">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="gone">[deleted user]</span><span>2h</span><span>·</span><span>6 points</span><sc-if value="{{k.c11.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c11.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c11.toggle}}" aria-label="{{k.c11.aria}}" aria-expanded="{{k.c11.open}}">{{k.c11.label}}</button></div>
+<div class="ch"><button class="{{k.c11.vcls}}" type="button" sc-camel-on-click="{{k.c11.vote}}" aria-label="{{k.c11.varia}}" aria-pressed="{{k.c11.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><span class="gone">[deleted user]</span><a class="ts" href="Comment.dc.html" title="2026-11-20 12:18">2h</a><span>·</span><span>{{k.c11.pts}}</span><sc-if value="{{k.c11.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c11.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c11.toggle}}" aria-label="{{k.c11.aria}}" aria-expanded="{{k.c11.open}}">{{k.c11.label}}</button></div>
 <sc-if value="{{k.c11.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>For cold reads also look at readahead on the block device. It made a bigger difference for us than the I/O method.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c11.rtog}}" aria-expanded="{{k.c11.ropen}}">react</button><sc-if value="{{k.c11.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c11.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c11.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c11.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 <div class="kids">
 <div class="c" id="c12">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">anna-l</a><span>1h</span><span>·</span><span>2 points</span><span>·</span><a class="par" href="#c11">parent</a><sc-if value="{{k.c12.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c12.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c12.toggle}}" aria-label="{{k.c12.aria}}" aria-expanded="{{k.c12.open}}">{{k.c12.label}}</button></div>
+<div class="ch"><button class="{{k.c12.vcls}}" type="button" sc-camel-on-click="{{k.c12.vote}}" aria-label="{{k.c12.varia}}" aria-pressed="{{k.c12.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">anna-l</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:20">1h</a><span>·</span><span>{{k.c12.pts}}</span><span>·</span><a class="par" href="#c11">parent</a><sc-if value="{{k.c12.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c12.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c12.toggle}}" aria-label="{{k.c12.aria}}" aria-expanded="{{k.c12.open}}">{{k.c12.label}}</button></div>
 <sc-if value="{{k.c12.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Which value did you use? We have 128 KB now.</p></div>
-<div class="ca"><button style="color: var(--accent)">reply</button><button>link</button></div>
+<div class="ca"><button style="color: var(--accent)">reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c12.rtog}}" aria-expanded="{{k.c12.ropen}}">react</button><sc-if value="{{k.c12.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c12.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c12.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c12.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 <form style="margin: 8px 0 4px 32px" aria-label="Reply to anna-l">
 <div class="editor">
 <textarea aria-label="Reply" placeholder="Reply to anna-l">We set 4 MB on the data volume. Try it on one host first</textarea>
@@ -249,18 +265,18 @@ io_uring    3m 18s   207</code></pre>
 </div>
 
 <div class="c" id="c13">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">sam_r</a><span>50m</span><span>·</span><span>3 points</span><sc-if value="{{k.c13.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c13.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c13.toggle}}" aria-label="{{k.c13.aria}}" aria-expanded="{{k.c13.open}}">{{k.c13.label}}</button></div>
+<div class="ch"><button class="{{k.c13.vcls}}" type="button" sc-camel-on-click="{{k.c13.vote}}" aria-label="{{k.c13.varia}}" aria-pressed="{{k.c13.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">sam_r</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:21">50m</a><span>·</span><span>{{k.c13.pts}}</span><sc-if value="{{k.c13.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.c13.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c13.toggle}}" aria-label="{{k.c13.aria}}" aria-expanded="{{k.c13.open}}">{{k.c13.label}}</button></div>
 <sc-if value="{{k.c13.open}}" hint-placeholder-val="{{ true }}">
 <div class="cb md"><p>Same result on our side: about 2x on cold scans, no change on index lookups.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c13.rtog}}" aria-expanded="{{k.c13.ropen}}">react</button><sc-if value="{{k.c13.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c13.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c13.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c13.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 </sc-if>
 </div>
 
 <div class="c" id="c14">
-<div class="ch"><button class="vote" aria-label="Upvote"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">lin</a><span>20m</span><span>·</span><span>1 point</span><sc-if value="{{k.c14.shut}}" hint-placeholder-val="{{ true }}"><span>·</span><span class="hid">{{k.c14.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c14.toggle}}" aria-label="{{k.c14.aria}}" aria-expanded="{{k.c14.open}}">{{k.c14.label}}</button></div>
+<div class="ch"><button class="{{k.c14.vcls}}" type="button" sc-camel-on-click="{{k.c14.vote}}" aria-label="{{k.c14.varia}}" aria-pressed="{{k.c14.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u" href="Main.dc.html">lin</a><a class="ts" href="Comment.dc.html" title="2026-11-20 13:51">20m</a><span>·</span><span>{{k.c14.pts}}</span><sc-if value="{{k.c14.shut}}" hint-placeholder-val="{{ true }}"><span>·</span><span class="hid">{{k.c14.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.c14.toggle}}" aria-label="{{k.c14.aria}}" aria-expanded="{{k.c14.open}}">{{k.c14.label}}</button></div>
 <sc-if value="{{k.c14.open}}" hint-placeholder-val="{{ false }}">
 <div class="cb md"><p>We keep a <code>fio</code> job file in the repo for exactly this. Happy to share it.</p></div>
-<div class="ca"><button>reply</button><button>link</button></div>
+<div class="ca"><button>reply</button><span class="rw"><button type="button" sc-camel-on-click="{{k.c14.rtog}}" aria-expanded="{{k.c14.ropen}}">react</button><sc-if value="{{k.c14.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{k.c14.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span><sc-if value="{{k.c14.hasRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{k.c14.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if></div>
 </sc-if>
 </div>
 
@@ -270,13 +286,34 @@ io_uring    3m 18s   207</code></pre>
 </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;cozy&quot;],&quot;default&quot;:&quot;compact&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1780}}">
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;cozy&quot;],&quot;default&quot;:&quot;compact&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1840}}">
 class Component extends DCLogic {
   renderVals() {
     // Number of replies under each comment, shown when it is collapsed.
     const replies = { c1: 6, c2: 3, c3: 2, c4: 1, c5: 0, c6: 1, c7: 0, c8: 2, c9: 1, c10: 0, c11: 1, c12: 0, c13: 0, c14: 0 };
     const col = (this.state && this.state.col) || { c14: true };
     const k = {};
+    // Reactions. A reaction is also an upvote, and each person can give one per comment.
+    // base: points and reaction counts from other people. mine: this viewer's vote on each
+    // comment, which is 'up' for a plain upvote or the emoji of a reaction.
+    const EMO = [['👍', 'thumbs up'], ['❤️', 'heart'], ['😂', 'laugh'], ['💡', 'light bulb']];
+    const base = { c1: { p: 12, r: { '👍': 4, '💡': 3 } }, c3: { p: 4, r: { '👍': 1, '💡': 1 } }, c5: { p: 0, r: {} }, c7: { p: 3, r: {} }, c8: { p: 9, r: { '👍': 3, '😂': 2 } }, c9: { p: 4, r: { '❤️': 1 } }, c10: { p: 1, r: {} }, c11: { p: 6, r: { '💡': 2 } }, c12: { p: 2, r: {} }, c13: { p: 3, r: { '👍': 1 } }, c14: { p: 1, r: {} } };
+    const mine = (this.state && this.state.mine) || { c3: '💡' };
+    // The reaction window on c8 is open at the start, as an example of that state.
+    const pop = this.state && 'pop' in this.state ? this.state.pop : 'c8';
+    const rx = (id) => {
+      const my = mine[id];
+      const set = (v) => this.setState({ mine: Object.assign({}, mine, { [id]: v }), pop: null });
+      const n = base[id].p + (my ? 1 : 0);
+      const items = EMO.map((e) => {
+        const on = my === e[0];
+        const c = (base[id].r[e[0]] || 0) + (on ? 1 : 0);
+        const act = on ? 'Remove your ' + e[1] + ' reaction' : 'React with ' + e[1];
+        return { e: e[0], on: on, n: c, pick: () => set(on ? null : e[0]), ocls: on ? 'on' : '', cls: on ? 'chip on' : 'chip', aria: act, caria: c + ' ' + e[1] + '. ' + act };
+      });
+      const shown = items.filter((i) => i.n > 0);
+      return { pts: n + (n === 1 ? ' point' : ' points'), von: !!my, vcls: my ? 'vote on' : 'vote', varia: my ? 'Remove upvote' : 'Upvote', vote: () => set(my ? null : 'up'), ropen: pop === id, rtog: () => this.setState({ pop: pop === id ? null : id }), opts: items, rx: shown, hasRx: shown.length > 0 };
+    };
     Object.keys(replies).forEach((id) => {
       const shut = !!col[id];
       const n = replies[id];
@@ -289,6 +326,7 @@ class Component extends DCLogic {
         toggle: () => this.setState({ col: Object.assign({}, col, { [id]: !shut }) })
       };
     });
+    Object.keys(base).forEach((id) => Object.assign(k[id], rx(id)));
     return { theme: this.props.theme ?? 'light', density: this.props.density ?? 'compact', k: k };
   }
 }
