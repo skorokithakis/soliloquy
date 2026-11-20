@@ -37,20 +37,6 @@
 		{{if .Deleted}}<p>[deleted]</p>{{else}}{{.Body}}{{end}}
 	</div>
 	{{if not .Deleted}}
-	{{if .Reactions}}
-	<div class="rx">
-		{{range .Reactions}}
-		{{if $.CanVote}}
-		<form class="reaction-form" method="post" action="/comments/{{$.PublicID}}/reaction">
-			<input type="hidden" name="reaction" value="{{.Key}}">
-			<button class="chip{{if .Mine}} on{{end}}" type="submit" data-reaction="{{.Key}}" aria-pressed="{{if .Mine}}true{{else}}false{{end}}" aria-label="{{.Name}}, {{.Count}} reaction{{if ne .Count 1}}s{{end}}"><span class="rx-emoji" aria-hidden="true">{{.Emoji}}</span><span class="rx-count">{{.Count}}</span></button>
-		</form>
-		{{else}}
-		<span class="chip" role="img" data-reaction="{{.Key}}" aria-label="{{.Name}}, {{.Count}} reaction{{if ne .Count 1}}s{{end}}"><span class="rx-emoji" aria-hidden="true">{{.Emoji}}</span><span class="rx-count">{{.Count}}</span></span>
-		{{end}}
-		{{end}}
-	</div>
-	{{end}}
 	<div class="ca">
 		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply">reply</a>{{end}}
 		{{if .IsAuthor}}<a href="/comments/{{.PublicID}}/edit">edit</a>{{end}}
@@ -62,11 +48,25 @@
 				{{range .ReactionOptions}}
 				<form class="reaction-form" method="post" action="/comments/{{$.PublicID}}/reaction">
 					<input type="hidden" name="reaction" value="{{.Key}}">
-					<button class="rx-option" type="submit" aria-label="React with {{.Name}}"><span aria-hidden="true">{{.Emoji}}</span></button>
+					<button class="rx-option{{if eq .Key $.CurrentReaction}} on{{end}}" type="submit" data-reaction="{{.Key}}" aria-label="React with {{.Name}}" aria-pressed="{{if eq .Key $.CurrentReaction}}true{{else}}false{{end}}"><span aria-hidden="true">{{.Emoji}}</span></button>
 				</form>
 				{{end}}
 			</div>
 		</details>
+		{{end}}
+		{{if .Reactions}}
+		<div class="rx">
+			{{range .Reactions}}
+			{{if $.CanVote}}
+			<form class="reaction-form" method="post" action="/comments/{{$.PublicID}}/reaction">
+				<input type="hidden" name="reaction" value="{{.Key}}">
+				<button class="chip{{if .Mine}} on{{end}}" type="submit" data-reaction="{{.Key}}" aria-pressed="{{if .Mine}}true{{else}}false{{end}}" aria-label="{{.Name}}, {{.Count}} reaction{{if ne .Count 1}}s{{end}}"><span class="rx-emoji" aria-hidden="true">{{.Emoji}}</span><span class="rx-count">{{.Count}}</span></button>
+			</form>
+			{{else}}
+			<span class="chip" role="img" data-reaction="{{.Key}}" aria-label="{{.Name}}, {{.Count}} reaction{{if ne .Count 1}}s{{end}}"><span class="rx-emoji" aria-hidden="true">{{.Emoji}}</span><span class="rx-count">{{.Count}}</span></span>
+			{{end}}
+			{{end}}
+		</div>
 		{{end}}
 	</div>
 	{{end}}

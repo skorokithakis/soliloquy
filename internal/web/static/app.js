@@ -128,6 +128,39 @@ document.addEventListener("keydown", (event) => {
 	}
 });
 
+// Deeply nested comments start their action row far enough right that the
+// picker would run past the screen edge. Shift an open menu left by exactly
+// the overflow, so shallow comments keep the design's offset.
+function keepReactMenuOnScreen(details) {
+	const menu = details.querySelector(".react-menu");
+	if (!menu) {
+		return;
+	}
+
+	menu.style.left = "";
+	const edge = 8;
+	const room = document.documentElement.clientWidth - edge;
+	const rect = menu.getBoundingClientRect();
+	if (rect.right <= room) {
+		return;
+	}
+
+	const left = parseFloat(window.getComputedStyle(menu).left) || 0;
+	menu.style.left = left - (rect.right - room) + "px";
+}
+
+document.addEventListener("toggle", (event) => {
+	const details = event.target;
+	if (!(details instanceof HTMLDetailsElement) || !details.classList.contains("react") || !details.open) {
+		return;
+	}
+	keepReactMenuOnScreen(details);
+}, true);
+
+window.addEventListener("resize", () => {
+	document.querySelectorAll("details.react[open]").forEach(keepReactMenuOnScreen);
+});
+
 // The reaction keys, emoji and accessible names match reactionOptions in
 // internal/web/comments_handlers.go. A live vote event carries counts rather
 // than markup, so the page builds the chips itself.
@@ -174,23 +207,48 @@ function applyCommentVote(comment, data) {
 	}
 
 	if (data.reactions) {
-		updateReactions(comment, reactionCounts(data.reactions), data.reaction || "");
+		const mine = data.reaction || "";
+		updateReactions(comment, reactionCounts(data.reactions), mine);
+		updateReactionPicker(comment, mine);
 	}
+}
+
+// reactionRow returns a comment's chip container, which sits in the action row.
+function reactionRow(comment) {
+	const actions = commentChild(comment, "ca");
+	return actions ? actions.querySelector(".rx") : null;
 }
 
 // currentReaction is the reaction the viewer has highlighted on a comment.
 // Live events do not say who voted, so this is how the viewer's own highlight
 // survives an update from another member.
 function currentReaction(comment) {
-	const row = commentChild(comment, "rx");
+	const row = reactionRow(comment);
 	const chip = row && row.querySelector(".chip.on");
 	return chip && chip.dataset.reaction ? chip.dataset.reaction : "";
 }
 
-// updateReactions rebuilds a comment's chip row from reaction counts. The row
-// is only shown when a reaction has a count. Existing chips are reused and
-// moved into order rather than recreated, so a chip keeps keyboard focus when
-// the viewer's own click updates it.
+// updateReactionPicker highlights the viewer's current reaction in a comment's
+// emoji menu. The server renders the same state, so this only keeps an open
+// page in step after a vote, a reaction or a live event.
+function updateReactionPicker(comment, mine) {
+	const actions = commentChild(comment, "ca");
+	const picker = actions && actions.querySelector(".react-menu");
+	if (!picker) {
+		return;
+	}
+
+	picker.querySelectorAll(".rx-option[data-reaction]").forEach((option) => {
+		const active = option.dataset.reaction === mine;
+		option.classList.toggle("on", active);
+		option.setAttribute("aria-pressed", active ? "true" : "false");
+	});
+}
+
+// updateReactions rebuilds a comment's chips from reaction counts. The row is
+// only shown when a reaction has a count. Existing chips are reused and moved
+// into order rather than recreated, so a chip keeps keyboard focus when the
+// viewer's own click updates it.
 function updateReactions(comment, counts, mine) {
 	// A delete event can replace the comment while a vote event or a fetch
 	// response is still on its way; a late update must not give it chips back.
@@ -199,25 +257,22 @@ function updateReactions(comment, counts, mine) {
 		return;
 	}
 
-	let row = commentChild(comment, "rx");
 	// The react control only exists for viewers who can vote, and it is what
 	// decides whether a chip is a button or plain text. It belongs to this
 	// comment, not to a reply.
 	const actions = commentChild(comment, "ca");
+	let row = reactionRow(comment);
 	const canVote = Boolean(actions && actions.querySelector(".react"));
 	const visible = reactions.filter((reaction) => (counts.get(reaction.key) || 0) > 0);
 
 	if (!row) {
-		if (!visible.length) {
+		if (!visible.length || !actions) {
 			return;
 		}
 		row = document.createElement("div");
 		row.className = "rx";
-		if (body) {
-			body.after(row);
-		} else {
-			comment.appendChild(row);
-		}
+		// Chips come after the last action, which is the react control.
+		actions.append(row);
 	}
 
 	if (!visible.length) {
@@ -2118,7 +2173,7 @@ if (eventsURL && "EventSource" in window) {
 				} else {
 					child.remove();
 				}
-			} else if (child.classList.contains("ca") || child.classList.contains("rx")) {
+			} else if (child.classList.contains("ca")) {
 				child.remove();
 			}
 		});
@@ -2200,7 +2255,9 @@ if (eventsURL && "EventSource" in window) {
 		// Reaction counts are the same for every viewer, but the highlight is
 		// the viewer's own and is kept from the page.
 		if (data.reactions) {
-			updateReactions(comment, reactionCounts(data.reactions), currentReaction(comment));
+			const mine = currentReaction(comment);
+			updateReactions(comment, reactionCounts(data.reactions), mine);
+			updateReactionPicker(comment, mine);
 		}
 	});
 }

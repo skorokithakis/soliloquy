@@ -1380,6 +1380,7 @@ a.btn.pri:hover {
 
 .ca {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 14px;
 	margin: 4px 0 0 32px;
@@ -1402,45 +1403,44 @@ a.btn.pri:hover {
 	color: var(--accent);
 }
 
-/* Reaction chips sit between the comment body and the action row. A chip is
-   a button when the viewer can vote and plain text for everyone else. */
+/* Reaction chips sit in the comment action row, after the last action. A chip
+   is a button when the viewer can vote and plain text for everyone else. */
+/* The chips wrap among themselves, because a deep reply on a phone can be
+   narrower than five chips. The design shows at most two and has no wrap. */
 .rx {
-	display: flex;
+	display: inline-flex;
 	flex-wrap: wrap;
 	gap: 6px;
-	margin: 6px 0 0 32px;
 }
 
-.chip {
+.ca .chip {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	height: 22px;
+	gap: 5px;
+	height: 20px;
 	padding: 0 7px;
 	border: 1px solid var(--line);
-	border-radius: 11px;
-	background: none;
+	border-radius: 10px;
+	background: var(--card);
 	color: var(--muted);
-	font: 12px/1 var(--font-mono);
+	font: 500 11.5px var(--font-mono);
 }
 
-button.chip {
+.ca button.chip {
 	cursor: pointer;
 }
 
-button.chip:hover {
-	border-color: var(--accent);
+.ca button.chip:hover {
 	color: var(--accent);
 }
 
-.chip.on {
+.ca .chip.on {
 	border-color: var(--accent);
 	background: var(--soft);
 	color: var(--accent);
 }
 
 .rx-emoji {
-	font-size: 13px;
 	line-height: 1;
 }
 
@@ -1472,16 +1472,15 @@ button.chip:hover {
 .react-menu {
 	position: absolute;
 	z-index: 5;
-	bottom: 100%;
-	left: 0;
+	bottom: calc(100% + 6px);
+	left: -8px;
 	display: flex;
 	gap: 2px;
-	margin-bottom: 4px;
 	padding: 4px;
 	border: 1px solid var(--line);
 	border-radius: 6px;
 	background: var(--card);
-	box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+	box-shadow: 0 4px 14px rgb(0 0 0 / 16%);
 }
 
 .react-menu .reaction-form {
@@ -1492,18 +1491,19 @@ button.chip:hover {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 26px;
+	width: 36px;
+	height: 36px;
 	padding: 0;
 	border: 0;
 	border-radius: 4px;
 	background: none;
-	font-size: 16px;
+	font-size: 18px;
 	line-height: 1;
 	cursor: pointer;
 }
 
-.ca .rx-option:hover {
+.ca .rx-option:hover,
+.ca .rx-option.on {
 	background: var(--soft);
 }
 
@@ -1519,7 +1519,6 @@ button.chip:hover {
 }
 
 .c.collapsed > .cb,
-.c.collapsed > .rx,
 .c.collapsed > .ca,
 .c.collapsed > .kids,
 .c.collapsed > .reply-form {
@@ -3135,13 +3134,14 @@ button.chip:hover {
 	}
 
 	.cb,
-	.rx,
 	.ca,
 	.reply-form {
 		margin-left: 26px;
 	}
 
 	.ca {
+		flex-wrap: wrap;
+		align-items: center;
 		gap: 4px;
 	}
 
@@ -3157,9 +3157,29 @@ button.chip:hover {
 		min-height: 32px;
 	}
 
-	.chip {
-		height: 26px;
-		padding: 0 8px;
+	/* The chip and picker buttons are also .ca buttons, so keep the design
+	   sizes instead of the action row's touch target. */
+	.ca .chip {
+		height: 28px;
+		min-height: 28px;
+		padding: 0 9px;
+		border-radius: 14px;
+		font: 500 12px var(--font-mono);
+	}
+
+	.ca .rx-option {
+		width: 44px;
+		height: 44px;
+		min-height: 44px;
+		padding: 0;
+		border-radius: 6px;
+		font-size: 20px;
+	}
+
+	.react-menu {
+		bottom: calc(100% + 4px);
+		border-radius: 8px;
+		box-shadow: 0 4px 14px rgb(0 0 0 / 40%);
 	}
 
 	.kids {

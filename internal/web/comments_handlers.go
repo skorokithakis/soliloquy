@@ -70,6 +70,9 @@ type commentView struct {
 	// Reactions holds the reactions with a count above zero, in display
 	// order. Mine marks the viewer's own reaction.
 	Reactions []reactionView
+	// CurrentReaction is the viewer's own reaction, empty when they have
+	// none. The picker highlights it.
+	CurrentReaction db.Reaction
 	// ReactionOptions lists every reaction, so the "react" control can offer
 	// the keys that have no count yet.
 	ReactionOptions []reactionOption
@@ -169,6 +172,7 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		// Every reaction is offered by the control; only those with a count
 		// are shown as chips.
 		ReactionOptions: reactionOptions,
+		CurrentReaction: comment.Reaction,
 	}
 	if comment.ParentPublicID != nil {
 		view.ParentPublicID = *comment.ParentPublicID

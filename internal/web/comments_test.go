@@ -628,6 +628,21 @@ func TestCommentReactions(t *testing.T) {
 		t.Error("a reaction with no count is shown as a chip")
 	}
 
+	// The chips sit in the action row after the react control, and the picker
+	// marks the viewer's own reaction.
+	caIndex := strings.Index(body, `<div class="ca">`)
+	reactIndex := strings.Index(body, `<details class="react">`)
+	rxIndex := strings.Index(body, `<div class="rx">`)
+	if caIndex < 0 || reactIndex < caIndex || rxIndex < reactIndex {
+		t.Errorf("chip row is not after the react control in the action row: ca=%d react=%d rx=%d", caIndex, reactIndex, rxIndex)
+	}
+	if !strings.Contains(body, `<button class="rx-option on" type="submit" data-reaction="heart" aria-label="React with Love" aria-pressed="true">`) {
+		t.Error("the picker does not mark the viewer's current reaction")
+	}
+	if got := strings.Count(body, `class="rx-option" type="submit"`); got != 4 {
+		t.Errorf("picker has %d unselected options, want 4", got)
+	}
+
 	// Changing the reaction relabels the vote and leaves the score alone.
 	vote := doJSONFormPost(t, server, reactionPath, url.Values{"reaction": {"laugh"}}, bobCookie)
 	if vote.Code != http.StatusOK {
@@ -659,6 +674,9 @@ func TestCommentReactions(t *testing.T) {
 	body = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, bobCookie, "").Body.String()
 	if strings.Contains(body, `class="rx"`) {
 		t.Error("a comment with no reactions still shows a chips row")
+	}
+	if strings.Contains(body, `class="rx-option on"`) {
+		t.Error("the picker still marks a reaction the viewer no longer has")
 	}
 
 	// A reaction key outside the fixed set is a bad request.
@@ -707,6 +725,9 @@ func TestCommentReactions(t *testing.T) {
 	}
 	if !strings.Contains(live.HTML, `class="chip on"`) || !strings.Contains(live.HTML, `data-reaction="thanks"`) {
 		t.Errorf("live comment does not keep the viewer's highlight: %s", live.HTML)
+	}
+	if !strings.Contains(live.HTML, `class="rx-option on" type="submit" data-reaction="thanks"`) {
+		t.Errorf("live comment's picker does not keep the viewer's highlight: %s", live.HTML)
 	}
 	deleted, err := server.commentDeletePayload(thread, stored)
 	if err != nil {
