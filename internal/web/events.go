@@ -500,10 +500,13 @@ func (s *Server) commentPayload(thread *db.Thread, comment *db.Comment, viewer *
 	// Only logged-in users have a live stream, so they also get the reply link.
 	view.LoggedIn = true
 	if viewer == nil {
-		// A new comment has no votes, so its vote button is the same for every
-		// viewer. The author's own open tabs get it too; the server rejects
-		// that vote and the page reloads.
+		// A new comment has only its author's vote, so the vote and reaction
+		// controls are the same for every viewer. The author's other open tabs
+		// get them too: their vote is the one row, which they can remove, and
+		// the server rejects their reaction. The arrow may show as unvoted in
+		// those tabs until a reload, which is a known accepted limit.
 		view.CanVote = true
+		view.CanReact = true
 	}
 
 	html, err := s.renderCommentHTML(view)

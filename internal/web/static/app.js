@@ -257,12 +257,12 @@ function updateReactions(comment, counts, mine) {
 		return;
 	}
 
-	// The react control only exists for viewers who can vote, and it is what
+	// The react control only exists for viewers who can react, and it is what
 	// decides whether a chip is a button or plain text. It belongs to this
 	// comment, not to a reply.
 	const actions = commentChild(comment, "ca");
 	let row = reactionRow(comment);
-	const canVote = Boolean(actions && actions.querySelector(".react"));
+	const canReact = Boolean(actions && actions.querySelector(".react"));
 	const visible = reactions.filter((reaction) => (counts.get(reaction.key) || 0) > 0);
 
 	if (!row) {
@@ -285,7 +285,7 @@ function updateReactions(comment, counts, mine) {
 		let chip = Array.from(row.querySelectorAll(".chip")).find((element) => element.dataset.reaction === reaction.key);
 		if (!chip) {
 			let wrapper;
-			if (canVote) {
+			if (canReact) {
 				wrapper = document.createElement("form");
 				wrapper.className = "reaction-form";
 				wrapper.method = "post";

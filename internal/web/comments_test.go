@@ -235,9 +235,12 @@ func TestThreadPageCommentControls(t *testing.T) {
 		t.Error("the comment action row still has the link action")
 	}
 
-	// The viewer's own comment has no vote form, but the score is still shown.
-	if strings.Contains(body, `action="/comments/`+reply.PublicID+`/vote"`) {
-		t.Error("the viewer's own comment has a vote form")
+	// The viewer's own comment has a vote form and shows their own vote.
+	if !strings.Contains(body, `action="/comments/`+reply.PublicID+`/vote"`) {
+		t.Error("the viewer's own comment has no vote form")
+	}
+	if !strings.Contains(body, `class="vote on" type="submit" aria-label="Remove upvote"`) {
+		t.Error("the viewer's own comment does not show their vote as voted")
 	}
 }
 
@@ -554,9 +557,28 @@ func TestVotes(t *testing.T) {
 		t.Errorf("thread score after unvote = %d, want 1", thread.Score)
 	}
 
+	// The author can remove their own vote, which takes the score to 0.
 	response = postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, aliceCookie)
-	if response.Code != http.StatusForbidden {
-		t.Errorf("own thread vote status = %d, want %d", response.Code, http.StatusForbidden)
+	if response.Code != http.StatusSeeOther {
+		t.Errorf("own thread vote status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	thread, err = server.db.ThreadByID(context.Background(), thread.ID)
+	if err != nil || thread == nil {
+		t.Fatalf("ThreadByID after own unvote: thread = %v, err = %v", thread, err)
+	}
+	if thread.Score != 0 {
+		t.Errorf("thread score after own unvote = %d, want 0", thread.Score)
+	}
+	response = postForm(t, server, threadPath(thread.PublicID)+"/vote", nil, aliceCookie)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("own thread revote status = %d, want %d", response.Code, http.StatusSeeOther)
+	}
+	thread, err = server.db.ThreadByID(context.Background(), thread.ID)
+	if err != nil || thread == nil {
+		t.Fatalf("ThreadByID after own revote: thread = %v, err = %v", thread, err)
+	}
+	if thread.Score != 1 {
+		t.Errorf("thread score after own revote = %d, want 1", thread.Score)
 	}
 
 	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), bobCookie)
@@ -571,15 +593,70 @@ func TestVotes(t *testing.T) {
 		t.Errorf("vote response = %+v", vote)
 	}
 
+	// The author can remove their own vote, leaving only bob's.
 	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), aliceCookie)
-	if response.Code != http.StatusForbidden {
-		t.Errorf("own comment vote status = %d, want %d", response.Code, http.StatusForbidden)
+	if response.Code != http.StatusOK {
+		t.Errorf("own comment vote status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &vote); err != nil {
+		t.Fatalf("decode own comment vote: %v (body %q)", err, response.Body.String())
+	}
+	if vote.Score != 1 || vote.Voted {
+		t.Errorf("own comment unvote response = %+v, want score 1, not voted", vote)
+	}
+	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), aliceCookie)
+	if response.Code != http.StatusOK {
+		t.Fatalf("own comment revote status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &vote); err != nil {
+		t.Fatalf("decode own comment revote: %v (body %q)", err, response.Body.String())
+	}
+	if vote.Score != 2 || !vote.Voted {
+		t.Errorf("own comment revote response = %+v, want score 2, voted", vote)
 	}
 
-	// The owner sees no vote form for their own comment.
+	// The owner sees the vote form on their own comment, with their vote shown
+	// as voted.
 	page = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, aliceCookie, "")
-	if strings.Contains(page.Body.String(), `action="/comments/`+comment.PublicID+`/vote"`) {
-		t.Error("own comment has a vote form")
+	if !strings.Contains(page.Body.String(), `action="/comments/`+comment.PublicID+`/vote"`) {
+		t.Error("own comment has no vote form")
+	}
+	if !strings.Contains(page.Body.String(), `class="vote on" type="submit" aria-label="Remove upvote"`) {
+		t.Error("own comment does not show the author's vote as voted")
+	}
+}
+
+// TestOwnPostVoteControls checks that the author sees a voted, clickable arrow
+// on their own thread and comment but no react control on the comment.
+func TestOwnPostVoteControls(t *testing.T) {
+	server := newTestServer(t)
+	alice := createTestUser(t, server, "alice", false)
+	cookie := signIn(t, server, alice)
+	thread := createThreadDirect(t, server, alice, "Thread", "", "body", server.now())
+	comment := createCommentDirect(t, server, thread, alice, nil, "comment", server.now())
+
+	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
+	for _, want := range []string{
+		`action="/threads/` + thread.PublicID + `/vote"`,
+		`action="/comments/` + comment.PublicID + `/vote"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("thread page does not contain %q", want)
+		}
+	}
+	if got := strings.Count(body, `class="vote on" type="submit"`); got != 2 {
+		t.Errorf("voted arrows on the author's thread page = %d, want 2", got)
+	}
+	if strings.Contains(body, `<details class="react">`) {
+		t.Error("the author's own comment has a react control")
+	}
+
+	index := doRequest(t, server, http.MethodGet, "/", nil, cookie, "").Body.String()
+	if !strings.Contains(index, `action="/threads/`+thread.PublicID+`/vote"`) {
+		t.Error("front page has no vote form on the author's own thread")
+	}
+	if !strings.Contains(index, `class="vote on" type="submit" aria-label="Remove upvote"`) {
+		t.Error("front page does not show the author's own vote as voted")
 	}
 }
 
@@ -691,10 +768,14 @@ func TestCommentReactions(t *testing.T) {
 		}
 	}
 
-	// The comment's author cannot vote, so they cannot react either.
+	// Reacting to your own comment stays forbidden, even though you can vote
+	// on it.
 	response = postForm(t, server, reactionPath, url.Values{"reaction": {"heart"}}, aliceCookie)
 	if response.Code != http.StatusForbidden {
 		t.Errorf("own comment reaction status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	if !strings.Contains(response.Body.String(), "react to your own comment") {
+		t.Errorf("own comment reaction error = %q, want a message about reacting", response.Body.String())
 	}
 
 	// Put a reaction back for the viewer and visitor checks below.

@@ -26,8 +26,6 @@
 					<svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 				</button>
 			</form>
-			{{else if not .Visitor}}
-			<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
 			{{end}}
 			<span class="score{{if .Voted}} on{{end}}" data-score-format="number">{{.Thread.Score}}</span>
 		</div>

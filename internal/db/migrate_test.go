@@ -88,8 +88,8 @@ func TestEmbeddedMigrationsRun(t *testing.T) {
 	if err := database.Migrate(context.Background()); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	if version := schemaVersion(t, database); version != 15 {
-		t.Fatalf("user_version = %d, want 15", version)
+	if version := schemaVersion(t, database); version != 16 {
+		t.Fatalf("user_version = %d, want 16", version)
 	}
 }
 
@@ -337,6 +337,110 @@ func TestFollowedNotificationMigrationKeepsRowsAndSequence(t *testing.T) {
 	}
 	if created.ID != 4 {
 		t.Errorf("new notification ID = %d, want 4", created.ID)
+	}
+}
+
+// TestAuthorVoteMigrationBackfillsExistingRows applies the schema as it was
+// before the author's vote became a row, inserts content with and without an
+// existing author vote, then runs the current migrations. Every item must end
+// up with exactly one author vote row and its score must not change.
+func TestAuthorVoteMigrationBackfillsExistingRows(t *testing.T) {
+	database := openTestDB(t)
+	ctx := context.Background()
+
+	entries, err := fs.Glob(migrationsFS, migrationsDir+"/*.sql")
+	if err != nil {
+		t.Fatalf("list migrations: %v", err)
+	}
+	before := fstest.MapFS{}
+	for _, entry := range entries {
+		if path.Base(entry) >= "0016_author_votes.sql" {
+			continue
+		}
+		data, err := fs.ReadFile(migrationsFS, entry)
+		if err != nil {
+			t.Fatalf("read migration %q: %v", entry, err)
+		}
+		before[entry] = &fstest.MapFile{Data: data}
+	}
+	if err := migrate(ctx, database.DB, before); err != nil {
+		t.Fatalf("migrate before author votes: %v", err)
+	}
+
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO users (username, password_hash, created_at)
+		VALUES ('alice', 'hash', 1), ('bob', 'hash', 1)`); err != nil {
+		t.Fatalf("insert users: %v", err)
+	}
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO threads (public_id, author_id, title, created_at, last_activity_at)
+		VALUES ('AAAAAAAA', 1, 'Alice thread', 1, 1),
+		       ('BBBBBBBB', 2, 'Bob thread', 1, 1)`); err != nil {
+		t.Fatalf("insert threads: %v", err)
+	}
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO comments (public_id, thread_id, author_id, body, body_html, created_at)
+		VALUES ('CCCCCCCC', 1, 1, 'Alice comment', '<p>Alice comment</p>', 2),
+		       ('DDDDDDDD', 1, 2, 'Bob comment', '<p>Bob comment</p>', 3)`); err != nil {
+		t.Fatalf("insert comments: %v", err)
+	}
+	if _, err := database.ExecContext(ctx, `
+		INSERT INTO votes (user_id, item_type, item_id)
+		VALUES (2, 'thread', 2), (2, 'comment', 1), (2, 'comment', 2)`); err != nil {
+		t.Fatalf("insert existing votes: %v", err)
+	}
+
+	if err := database.Migrate(ctx); err != nil {
+		t.Fatalf("migrate author votes: %v", err)
+	}
+
+	countVotes := func(userID int64, itemType string, itemID int64) int64 {
+		t.Helper()
+		var count int64
+		if err := database.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM votes
+			WHERE user_id = ? AND item_type = ? AND item_id = ?`,
+			userID, itemType, itemID).Scan(&count); err != nil {
+			t.Fatalf("count %s votes: %v", itemType, err)
+		}
+		return count
+	}
+
+	// Thread 1 had no author vote, so the migration adds one. Thread 2 already
+	// had one and must not get a second. Comment 1 had another member's vote
+	// only, which does not count as the author's; comment 2 already had the
+	// author's own vote.
+	if got := countVotes(1, "thread", 1); got != 1 {
+		t.Errorf("backfilled author thread votes = %d, want 1", got)
+	}
+	if got := countVotes(2, "thread", 2); got != 1 {
+		t.Errorf("existing author thread votes = %d, want 1", got)
+	}
+	if got := countVotes(1, "comment", 1); got != 1 {
+		t.Errorf("backfilled author comment votes = %d, want 1", got)
+	}
+	if got := countVotes(2, "comment", 1); got != 1 {
+		t.Errorf("other member's comment votes after backfill = %d, want 1", got)
+	}
+	if got := countVotes(2, "comment", 2); got != 1 {
+		t.Errorf("existing author comment votes = %d, want 1", got)
+	}
+
+	// The backfill adds rows only: the scores still include the author's vote.
+	for _, test := range []struct {
+		name  string
+		query string
+	}{
+		{name: "thread", query: `SELECT score FROM threads WHERE id = 1`},
+		{name: "comment", query: `SELECT score FROM comments WHERE id = 1`},
+	} {
+		var score int64
+		if err := database.QueryRowContext(ctx, test.query).Scan(&score); err != nil {
+			t.Fatalf("read %s score: %v", test.name, err)
+		}
+		if score != 1 {
+			t.Errorf("%s score after backfill = %d, want 1", test.name, score)
+		}
 	}
 }
 

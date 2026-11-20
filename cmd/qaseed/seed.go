@@ -209,8 +209,8 @@ func (s *seeder) createComments(ctx context.Context, thread *db.Thread, specs []
 
 // applyEngagement adds thread votes, comment votes and reactions. Voters are
 // chosen in a deterministic rotation so repeated seeds (on a fresh database)
-// produce the same scores. The author of an item is never one of its voters,
-// because the database rejects self-votes.
+// produce the same scores. The author of an item is skipped because they
+// already have their own vote row from creation, and voting would remove it.
 func (s *seeder) applyEngagement(ctx context.Context, thread *db.Thread, comments []seededComment, threadIndex int) error {
 	threadVoters := s.pickVoters(thread.AuthorUsername, threadIndex, threadVoteCounts[threadIndex%len(threadVoteCounts)])
 	for _, voter := range threadVoters {

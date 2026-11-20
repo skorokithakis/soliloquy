@@ -119,7 +119,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	for i, thread := range threads {
 		views[i] = threadViewFor(thread, now)
 		views[i].Voted = thread.Voted
-		views[i].CanVote = user != nil && thread.AuthorID != user.ID
+		views[i].CanVote = user != nil
 	}
 
 	data := indexPageData{
@@ -275,7 +275,7 @@ func (s *Server) renderThreadPage(w http.ResponseWriter, r *http.Request, thread
 		CanDelete:     user != nil && (user.ID == thread.AuthorID || user.IsAdmin),
 		Following:     following,
 		Voted:         voted,
-		CanVote:       user != nil && user.ID != thread.AuthorID,
+		CanVote:       user != nil,
 		Comments:      commentViews(db.BuildCommentTree(comments), user, thread.AuthorID, now, newSince),
 		CommentBody:   commentBody,
 		CommentLength: utf8.RuneCountInString(commentBody),

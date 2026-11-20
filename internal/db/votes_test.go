@@ -37,6 +37,72 @@ func reactionFixture(t *testing.T) (*DB, *User, *User, *Thread, *Comment) {
 	return database, alice, bob, thread, comment
 }
 
+func TestAuthorVoteIsARowAndToggles(t *testing.T) {
+	database, alice, _, thread, comment := reactionFixture(t)
+	ctx := context.Background()
+
+	countVotes := func(itemType string, itemID int64) int64 {
+		t.Helper()
+		var count int64
+		if err := database.QueryRow(
+			`SELECT COUNT(*) FROM votes WHERE user_id = ? AND item_type = ? AND item_id = ?`,
+			alice.ID, itemType, itemID).Scan(&count); err != nil {
+			t.Fatalf("count %s votes: %v", itemType, err)
+		}
+		return count
+	}
+
+	// Creating an item inserts the author's vote, and the page queries see it.
+	if got := countVotes("thread", thread.ID); got != 1 {
+		t.Errorf("author thread vote rows = %d, want 1", got)
+	}
+	if got := countVotes("comment", comment.ID); got != 1 {
+		t.Errorf("author comment vote rows = %d, want 1", got)
+	}
+	if voted, err := database.ThreadVoted(ctx, alice.ID, thread.ID); err != nil || !voted {
+		t.Errorf("ThreadVoted for the author = %t, %v; want true, nil", voted, err)
+	}
+
+	// Removing and restoring the author's own thread vote moves the score
+	// between 1 and 0 like any other member's.
+	result, err := database.ToggleThreadVote(ctx, alice.ID, thread.ID)
+	if err != nil {
+		t.Fatalf("ToggleThreadVote off: %v", err)
+	}
+	if result.Score != 0 || result.Voted {
+		t.Errorf("author thread unvote = %+v, want score 0, not voted", result)
+	}
+	if got := countVotes("thread", thread.ID); got != 0 {
+		t.Errorf("author thread vote rows after unvote = %d, want 0", got)
+	}
+
+	result, err = database.ToggleThreadVote(ctx, alice.ID, thread.ID)
+	if err != nil {
+		t.Fatalf("ToggleThreadVote on: %v", err)
+	}
+	if result.Score != 1 || !result.Voted {
+		t.Errorf("author thread revote = %+v, want score 1, voted", result)
+	}
+
+	result, err = database.ToggleCommentVote(ctx, alice.ID, comment.ID)
+	if err != nil {
+		t.Fatalf("ToggleCommentVote off: %v", err)
+	}
+	if result.Score != 0 || result.Voted {
+		t.Errorf("author comment unvote = %+v, want score 0, not voted", result)
+	}
+	assertCommentScore(t, database, comment.ID)
+
+	result, err = database.ToggleCommentVote(ctx, alice.ID, comment.ID)
+	if err != nil {
+		t.Fatalf("ToggleCommentVote on: %v", err)
+	}
+	if result.Score != 1 || !result.Voted {
+		t.Errorf("author comment revote = %+v, want score 1, voted", result)
+	}
+	assertCommentScore(t, database, comment.ID)
+}
+
 func TestSetCommentReactionTransitions(t *testing.T) {
 	database, _, bob, _, comment := reactionFixture(t)
 	ctx := context.Background()
@@ -104,8 +170,8 @@ func TestSetCommentReactionGuards(t *testing.T) {
 	database, alice, bob, _, comment := reactionFixture(t)
 	ctx := context.Background()
 
-	if _, err := database.SetCommentReaction(ctx, alice.ID, comment.ID, ReactionHeart); !errors.Is(err, ErrVoteOwnPost) {
-		t.Errorf("own comment reaction error = %v, want ErrVoteOwnPost", err)
+	if _, err := database.SetCommentReaction(ctx, alice.ID, comment.ID, ReactionHeart); !errors.Is(err, ErrReactOwnComment) {
+		t.Errorf("own comment reaction error = %v, want ErrReactOwnComment", err)
 	}
 	if _, err := database.SetCommentReaction(ctx, bob.ID, 9999, ReactionHeart); !errors.Is(err, ErrVoteNotFound) {
 		t.Errorf("missing comment reaction error = %v, want ErrVoteNotFound", err)
@@ -242,8 +308,8 @@ func assertReactionCounts(t *testing.T, got, want map[Reaction]int64) {
 	}
 }
 
-// assertCommentScore checks the invariant that a comment's score is the
-// author's implicit vote plus one per vote row.
+// assertCommentScore checks the invariant that a comment's score is the number
+// of its vote rows, including the author's.
 func assertCommentScore(t *testing.T, database *DB, commentID int64) {
 	t.Helper()
 
@@ -256,8 +322,8 @@ func assertCommentScore(t *testing.T, database *DB, commentID int64) {
 		commentID).Scan(&votes); err != nil {
 		t.Fatalf("count comment votes: %v", err)
 	}
-	if score != 1+votes {
-		t.Errorf("comment score = %d, want 1 + %d vote rows", score, votes)
+	if score != votes {
+		t.Errorf("comment score = %d, want %d vote rows", score, votes)
 	}
 }
 

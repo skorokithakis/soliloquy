@@ -100,10 +100,10 @@ News. New comments and notifications show up live, with no page reload.
 ### 3.5 Upvotes
 
 - Users can upvote threads and comments.
-- A new thread or comment starts with a score of 1, for the author's own
-  implicit vote.
+- A new thread or comment starts with a score of 1, for the author's own vote.
+  The author's vote is a normal vote row, so they can remove it and the score
+  falls to 0.
 - One vote per user per item. Clicking again removes the vote.
-- Users cannot upvote their own posts.
 - There are no downvotes and no karma totals.
 - A user can put one emoji reaction on a comment. The set is fixed: ❤️ 😂 💡
   🙏 🎉. A reaction is an upvote with a label, so it counts as that user's one
@@ -114,6 +114,8 @@ News. New comments and notifications show up live, with no page reload.
   - To click the active emoji removes the emoji and the vote.
   - To remove the upvote also removes the emoji.
 - All reactions are positive. Threads have no reactions.
+- Users cannot react to their own comments. They still see other members'
+  reactions on them.
 - Each comment shows a count for each emoji in use. It does not show who
   reacted.
 

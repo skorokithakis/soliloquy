@@ -47,8 +47,8 @@ type reactionView struct {
 
 // commentView is a comment prepared for the comment template. The thread page
 // and live updates both render comments through renderCommentHTML so they look
-// the same. Viewer-specific controls are only emitted when IsAuthor or CanVote
-// is set.
+// the same. Viewer-specific controls are only emitted when IsAuthor, CanDelete,
+// CanVote or CanReact is set.
 type commentView struct {
 	PublicID       string
 	ParentPublicID string
@@ -66,6 +66,7 @@ type commentView struct {
 	CanDelete      bool
 	Voted          bool
 	CanVote        bool
+	CanReact       bool
 	IsOP           bool
 	// Reactions holds the reactions with a count above zero, in display
 	// order. Mine marks the viewer's own reaction.
@@ -127,9 +128,8 @@ type voteResponse struct {
 }
 
 // renderCommentHTML renders one comment with the same template the thread page
-// uses. Callers sending a comment to other viewers, such as the live-update
-// stream, should leave CanVote and IsAuthor false so viewer-specific controls
-// are not included.
+// uses. Callers that render a comment for a viewer must set the viewer-specific
+// flags themselves.
 func (s *Server) renderCommentHTML(view commentView) (template.HTML, error) {
 	var buf bytes.Buffer
 	if err := s.commentTemplate.ExecuteTemplate(&buf, "comment", view); err != nil {
@@ -161,7 +161,8 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		IsAuthor:       viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
 		CanDelete:      viewer != nil && (viewer.ID == comment.AuthorID || viewer.IsAdmin) && comment.DeletedAt == nil,
 		Voted:          comment.Voted,
-		CanVote:        viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
+		CanVote:        viewer != nil && comment.DeletedAt == nil,
+		CanReact:       viewer != nil && viewer.ID != comment.AuthorID && comment.DeletedAt == nil,
 		IsOP:           comment.AuthorID == threadAuthorID,
 		LoggedIn:       viewer != nil,
 		// A deleted comment keeps its place in the tree but has no content to
@@ -403,8 +404,8 @@ func (s *Server) voteError(w http.ResponseWriter, err error) bool {
 	switch {
 	case err == nil:
 		return true
-	case errors.Is(err, db.ErrVoteOwnPost):
-		http.Error(w, "You cannot vote on your own post.", http.StatusForbidden)
+	case errors.Is(err, db.ErrReactOwnComment):
+		http.Error(w, "You cannot react to your own comment.", http.StatusForbidden)
 	case errors.Is(err, db.ErrVoteNotFound):
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 	default:

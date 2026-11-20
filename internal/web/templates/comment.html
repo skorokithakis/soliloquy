@@ -17,8 +17,6 @@
 				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg>
 			</button>
 		</form>
-		{{else if .LoggedIn}}
-		<button class="vote none" type="button" tabindex="-1" aria-hidden="true"></button>
 		{{else}}
 		<span class="vote none" aria-hidden="true"></span>
 		{{end}}
@@ -41,7 +39,7 @@
 		{{if .LoggedIn}}<a class="reply-link" href="/comments/{{.PublicID}}/reply">reply</a>{{end}}
 		{{if .IsAuthor}}<a href="/comments/{{.PublicID}}/edit">edit</a>{{end}}
 		{{if .CanDelete}}<form class="inline-form" method="post" action="/comments/{{.PublicID}}/delete" data-confirm="Delete this comment? This cannot be undone. Replies to it stay."><button type="submit">delete</button></form>{{end}}
-		{{if .CanVote}}
+		{{if .CanReact}}
 		<details class="react">
 			<summary>react</summary>
 			<div class="react-menu">
@@ -57,7 +55,7 @@
 		{{if .Reactions}}
 		<div class="rx">
 			{{range .Reactions}}
-			{{if $.CanVote}}
+			{{if $.CanReact}}
 			<form class="reaction-form" method="post" action="/comments/{{$.PublicID}}/reaction">
 				<input type="hidden" name="reaction" value="{{.Key}}">
 				<button class="chip{{if .Mine}} on{{end}}" type="submit" data-reaction="{{.Key}}" aria-pressed="{{if .Mine}}true{{else}}false{{end}}" aria-label="{{.Name}}, {{.Count}} reaction{{if ne .Count 1}}s{{end}}"><span class="rx-emoji" aria-hidden="true">{{.Emoji}}</span><span class="rx-count">{{.Count}}</span></button>

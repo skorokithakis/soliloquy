@@ -289,13 +289,6 @@ func TestVoteToggleAndRules(t *testing.T) {
 		t.Fatalf("CreateComment: %v", err)
 	}
 
-	if _, err := database.ToggleThreadVote(ctx, alice.ID, thread.ID); !errors.Is(err, ErrVoteOwnPost) {
-		t.Fatalf("self thread vote error = %v, want ErrVoteOwnPost", err)
-	}
-	if _, err := database.ToggleCommentVote(ctx, alice.ID, comment.ID); !errors.Is(err, ErrVoteOwnPost) {
-		t.Fatalf("self comment vote error = %v, want ErrVoteOwnPost", err)
-	}
-
 	result, err := database.ToggleThreadVote(ctx, bob.ID, thread.ID)
 	if err != nil {
 		t.Fatalf("ToggleThreadVote: %v", err)
@@ -355,7 +348,7 @@ func TestListCommentsIncludesViewerVotes(t *testing.T) {
 		viewer int64
 		want   bool
 	}{
-		{viewer: alice.ID, want: false},
+		{viewer: alice.ID, want: true},
 		{viewer: bob.ID, want: true},
 		{viewer: 0, want: false},
 	} {

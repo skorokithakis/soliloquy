@@ -10,9 +10,9 @@ import (
 
 // Errors returned by vote operations.
 var (
-	ErrVoteOwnPost     = errors.New("cannot vote on your own post")
 	ErrVoteNotFound    = errors.New("voting target not found")
 	ErrInvalidReaction = errors.New("unknown reaction")
+	ErrReactOwnComment = errors.New("cannot react to your own comment")
 )
 
 // Reaction is the key of an emoji reaction on a comment vote. The key, not the
@@ -60,13 +60,13 @@ type VoteResult struct {
 }
 
 // ToggleThreadVote adds or removes a user's vote on a thread and returns the
-// resulting score. Voting on your own thread is rejected.
+// resulting score. The author votes like anyone else.
 func (db *DB) ToggleThreadVote(ctx context.Context, userID, threadID int64) (VoteResult, error) {
 	return db.toggleVote(ctx, userID, "threads", "thread", threadID)
 }
 
 // ToggleCommentVote adds or removes a user's vote on a comment and returns the
-// resulting score and reaction state. Voting on your own comment is rejected.
+// resulting score and reaction state. The author votes like anyone else.
 func (db *DB) ToggleCommentVote(ctx context.Context, userID, commentID int64) (VoteResult, error) {
 	return db.toggleVote(ctx, userID, "comments", "comment", commentID)
 }
@@ -75,8 +75,9 @@ func (db *DB) ToggleCommentVote(ctx context.Context, userID, commentID int64) (V
 // With no vote yet it adds the vote and the reaction, so the score rises by
 // one. A plain vote or another reaction is relabelled with no score change.
 // Setting the reaction that is already there removes both the reaction and the
-// vote, so the score falls by one. Voting on your own comment and reacting to a
-// missing or deleted comment are rejected.
+// vote, so the score falls by one. Reacting to your own comment and reacting to
+// a missing or deleted comment are rejected: a reaction is feedback from other
+// people.
 func (db *DB) SetCommentReaction(ctx context.Context, userID, commentID int64, reaction Reaction) (VoteResult, error) {
 	if !reaction.Valid() {
 		return VoteResult{}, ErrInvalidReaction
@@ -88,8 +89,12 @@ func (db *DB) SetCommentReaction(ctx context.Context, userID, commentID int64, r
 	}
 	defer tx.Rollback()
 
-	if err := checkVoteTarget(ctx, tx, "comments", commentID, userID); err != nil {
+	authorID, err := checkVoteTarget(ctx, tx, "comments", commentID)
+	if err != nil {
 		return VoteResult{}, err
+	}
+	if authorID == userID {
+		return VoteResult{}, ErrReactOwnComment
 	}
 
 	var current sql.NullString
@@ -187,7 +192,7 @@ func (db *DB) toggleVote(ctx context.Context, userID int64, table, itemType stri
 	}
 	defer tx.Rollback()
 
-	if err := checkVoteTarget(ctx, tx, table, itemID, userID); err != nil {
+	if _, err := checkVoteTarget(ctx, tx, table, itemID); err != nil {
 		return VoteResult{}, err
 	}
 
@@ -250,10 +255,10 @@ func (db *DB) toggleVote(ctx context.Context, userID int64, table, itemType stri
 	return result, nil
 }
 
-// checkVoteTarget verifies that the item exists, is not deleted, and was not
-// written by the voter. table is "threads" or "comments", chosen by the
-// exported methods, never user input.
-func checkVoteTarget(ctx context.Context, q execQueryer, table string, itemID, userID int64) error {
+// checkVoteTarget verifies that the item exists and is not deleted and returns
+// its author. table is "threads" or "comments", chosen by the exported methods,
+// never user input.
+func checkVoteTarget(ctx context.Context, q execQueryer, table string, itemID int64) (int64, error) {
 	var (
 		authorID  int64
 		deletedAt sql.NullInt64
@@ -262,15 +267,12 @@ func checkVoteTarget(ctx context.Context, q execQueryer, table string, itemID, u
 		`SELECT author_id, deleted_at FROM `+table+` WHERE id = ?`, itemID,
 	).Scan(&authorID, &deletedAt)
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && deletedAt.Valid) {
-		return ErrVoteNotFound
+		return 0, ErrVoteNotFound
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
-	if authorID == userID {
-		return ErrVoteOwnPost
-	}
-	return nil
+	return authorID, nil
 }
 
 // newReactionCounts returns a count for every supported reaction, including

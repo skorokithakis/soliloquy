@@ -122,7 +122,7 @@ func TestCreateThreadWithURL(t *testing.T) {
 
 	index := doRequest(t, server, http.MethodGet, "/", nil, cookie, "")
 	body := index.Body.String()
-	for _, want := range []string{"A link", `href="https://example.com/path"`, "example.com", "alice", `class="sc">1</span>`, "0 comments"} {
+	for _, want := range []string{"A link", `href="https://example.com/path"`, "example.com", "alice", `class="sc on">1</span>`, "0 comments"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("front page does not contain %q", want)
 		}
@@ -479,13 +479,13 @@ func TestFrontPageVotesAndOwnThreads(t *testing.T) {
 	}
 
 	aliceBody := doRequest(t, server, http.MethodGet, "/", nil, aliceCookie, "").Body.String()
-	if strings.Contains(aliceBody, `action="/threads/`+thread.PublicID+`/vote"`) {
-		t.Error("front page shows a vote form on the author's own thread")
+	if !strings.Contains(aliceBody, `action="/threads/`+thread.PublicID+`/vote"`) {
+		t.Error("front page has no vote form on the author's own thread")
 	}
-	if !strings.Contains(aliceBody, `class="vote none"`) {
-		t.Error("front page does not reserve the vote column on the author's own thread")
+	if !strings.Contains(aliceBody, `class="vote on" type="submit" aria-label="Remove upvote"`) {
+		t.Error("front page does not show the author's own vote as voted")
 	}
-	if !strings.Contains(aliceBody, `class="sc">2</span>`) {
+	if !strings.Contains(aliceBody, `class="sc on">2</span>`) {
 		t.Error("front page does not show the score on the author's own thread")
 	}
 }

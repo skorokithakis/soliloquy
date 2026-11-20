@@ -122,15 +122,21 @@ func scanThreadRow(row rowScanner, withViewerState bool) (*Thread, error) {
 	return &thread, nil
 }
 
-// CreateThread inserts a thread with its initial score of 1. The thread's
-// created and last activity times both start at now.
+// CreateThread inserts a thread with its initial score of 1 and the author's
+// vote. The thread's created and last activity times both start at now.
 func (db *DB) CreateThread(ctx context.Context, authorID int64, title, rawURL, body, bodyHTML string, now time.Time) (*Thread, error) {
 	publicID, err := auth.GenerateShortID()
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO threads (
 			public_id, author_id, title, url, body, body_html, created_at,
 			last_activity_at, score
@@ -144,6 +150,17 @@ func (db *DB) CreateThread(ctx context.Context, authorID int64, title, rawURL, b
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO votes (user_id, item_type, item_id) VALUES (?, 'thread', ?)`,
+		authorID, id,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 

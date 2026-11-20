@@ -136,10 +136,10 @@ func scanComment(row rowScanner) (*Comment, error) {
 // thread or parent comment is missing or deleted.
 var ErrCommentNotFound = errors.New("comment target not found")
 
-// CreateComment inserts a comment and moves the thread's last activity time
-// forward. The insert only happens while the thread is live and, for a reply,
-// the parent is a live comment in the same thread. It returns ErrCommentNotFound
-// otherwise.
+// CreateComment inserts a comment with the author's vote and moves the thread's
+// last activity time forward. The insert only happens while the thread is live
+// and, for a reply, the parent is a live comment in the same thread. It returns
+// ErrCommentNotFound otherwise.
 func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64, authorID int64, body, bodyHTML string, now time.Time) (*Comment, error) {
 	publicID, err := auth.GenerateShortID()
 	if err != nil {
@@ -185,6 +185,13 @@ func (db *DB) CreateComment(ctx context.Context, threadID int64, parentID *int64
 
 	id, err := result.LastInsertId()
 	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO votes (user_id, item_type, item_id) VALUES (?, 'comment', ?)`,
+		authorID, id,
+	); err != nil {
 		return nil, err
 	}
 

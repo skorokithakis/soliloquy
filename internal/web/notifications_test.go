@@ -891,12 +891,27 @@ func TestThreadVotePublishesLiveUpdate(t *testing.T) {
 		t.Fatal("no thread vote event was published")
 	}
 
-	// The author cannot vote on their own thread, so nothing is published.
+	// The author may remove their own vote, which publishes the new score.
 	response = doJSONPost(t, server, threadPath(thread.PublicID)+"/vote", aliceCookie)
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusForbidden)
+	if response.Code != http.StatusOK {
+		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusOK)
 	}
-	assertNoThreadEvent(t, updates)
+
+	select {
+	case event := <-updates:
+		if event.Name != "vote" {
+			t.Fatalf("event name = %q, want vote", event.Name)
+		}
+		var payload voteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode own vote event: %v", err)
+		}
+		if payload.Score != 1 || payload.ScoreText != "1 point" {
+			t.Errorf("own thread unvote = %+v, want score 1", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no own thread vote event was published")
+	}
 }
 
 func TestCommentVotePublishesLiveUpdate(t *testing.T) {
@@ -935,12 +950,30 @@ func TestCommentVotePublishesLiveUpdate(t *testing.T) {
 		t.Fatal("no comment vote event was published")
 	}
 
-	// The author cannot vote on their own comment, so nothing is published.
+	// The author may remove their own vote, which publishes the new score.
 	response = doJSONPost(t, server, commentAction(comment.PublicID, "vote"), aliceCookie)
-	if response.Code != http.StatusForbidden {
-		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusForbidden)
+	if response.Code != http.StatusOK {
+		t.Fatalf("own vote status = %d, want %d", response.Code, http.StatusOK)
 	}
-	assertNoThreadEvent(t, updates)
+
+	select {
+	case event := <-updates:
+		if event.Name != "vote" {
+			t.Fatalf("event name = %q, want vote", event.Name)
+		}
+		var payload voteEvent
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
+			t.Fatalf("decode own vote event: %v", err)
+		}
+		if payload.CommentID == nil || *payload.CommentID != comment.PublicID {
+			t.Errorf("own comment vote id = %v, want %s", payload.CommentID, comment.PublicID)
+		}
+		if payload.Score != 1 || payload.ScoreText != "1 point" {
+			t.Errorf("own comment unvote = %+v, want score 1", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no own comment vote event was published")
+	}
 }
 
 func TestCommentReactionPublishesLiveUpdate(t *testing.T) {
