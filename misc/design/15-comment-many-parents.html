@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Soliloquy: comment</title>
+<script src="3c731882-166c-4040-8622-ee0cd117837d"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sq{--bg:#f5f4ef;--panel:#ecebe4;--card:#fbfaf6;--ink:#1c1b18;--muted:#625e55;--line:#d6d3c8;--line2:#e4e1d8;--accent:#a34b00;--on-accent:#fffaf2;--soft:#f6e4cc;--live:#25702d;--danger:#b3261e;--mark:#f5d79e;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif;min-height:100vh;box-sizing:border-box}
+.sq.dark{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}
+@media (prefers-color-scheme:dark){.sq.auto{--bg:#0f110e;--panel:#171a15;--card:#13160f;--ink:#e6e3d6;--muted:#a09c8f;--line:#30342b;--line2:#22261f;--accent:#ffb23e;--on-accent:#1b1305;--soft:#33260f;--live:#6fd178;--danger:#ff8a80;--mark:#5a3f0e}}
+.sq *{box-sizing:border-box}
+.sq ::selection{background:var(--accent);color:var(--on-accent)}
+.sq a{color:inherit;text-decoration:none}
+.sq a:hover{color:var(--accent)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.top{background:var(--panel);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;min-height:52px;flex-wrap:nowrap}
+.logo{font:600 16px 'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px;color:var(--ink);flex:none}
+.logo .p{color:var(--accent)}
+.cur{display:inline-block;width:8px;height:15px;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cur{animation:none}}
+.nav{display:flex;gap:16px;font:13px 'IBM Plex Mono',monospace;color:var(--muted);flex:none}
+.nav a.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:6px}
+.sp{flex:1}
+.search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--muted);flex:0 1 210px;min-width:110px}
+.search input{border:0;background:none;outline:0;font:13px 'IBM Plex Mono',monospace;color:var(--ink);width:100%;padding:0}
+.search input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font:500 13px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap;flex:none}
+.btn.pri,.sq a.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.ib{position:relative;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:var(--ink);background:none;border:0;flex:none}
+.badge{position:absolute;top:2px;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 10px/16px 'IBM Plex Mono',monospace;text-align:center}
+.me{font:13px 'IBM Plex Mono',monospace;color:var(--muted);white-space:nowrap}
+.label{font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.vote{width:24px;height:22px;border:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;border-radius:3px;cursor:pointer;padding:0;flex:none}
+.vote.on{color:var(--accent)}
+.vote:hover{background:var(--soft);color:var(--accent)}
+.vote.none{visibility:hidden}
+.md{font-size:14.5px;line-height:1.55}
+.md p{margin:0 0 8px}
+.md p:last-child{margin-bottom:0}
+.md code{font:12.5px 'IBM Plex Mono',monospace;background:var(--panel);padding:1px 4px;border-radius:3px;border:1px solid var(--line2)}
+.md pre{font:12.5px/1.5 'IBM Plex Mono',monospace;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 12px;overflow-x:auto;margin:4px 0 8px;white-space:pre}
+.md pre code{background:none;border:0;padding:0;font-size:inherit}
+.md a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.ment{color:var(--accent);font:500 .9em 'IBM Plex Mono',monospace;background:var(--soft);padding:0 3px;border-radius:3px}
+.c{padding-top:10px;scroll-margin-top:16px}
+.ch{display:flex;align-items:center;gap:8px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);min-height:22px;border-radius:3px}
+.u{color:var(--ink);font-weight:600}
+.c:target>.ch{background:var(--soft);box-shadow:0 0 0 4px var(--soft)}
+.par{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.par:hover{text-decoration-color:var(--accent)}
+.hid{color:var(--accent)}
+.op{font:600 10px/14px 'IBM Plex Mono',monospace;color:var(--accent);border:1px solid currentColor;border-radius:3px;padding:0 4px}
+.tog{font:600 12px 'IBM Plex Mono',monospace;color:var(--ink);background:none;border:0;cursor:pointer;padding:2px 4px;border-radius:3px;margin-left:-2px;flex:none}
+.tog:hover{color:var(--accent);background:var(--soft)}
+.cb{margin:2px 0 0 32px}
+.cb>p,.cb>blockquote,.cb>ul,.cb>ol{max-width:72ch}
+.ca{margin:4px 0 0 32px;display:flex;align-items:center;flex-wrap:wrap;gap:14px;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.ca button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.ca button:hover{color:var(--accent)}
+.ca button.act{color:var(--accent)}
+.ca .lg{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.kids{margin-left:11px;padding-left:20px;border-left:1px solid var(--line)}
+.gone{font-style:italic;color:var(--muted)}
+.editor{border:1px solid var(--line);border-radius:4px;background:var(--bg);overflow:hidden}
+.editor:focus-within{border-color:var(--accent)}
+.editor textarea{display:block;width:100%;border:0;outline:0;background:none;resize:vertical;min-height:84px;padding:9px 11px;font:13px/1.5 'IBM Plex Mono',monospace;color:var(--ink)}
+.editor textarea::placeholder{color:var(--muted)}
+.edbar{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 11px;border-top:1px solid var(--line2);background:var(--panel);font:11.5px 'IBM Plex Mono',monospace;color:var(--muted)}
+.edbar .btn{height:28px}
+.rw{position:relative;display:inline-flex}
+.rx{display:inline-flex;gap:6px}
+.ca .chip{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);font:500 11.5px 'IBM Plex Mono',monospace}
+.ca .chip.on{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+.ca .pick{position:absolute;left:-8px;bottom:calc(100% + 6px);z-index:5;display:flex;gap:2px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--card);box-shadow:0 4px 14px rgba(0,0,0,.16)}
+.ca .pick button{width:36px;height:36px;border-radius:4px;font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.ca .pick button:hover,.ca .pick button.on{background:var(--soft)}
+.foot{border-top:1px solid var(--line);margin-top:28px;padding:14px 0 28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+
+/* New: timestamp link (shared with the thread page) */
+.ts{display:inline-flex;align-items:center;color:inherit;white-space:nowrap;border-radius:3px}
+.ts:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.ts:focus-visible,.tl:focus-visible,.fold:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* New: thread line */
+.tl{display:flex;align-items:center;gap:6px;min-height:24px;max-width:100%;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.tl .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* New: context area */
+.ctx{margin-top:6px;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.fold{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;font:inherit;color:var(--muted);background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.fold .tg{font-weight:600;color:var(--ink);padding:2px 4px;margin-left:-4px;border-radius:3px}
+.fold b{font-weight:600;color:var(--ink)}
+.fold:hover .tg{color:var(--accent);background:var(--soft)}
+.fold:hover b{color:var(--accent)}
+.p{border-top:1px solid var(--line2)}
+.pl{display:flex;align-items:center;gap:8px;min-height:28px}
+.who{flex:none;width:124px;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.p .ts{flex:none;width:30px}
+.ex{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:13.5px/20px 'IBM Plex Sans',system-ui,sans-serif;color:var(--muted)}
+.p.last .pl{flex-wrap:wrap}
+.p.last .ex{flex:none;width:100%;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;margin:0 0 8px}
+.pb{margin:0 0 10px;color:var(--ink)}
+.pb>p{max-width:72ch}
+
+/* New: focused comment */
+.focus{margin-top:6px;padding:8px 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.focus>.cb,.focus>.ca,.focus>form{margin-left:0}
+.focus>.cb{margin-top:8px;font-size:15.5px;line-height:1.6}
+.focus>.ca{margin-top:10px}
+.focus>form{margin-top:10px}
+.rh{display:flex;align-items:center;gap:14px;margin:20px 0 2px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.none{margin:18px 0 0;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+
+/* Canvas only: who is looking at the page. The server renders only the correct parts. */
+.v-author .if-mira,.v-visitor .if-mira,.v-member .if-pvh,.v-visitor .if-pvh,.v-visitor .if-in,.v-member .if-out,.v-author .if-out{display:none!important}
+.v-visitor .cb,.v-visitor .ca{margin-left:0}
+
+/* Phone. In the app this block is @media (max-width:640px); the class exists only for this canvas. */
+.ph{width:390px;min-height:0;overflow:hidden;position:relative}
+.ph.scr{height:844px}
+.ph.tall{height:1900px}
+.ph .wrap{padding:0 16px}
+.mtop{background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;height:52px;padding:0 6px}
+.ph .logo{font-size:15px}
+.ph .cur{width:7px;height:14px}
+.ph .ib{width:44px;height:44px;border-radius:6px}
+.ph .badge{top:5px;right:4px}
+.mlg{display:inline-flex;align-items:center;height:44px;padding:0 10px;font:500 13px 'IBM Plex Mono',monospace}
+.ph .tl{min-height:32px}
+.ph .ts{min-height:32px;padding:0 4px;margin:0 -4px}
+.ph .fold{min-height:36px}
+.ph .pl{flex-wrap:wrap;min-height:32px;gap:6px}
+.ph .who{width:auto}
+.ph .p .ts{width:auto}
+.ph .ex{flex:none;width:100%;margin:-2px 0 8px}
+.ph .vote{width:32px;height:28px;margin-left:-6px}
+.ph .c{padding-top:8px}
+.ph .ch{gap:6px;min-height:32px}
+.ph .tog{min-width:36px;height:32px;padding:0 2px}
+.ph .par{padding:8px 0}
+.ph .md p{margin-bottom:6px}
+.ph .md pre{font-size:11.5px;padding:8px 10px}
+.ph .cb{margin:0 0 0 26px}
+.ph .ca{margin:0 0 0 26px;gap:4px}
+.ph .ca button,.ph .ca .lg{height:32px;padding:0 8px 0 0;display:inline-flex;align-items:center}
+.ph .ca .chip{height:28px;padding:0 9px;border-radius:14px;font-size:12px}
+.ph .ca .pick{border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.ph .ca .pick button{width:44px;height:44px;padding:0;border-radius:6px;font-size:20px}
+.ph .kids{margin-left:8px;padding-left:10px}
+.ph.v-visitor .cb,.ph.v-visitor .ca{margin-left:0}
+.ph .focus{margin:6px -16px 0;padding:4px 16px 8px;border-width:1px 0;border-radius:0}
+.ph .focus>.cb,.ph .focus>.ca,.ph .focus>form{margin-left:0}
+.ph .focus>.cb{margin-top:4px;font-size:15px}
+.ph .focus>.ca{margin-top:6px}
+.ph .edbar{flex-wrap:wrap}
+.ph .edbar .btn{height:36px}
+.ph .rh{margin-top:16px}
+.ph .foot{display:none}
+.dock{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);padding:8px 10px 10px;display:flex;gap:8px;align-items:center}
+.dock .fake{flex:1;height:42px;border:1px solid var(--line);border-radius:6px;background:var(--card);display:flex;align-items:center;padding:0 12px;font:13px 'IBM Plex Mono',monospace;color:var(--muted);text-align:left;cursor:pointer}
+.dock .go{background:var(--accent);color:var(--on-accent);width:42px;height:42px;cursor:pointer}
+</style>
+</helmet>
+<div class="{{rootCls}}">
+<header class="top"><div class="wrap">
+<a class="logo" href="Main.dc.html" aria-label="Soliloquy home"><span class="p">›</span>soliloquy<span class="cur"></span></a>
+<nav class="nav" aria-label="Main"><a class="on" href="Main.dc.html">threads</a><a class="if-in" href="Invites.dc.html">invites</a><a class="if-mira" href="Admin.dc.html">admin</a></nav>
+<div class="sp"></div>
+<label class="search"><svg width="14" height="14" sc-camel-view-box="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><input type="search" placeholder="search" aria-label="Search"></label>
+<a class="btn pri if-in" href="Submit.dc.html">+ new thread</a>
+<a class="ib if-in" href="Notifications.dc.html" aria-label="Notifications, 3 unread"><svg width="18" height="18" sc-camel-view-box="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 2 6H3c.5-.5 2-2 2-6Z"></path><path d="M8 16.5a2 2 0 0 0 4 0"></path></svg><span class="badge">3</span></a>
+<a class="me if-mira" href="Account.dc.html">mira</a><a class="me if-pvh" href="Account.dc.html">pvh</a>
+<a class="btn if-out" href="Login.dc.html">log in</a>
+</div></header>
+<main class="wrap" style="padding-top: 12px">
+<a class="tl" href="Thread.dc.html" title="Back to the full thread"><span aria-hidden="true">‹</span><span class="tt">Postgres 18 async I/O: real-world numbers?</span></a>
+
+<sc-if value="{{hasCtx}}" hint-placeholder-val="{{ true }}">
+<section class="ctx" aria-label="Earlier comments in this conversation">
+<sc-if value="{{hasFold}}" hint-placeholder-val="{{ true }}">
+<button class="fold" type="button" sc-camel-on-click="{{toggleFold}}" aria-expanded="{{foldOpen}}"><span class="tg">{{foldMark}}</span><b>{{foldText}}</b><span>{{foldMeta}}</span></button>
+</sc-if>
+<sc-for list="{{ctx}}" as="c" hint-placeholder-count="1">
+<div class="{{c.cls}}">
+<div class="pl">
+<span class="who"><sc-if value="{{c.linkUser}}" hint-placeholder-val="{{ true }}"><a class="u" href="Main.dc.html">{{c.user}}</a></sc-if><sc-if value="{{c.plainUser}}" hint-placeholder-val="{{ false }}"><span class="u">{{c.user}}</span></sc-if><sc-if value="{{c.ghost}}" hint-placeholder-val="{{ false }}"><span class="gone">[deleted user]</span></sc-if><sc-if value="{{c.gone}}" hint-placeholder-val="{{ false }}"><span class="gone">[deleted]</span></sc-if><sc-if value="{{c.op}}" hint-placeholder-val="{{ false }}"><span class="op">op</span></sc-if></span>
+<a class="ts" href="Comment.dc.html" title="{{c.when}}">{{c.age}}</a>
+<sc-if value="{{c.canOpen}}" hint-placeholder-val="{{ true }}"><button class="tog" type="button" sc-camel-on-click="{{c.toggle}}" aria-expanded="{{c.open}}" aria-label="{{c.aria}}">{{c.label}}</button></sc-if>
+<sc-if value="{{c.shut}}" hint-placeholder-val="{{ true }}"><span class="ex">{{c.ex}}</span></sc-if>
+</div>
+<sc-if value="{{c.open}}" hint-placeholder-val="{{ false }}">
+<div class="pb md"><sc-for list="{{c.blocks}}" as="b" hint-placeholder-count="2"><sc-if value="{{b.isP}}" hint-placeholder-val="{{ true }}"><p>{{b.t}}</p></sc-if><sc-if value="{{b.isPre}}" hint-placeholder-val="{{ false }}"><pre><code>{{b.t}}</code></pre></sc-if></sc-for></div>
+</sc-if>
+</div>
+</sc-for>
+</section>
+</sc-if>
+
+<article class="c focus" id="c13" aria-label="Comment by pvh">
+<div class="ch"><sc-if value="{{f.canVote}}" hint-placeholder-val="{{ true }}"><button class="{{f.vcls}}" type="button" sc-camel-on-click="{{f.vote}}" aria-label="{{f.varia}}" aria-pressed="{{f.von}}"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button></sc-if><sc-if value="{{isIn}}" hint-placeholder-val="{{ true }}"><a class="u" href="Main.dc.html">pvh</a></sc-if><sc-if value="{{isOut}}" hint-placeholder-val="{{ false }}"><span class="u">pvh</span></sc-if><span class="op">op</span><a class="ts" href="Comment.dc.html" title="2026-11-19 21:14">17h</a><span>·</span><span>{{f.pts}}</span><span>·</span><span>edited</span><sc-if value="{{f.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{f.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{f.toggle}}" aria-label="{{f.aria}}" aria-expanded="{{f.open}}">{{f.label}}</button></div>
+<sc-if value="{{f.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md">
+<p>Thank you. This explains the result that we could not understand last week.</p>
+<p>I ran your script on the reporting box last night. These are the numbers for the nightly rollup with a cold cache:</p>
+<pre><code>readahead  io_method  time
+128 KB     sync       6m 44s
+4 MB       sync       5m 10s
+128 KB     io_uring   3m 21s
+4 MB       io_uring   3m 19s</code></pre>
+<p>So readahead helps the <code>sync</code> method a lot, and <code>io_uring</code> does not need it. This agrees with your explanation.</p>
+<p>My plan: upgrade the reporting box next week, set <code>io_method = io_uring</code> and keep readahead at the default value. If somebody sees a risk in this plan, tell me before Thursday.</p>
+</div>
+<div class="ca"><sc-if value="{{isIn}}" hint-placeholder-val="{{ true }}"><button class="{{f.replyCls}}" type="button" sc-camel-on-click="{{f.openReply}}">reply</button></sc-if><sc-if value="{{f.canVote}}" hint-placeholder-val="{{ true }}"><span class="rw"><button type="button" sc-camel-on-click="{{f.rtog}}" aria-expanded="{{f.ropen}}">react</button><sc-if value="{{f.ropen}}" hint-placeholder-val="{{ false }}"><span class="pick" role="group" aria-label="Pick a reaction"><sc-for list="{{f.opts}}" as="o" hint-placeholder-count="4"><button class="{{o.ocls}}" type="button" sc-camel-on-click="{{o.pick}}" aria-label="{{o.aria}}" aria-pressed="{{o.on}}">{{o.e}}</button></sc-for></span></sc-if></span></sc-if><sc-if value="{{f.own}}" hint-placeholder-val="{{ false }}"><button type="button">edit</button><button type="button">delete</button></sc-if><sc-if value="{{isOut}}" hint-placeholder-val="{{ false }}"><a class="lg" href="Login.dc.html">log in to reply</a></sc-if><sc-if value="{{f.liveRx}}" hint-placeholder-val="{{ true }}"><span class="rx"><sc-for list="{{f.rx}}" as="r" hint-placeholder-count="2"><button class="{{r.cls}}" type="button" sc-camel-on-click="{{r.pick}}" aria-label="{{r.caria}}" aria-pressed="{{r.on}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</button></sc-for></span></sc-if><sc-if value="{{f.staticRx}}" hint-placeholder-val="{{ false }}"><span class="rx"><sc-for list="{{f.rx}}" as="r" hint-placeholder-count="2"><span class="chip" role="img" aria-label="{{r.saria}}"><span aria-hidden="true">{{r.e}}</span>{{r.n}}</span></sc-for></span></sc-if></div>
+<sc-if value="{{f.replyOpen}}" hint-placeholder-val="{{ false }}">
+<form aria-label="Reply to pvh">
+<div class="editor">
+<textarea aria-label="Reply" placeholder="Reply to pvh. Markdown works. Type @ to mention someone."></textarea>
+<div class="edbar"><span>replying to pvh</span><span class="sp"></span><span>0 / 20000</span><button class="btn ghost" type="button" sc-camel-on-click="{{f.closeReply}}">cancel</button><button class="btn pri" type="button">reply</button></div>
+</div>
+</form>
+</sc-if>
+</sc-if>
+</article>
+
+<sc-if value="{{showNone}}" hint-placeholder-val="{{ false }}">
+<p class="none">no replies yet</p>
+</sc-if>
+
+<sc-if value="{{showReplies}}" hint-placeholder-val="{{ true }}">
+<div class="rh"><span class="label">5 replies · best first</span></div>
+<section aria-label="Replies">
+
+<div class="c" id="r1">
+<div class="ch"><button class="vote if-in" type="button" aria-label="Upvote" aria-pressed="false"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u if-in" href="Main.dc.html">theo</a><span class="u if-out">theo</span><a class="ts" href="Comment.dc.html" title="2026-11-19 22:03">16h</a><span>·</span><span>5 {{pts}}</span><span>·</span><a class="par" href="#c13">parent</a><sc-if value="{{k.r1.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.r1.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.r1.toggle}}" aria-label="{{k.r1.aria}}" aria-expanded="{{k.r1.open}}">{{k.r1.label}}</button></div>
+<sc-if value="{{k.r1.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md"><p>That agrees with our staging result. One warning: run <code>SHOW io_method;</code> after the restart. If the container blocks <code>io_uring</code>, Postgres uses <code>worker</code> and writes only one line in the log.</p></div>
+<div class="ca"><button class="if-in" type="button">reply</button><button class="if-in" type="button">react</button><span class="rx"><span class="chip" role="img" aria-label="3 thumbs up reactions"><span aria-hidden="true">👍</span>3</span></span></div>
+<div class="kids">
+<div class="c" id="r1a">
+<div class="ch"><button class="vote if-mira" type="button" aria-label="Upvote" aria-pressed="false"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><button class="vote none if-pvh" aria-hidden="true" tabindex="-1"></button><a class="u if-in" href="Main.dc.html">pvh</a><span class="u if-out">pvh</span><span class="op">op</span><a class="ts" href="Comment.dc.html" title="2026-11-19 23:10">15h</a><span>·</span><span>2 {{pts}}</span><span>·</span><a class="par" href="#r1">parent</a><sc-if value="{{k.r1a.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.r1a.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.r1a.toggle}}" aria-label="{{k.r1a.aria}}" aria-expanded="{{k.r1a.open}}">{{k.r1a.label}}</button></div>
+<sc-if value="{{k.r1a.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md"><p>The box is bare metal, but I will add the check to the runbook.</p></div>
+<div class="ca"><button class="if-in" type="button">reply</button><button class="if-mira" type="button">react</button><button class="if-pvh" type="button">edit</button><button class="if-pvh" type="button">delete</button></div>
+<div class="kids">
+<div class="c" id="r1b">
+<div class="ch"><button class="vote if-in" type="button" aria-label="Upvote" aria-pressed="false"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u if-in" href="Main.dc.html">k_tanaka</a><span class="u if-out">k_tanaka</span><a class="ts" href="Comment.dc.html" title="2026-11-20 00:25">14h</a><span>·</span><span>1 {{pt}}</span><span>·</span><a class="par" href="#r1a">parent</a><sc-if value="{{k.r1b.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.r1b.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.r1b.toggle}}" aria-label="{{k.r1b.aria}}" aria-expanded="{{k.r1b.open}}">{{k.r1b.label}}</button></div>
+<sc-if value="{{k.r1b.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md"><p>Add it to the health check too. A kernel update can change the seccomp profile.</p></div>
+<div class="ca"><button class="if-in" type="button">reply</button><button class="if-in" type="button">react</button></div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+
+<div class="c" id="r2">
+<div class="ch"><button class="vote if-in" type="button" aria-label="Upvote" aria-pressed="false"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><a class="u if-in" href="Main.dc.html">anna-l</a><span class="u if-out">anna-l</span><a class="ts" href="Comment.dc.html" title="2026-11-20 02:40">12h</a><span>·</span><span>3 {{pts}}</span><span>·</span><a class="par" href="#c13">parent</a><sc-if value="{{k.r2.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.r2.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.r2.toggle}}" aria-label="{{k.r2.aria}}" aria-expanded="{{k.r2.open}}">{{k.r2.label}}</button></div>
+<sc-if value="{{k.r2.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md"><p>Did the 4 MB readahead change the memory pressure? With that value, we saw that the page cache filled with blocks that no query used.</p></div>
+<div class="ca"><button class="if-in" type="button">reply</button><button class="if-in" type="button">react</button></div>
+<div class="kids">
+<div class="c" id="r2a">
+<div class="ch"><button class="vote if-pvh" type="button" aria-label="Upvote" aria-pressed="false"><svg width="10" height="10" sc-camel-view-box="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8.5H1z" fill="currentColor"></path></svg></button><button class="vote none if-mira" aria-hidden="true" tabindex="-1"></button><a class="u if-in" href="Main.dc.html">mira</a><span class="u if-out">mira</span><a class="ts" href="Comment.dc.html" title="2026-11-20 04:12">10h</a><span>·</span><span>2 {{pts}}</span><span>·</span><a class="par" href="#r2">parent</a><sc-if value="{{k.r2a.shut}}" hint-placeholder-val="{{ false }}"><span>·</span><span class="hid">{{k.r2a.note}}</span></sc-if><button class="tog" type="button" sc-camel-on-click="{{k.r2a.toggle}}" aria-label="{{k.r2a.aria}}" aria-expanded="{{k.r2a.open}}">{{k.r2a.label}}</button></div>
+<sc-if value="{{k.r2a.open}}" hint-placeholder-val="{{ true }}">
+<div class="cb md"><p>Not on our host. But it has 256 GB of RAM, so do not use it as a reference.</p></div>
+<div class="ca"><button class="if-in" type="button">reply</button><button class="if-pvh" type="button">react</button><button class="if-mira" type="button">edit</button><button class="if-mira" type="button">delete</button><span class="rx"><span class="chip" role="img" aria-label="1 laugh reaction"><span aria-hidden="true">😂</span>1</span></span></div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+
+</section>
+</sc-if>
+
+<footer class="foot"><span>soliloquy v1.0</span><span>AGPL-3.0</span><a href="https://www.gnu.org/licenses/agpl-3.0.html">source</a><a class="if-in" href="Invites.dc.html">invite tree</a></footer>
+</main>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;parents&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;one&quot;,&quot;many&quot;],&quot;default&quot;:&quot;many&quot;},&quot;chain&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;folded&quot;,&quot;open&quot;],&quot;default&quot;:&quot;folded&quot;},&quot;viewer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;member&quot;,&quot;author&quot;,&quot;visitor&quot;],&quot;default&quot;:&quot;member&quot;},&quot;replies&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;some&quot;,&quot;none&quot;],&quot;default&quot;:&quot;some&quot;},&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:1220}}">
+class Component extends DCLogic {
+  renderVals() {
+    const P = this.props || {};
+    const S = this.state || {};
+    const PHONE = false;
+    const theme = P.theme ?? 'light';
+    const parents = P.parents ?? 'many';
+    const chain = P.chain ?? 'folded';
+    const viewer = P.viewer ?? 'member';
+    const replies = P.replies ?? 'some';
+    const isIn = viewer !== 'visitor';
+    const member = viewer === 'member';
+
+    // The parents of the focused comment, oldest first. [kind, text] blocks hold the full text.
+    const one = (id, user, age, when, text, more) => Object.assign({ id: id, user: user, age: age, when: when, ex: text, blocks: [['p', text]] }, more || {});
+    const ALL = [
+      { id: 'p1', user: 'jules', age: '2d', when: '2026-11-18 09:12', ex: 'We tried it last week on a copy of the reporting box (NVMe, 64 GB RAM). Cold cache, same rollup query: sync 6m 41s, worker 4m 02s, io_uring 3m 18s. Warm cache is flat across all three.', blocks: [['p', 'We tried it last week on a copy of the reporting box (NVMe, 64 GB RAM). Cold cache, same rollup query:'], ['pre', 'io_method   time     read MB/s\nsync        6m 41s   102\nworker      4m 02s   169\nio_uring    3m 18s   207'], ['p', 'Warm cache is flat across all three. So the gain is real, but only when you hit disk.']] },
+      one('p2', 'mira', '2d', '2026-11-18 10:40', 'Did you also raise effective_io_concurrency? The default is low for NVMe and I think it changes the result a lot.'),
+      one('p3', 'jules', '2d', '2026-11-18 11:05', '@mira yes, 200 for all three runs. With the default of 16, io_uring was only about 20% faster.'),
+      one('p4', 'k_tanaka', '1d', '2026-11-18 16:30', 'Does the replica use the same disks? Ours is on network storage and I did not see a gain there.'),
+      { id: 'p5', gone: true, age: '1d', when: '2026-11-18 17:02', ex: '', blocks: [] },
+      one('p6', 'pvh', '1d', '2026-11-18 19:44', 'The replica is not the problem for us. The nightly rollup runs only on the primary reporting box.', { op: true }),
+      one('p7', '', '1d', '2026-11-18 21:15', 'Then look at readahead on the block device before you change the I/O method. It made a bigger difference for us.', { ghost: true }),
+      one('p8', 'anna-l', '1d', '2026-11-19 08:20', 'Which value did you use? We have 128 KB now.'),
+      one('p9', 'dvorak', '22h', '2026-11-19 16:02', '4 MB on the data volume. Try it on one host first.'),
+      one('p10', 'sam_r', '20h', '2026-11-19 18:11', 'We did the same test with 4 MB and saw no change with io_uring. I think the two settings do the same work.'),
+      one('p11', 'lin', '19h', '2026-11-19 19:27', 'They do not. Readahead is a guess by the kernel. Async I/O is a request from Postgres.'),
+      { id: 'p12', user: 'theo', age: '18h', when: '2026-11-19 20:08', ex: 'I ran the same test on staging last night, with the script from jules. The short answer: readahead and async I/O are two different things, and the numbers show it. Readahead is the kernel guessing. It sees a sequential pattern and reads more blocks than the process asked for. That works for a plain sequential scan of one file. It does not work when Postgres moves between segments, or when a bitmap heap scan reads blocks in an order that only Postgres knows.', blocks: [['p', 'I ran the same test on staging last night, with the script from jules. The short answer: readahead and async I/O are two different things, and the numbers show it.'], ['p', 'Readahead is the kernel guessing. It sees a sequential pattern and reads more blocks than the process asked for. That works for a plain sequential scan of one file. It does not work when Postgres moves between segments, or when a bitmap heap scan reads blocks in an order that only Postgres knows.'], ['p', 'Async I/O is Postgres asking for the blocks that it will need, before it needs them. The kernel does not guess. So with io_uring the readahead value has almost no effect, and with sync it has a large effect.'], ['pre', 'readahead  io_method  time\n128 KB     sync       6m 52s\n4 MB       sync       5m 14s\n128 KB     io_uring   3m 25s\n4 MB       io_uring   3m 22s'], ['p', 'One more thing: 4 MB readahead on a box that also serves index lookups fills the page cache with blocks that no query asked for. I would not set it on the primary.']] }
+    ];
+    const all = parents === 'none' ? [] : parents === 'one' ? ALL.slice(-1) : ALL;
+    const n = all.length;
+    // More than 3 parents: show only the direct parent and the "N earlier comments" control.
+    const hasFold = n > 3;
+    const foldOpen = 'fold' in S ? S.fold : chain === 'open';
+    const openIds = S.openIds || (chain === 'open' ? { p12: true } : {});
+    const vis = hasFold && !foldOpen ? all.slice(-1) : all;
+    const ctx = vis.map((c, i) => {
+      const last = i === vis.length - 1;
+      const named = !c.gone && !c.ghost;
+      const open = !c.gone && !!openIds[c.id];
+      return {
+        cls: 'p' + (last ? ' last' : ''), user: c.user, linkUser: named && isIn, plainUser: named && !isIn, ghost: !!c.ghost, gone: !!c.gone, op: !!c.op,
+        age: c.age, when: c.when, ex: c.ex, canOpen: !c.gone, open: open, shut: !c.gone && !open, label: open ? '[-]' : '[+]',
+        aria: (open ? 'Show the excerpt of' : 'Show all of') + ' the comment by ' + (c.ghost ? 'a deleted user' : c.user),
+        toggle: () => this.setState({ openIds: Object.assign({}, openIds, { [c.id]: !open }) }),
+        blocks: c.blocks.map((b) => ({ isP: b[0] === 'p', isPre: b[0] === 'pre', t: b[1] }))
+      };
+    });
+
+    // The focused comment. A reaction is also an upvote; each person can give one per comment.
+    const EMO = [['👍', 'thumbs up'], ['❤️', 'heart'], ['😂', 'laugh'], ['💡', 'light bulb']];
+    const base = { p: 7, r: { '👍': 3, '💡': 2 } };
+    const my = member ? S.my || null : null;
+    const pop = !!S.pop;
+    const setMy = (v) => this.setState({ my: v, pop: false });
+    const pn = base.p + (my ? 1 : 0);
+    const items = EMO.map((e) => {
+      const on = my === e[0];
+      const c = (base.r[e[0]] || 0) + (on ? 1 : 0);
+      const act = on ? 'Remove your ' + e[1] + ' reaction' : 'React with ' + e[1];
+      return { e: e[0], on: on, n: c, pick: () => setMy(on ? null : e[0]), ocls: on ? 'on' : '', cls: on ? 'chip on' : 'chip', aria: act, caria: c + ' ' + e[1] + '. ' + act, saria: c + ' ' + e[1] + (c === 1 ? ' reaction' : ' reactions') };
+    });
+    const shown = items.filter((i) => i.n > 0);
+    const col = S.col || {};
+    const fshut = !!col.f;
+    const replyOpen = isIn && !!S.reply;
+    const total = replies === 'some' ? 5 : 0;
+    const f = {
+      canVote: member, own: viewer === 'author', pts: pn + (PHONE ? ' pts' : ' points'),
+      von: !!my, vcls: my ? 'vote on' : 'vote', varia: my ? 'Remove upvote' : 'Upvote', vote: () => setMy(my ? null : 'up'),
+      ropen: pop, rtog: () => this.setState({ pop: !pop }), opts: items, rx: shown, liveRx: member && shown.length > 0, staticRx: !member && shown.length > 0,
+      open: !fshut, shut: fshut, label: fshut ? '[+]' : '[-]', aria: fshut ? 'Expand comment' : 'Collapse comment',
+      note: total === 0 ? (PHONE ? 'hidden' : 'collapsed') : PHONE ? '+' + total : '+' + total + ' replies hidden',
+      toggle: () => this.setState({ col: Object.assign({}, col, { f: !fshut }) }),
+      replyOpen: replyOpen, replyCls: replyOpen ? 'act' : '', openReply: () => this.setState({ reply: true, col: Object.assign({}, col, { f: false }) }), closeReply: () => this.setState({ reply: false })
+    };
+
+    // Collapse state of the replies. The number is the count of replies below each one.
+    const below = { r1: 2, r1a: 1, r1b: 0, r2: 1, r2a: 0 };
+    const k = {};
+    Object.keys(below).forEach((id) => {
+      const shut = !!col[id];
+      const m = below[id];
+      k[id] = {
+        open: !shut, shut: shut, label: shut ? '[+]' : '[-]', aria: shut ? 'Expand comment' : 'Collapse comment',
+        note: PHONE ? (m === 0 ? 'hidden' : '+' + m) : m === 0 ? 'collapsed' : '+' + m + (m === 1 ? ' reply hidden' : ' replies hidden'),
+        toggle: () => this.setState({ col: Object.assign({}, col, { [id]: !shut }) })
+      };
+    });
+
+    return {
+      rootCls: 'sq ' + theme + ' v-' + viewer + (PHONE ? ' ph ' : ''),
+      isIn: isIn, isOut: !isIn,
+      hasCtx: n > 0, hasFold: hasFold, foldOpen: hasFold && foldOpen, foldMark: foldOpen ? '[-]' : '[+]',
+      foldText: (n - 1) + ' earlier comments', foldMeta: foldOpen ? '' : 'started by jules, 2d',
+      toggleFold: () => this.setState({ fold: !foldOpen }),
+      ctx: ctx, f: f, k: k,
+      showReplies: !fshut && replies === 'some', showNone: !fshut && replies === 'none',
+      showDock: PHONE && isIn && !replyOpen,
+      pts: PHONE ? 'pts' : 'points', pt: PHONE ? 'pt' : 'point'
+    };
+  }
+}
+</script>
+
+
+</body></html>
