@@ -29,10 +29,11 @@ The seeder does nothing when the database already has threads.
   reactions spread across the content.
 - The thread "Postmortem: the cache stampede that took down checkout" holds the
   comment chain for testing the single-comment page and its parent context. Its
-  main chain is 16 levels deep and has long comments at depths 1, 2, 8 and 15.
-  At depth 12 it has one long comment with a small reply tree and one long
-  leaf. A deleted comment at depth 11 has live replies below it, and one
-  comment was written by the deleted `ghost` account.
+  main chain is 16 levels deep and has long comments at depths 1, 2, 8 and 15;
+  the depth 8 and depth 15 comments are over 1,000 words each, so deeper
+  comments have a very long parent. At depth 12 it has one long comment with a
+  small reply tree and one long leaf. A deleted comment at depth 11 has live
+  replies below it, and one comment was written by the deleted `ghost` account.
 
 Delete `.symphony-cache/qa.db` (and its `-wal` and `-shm` files) to reseed with
 fresh relative dates.

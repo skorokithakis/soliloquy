@@ -608,9 +608,36 @@ We also put a maximum number of waiters on each flight. Beyond that, callers get
 
 Two details cost us a bug each. The flight must use the remaining TTL of the entry, not the configured one, or a refresh can loop forever. And the flight key must include the tenant when the cache is shared, or one tenant's slow query blocks another tenant's fast one.
 
-The test I would write first is not the happy path. It is: start two callers, cancel the first, and assert that the second gets either the result or a clean context error, not a deadlock. The second test is a slow fetch with ten thousand waiters and a cap of a hundred. If that test allocates without bound, the cap is not connected to anything.
+Two ownership rules are easy to miss. The body handed to every waiter is the same slice, so a caller that mutates it corrupts the value for everyone else and for the next cache reader. We return a copy at the public boundary and document that the flight owns the original. A copy of a small JSON body is cheap; if it is not cheap, the entry is too big to be moving through a hot path. The error is shared too, and callers must not wrap it in place.
 
-One more thing: instrument the number of inflight fetches and the number of waiters. When those two numbers diverge, you have a slow query. When they are both high, you have a hot key. Those are different bugs and they need different fixes.`)
+The first version used one sync.Once per key. It is shorter, and it cannot retry: once the fetch fails the Once is spent, and every later caller gets the same failure until the entry is removed. It also gives waiters no way to stop waiting. A channel plus a context is a few more lines and it lets a disconnecting caller leave.
+
+We also tried the singleflight package from x/sync. It is good code and it was a useful reference, but it does not take a context, it has no waiter cap, and Forget affects future calls rather than the one in flight. Those are reasonable choices for a library; they were the wrong ones for a request path with a deadline. Wrapping it to add the missing pieces took about as much code as writing the map ourselves, and our map gave us a place to put the metrics.
+
+The map is per process, which is the limitation people underestimate. During a rolling deploy we run four processes, so a cold key produces four origin fetches, not one. That is usually fine: four is much better than four hundred. When it is not fine, the answer is a lease at the cache layer, not a bigger in-process map. We set a short-lived key such as `+"`refresh:pricing:v3`"+` with a five second TTL. The process that sets it refreshes; the others serve stale. The TTL means a crashed holder cannot block the key forever, and a random suffix in the value lets us tell two takeovers apart in the logs. We do not use the lease as a correctness mechanism. It only reduces duplicate work, so a stolen lease costs one extra query rather than a corrupt write.
+
+Panics are the failure that is easy to miss. If the fetch goroutine unwinds without closing done, every waiter blocks until its own context expires and the map entry stays forever. We run the fetch inside a function that defers the close and the delete, and recovers the panic into an error that is logged once and returned to the waiters. The recovery is not there to hide the bug; it is there so one bad response cannot take out every request for that key.
+
+The TTL interaction is the other subtle part. The flight does not decide freshness. The fetch asks the cache whether the entry is still usable, and writes the new entry before it closes done. If the write fails, the waiters still get the body, because they have already paid for it, and the next request tries again. The flight must use the remaining TTL of the entry, not the configured one, or a refresh can be scheduled before the previous write is visible and the same key refreshes in a loop. We store the deadline with the entry and pass it through.
+
+The key must also include the tenant when the cache is shared. We learned that one in the most annoying way: a slow report for one customer blocked the pricing read for another, because both had the same key and the first caller's context won. A tenant id in the key is not a security boundary; it is a blast radius boundary.
+
+The table we use when this goes wrong:
+
+| Failure | What you see | Guard |
+| --- | --- | --- |
+| Fetch panics | waiters time out, map grows | defer close and delete, recover once |
+| Waiter cap hit | fast 503s, origin is fine | cap waiters per key |
+| Distinct-key flood | many flights, memory rises | cap total inflight fetches |
+| Leader disconnects | everyone gets a context error | fetch on a bounded background context |
+| Multi-process deploy | origin load times instances | short lease at the cache layer |
+| Stale entry refresh loop | misses never end | use remaining TTL, not configured TTL |
+
+The tests I would write first are not the happy path. Start two callers, cancel the first, and assert that the second gets either the result or a clean context error, not a deadlock. Start a fetch that panics, and assert that the waiters get an error and the map is empty afterwards. Put a hundred waiters behind a cap of ten, and assert that ninety get 503 without allocating a goroutine each. Run the whole thing under the race detector, then run it with the fetch slowed to a second and the client timeout set to a hundred milliseconds. That last test is the one that catches a waiter that ignores its own deadline.
+
+On sizing: we allow 128 waiters per key and 64 inflight fetches per process. Those numbers come from the origin's concurrency limit and the memory we are willing to spend on parked goroutines, not from traffic. If the cap is reached, the correct answer is a fast 503 and a `+"`Retry-After`"+` header, not a longer queue. A queue in front of a saturated origin is just a slower way to fail.
+
+One more thing: instrument the number of inflight fetches and the number of waiters. When those two numbers diverge you have a slow query. When they are both high you have a hot key. Those are different bugs and they need different fixes. Per-key counters are worth the cardinality; a single global gauge cannot tell you which key to fix.`)
 
 	c8 := add("coldstart", c7, "The context tradeoff is the one I always get wrong. We switched to a background context with a deadline for the fetch, so one disconnecting browser does not poison the result for everyone else.")
 	c9 := add("ghost", c8, "A background context with a deadline is also easier to test, because the deadline is a value you can control rather than whatever the client happened to send.")
@@ -645,7 +672,36 @@ func spend(c *http.Cookie, now time.Time, limit int) bool {
 
 There is a race between the read and the write, and we accepted it. The consequence of losing the race is one extra retry, which is cheaper than a lock in a cookie. If the consequence were a duplicate payment, we would have done it on the server.
 
+The cookie itself is deliberately unglamorous. It is scoped to the origin, marked Secure and SameSite=Lax, and readable by JavaScript because the page has to update it. It is not HttpOnly for that reason, and it contains no secret: the worst a user can do by editing it is retry more often. We still keep a server-side limit, because a client-side budget is a politeness mechanism, not a security control. Anyone who wants to bypass it can open a private window.
+
+The clock is the part that breaks in the field. We write an absolute window start, not an elapsed time, and clamp anything more than an hour in the future. A clock that jumps forward expires the window early, which fails safe: the next retry starts a new window. A clock that jumps backward would make the window look fresh for too long, so we ignore window starts older than the cookie's own Max-Age and reset. The sleep case you hit is the same bug from the other direction, and it is why we never compare against a timestamp we did not write.
+
+~~~go
+func windowStart(c *http.Cookie, now time.Time) time.Time {
+    start, _ := decode(c.Value)
+    if start.After(now.Add(5 * time.Minute)) || start.Before(now.Add(-time.Hour)) {
+        return now
+    }
+    return start
+}
+~~~
+
+The service worker path is better where it exists, but it is not a replacement for the cookie. The Cache API gives every tab of the same origin one store, so the counter is shared, and the worker survives a page reload. It does not help in a private window, it does not exist in every browser we support, and it is cleared more aggressively than a cookie. Ours writes both and uses the higher count when they disagree. The two paths are small and they fail independently, which is the point.
+
+The budgets we ended up with:
+
+| Budget | Shared by | Survives reload | Notes |
+| --- | --- | --- | --- |
+| Per tab, in memory | one tab | no | trivial, useless alone |
+| Cookie | tabs and private windows | yes | sent on every request, racy |
+| Service worker cache | tabs of one origin | yes | not everywhere, cleared sometimes |
+| Server token bucket | everyone | yes | authoritative, needs identity |
+
+The server-side bucket is the one that actually protects the origin. The client budgets only stop the easy stampede: a hundred tabs that all retry once. A determined or buggy client gets past them, so the origin still needs a per-IP and per-session limit and a `+"`Retry-After`"+` it believes. We use 503 for shed load and 429 for a client that is over its own budget; the first says "not now", the second says "you, specifically, not now". The CDN treats them differently: stale-if-error covers both, but only the 503 is retried by our worker. Getting those two backwards caused a small outage of its own, because every 429 turned into a worker retry that hit the same limiter again.
+
 The other half of the problem is telling the user what happened. An error page that says "try again" invites the refresh loop. Ours now says "we are busy, this usually clears in under a minute", shows the request id, and disables the button for fifteen seconds. Support tickets dropped after that change, not because the outage was shorter but because the page stopped sounding broken.
+
+We also stopped disabling the button silently. A disabled control with no explanation reads as a broken page, so the button keeps its label and a countdown sits next to it, in a live region so a screen reader announces the change. The form keeps its values, because asking someone to re-enter an address during an outage is how you lose the order twice. And the retry is a fresh navigation with an idempotency key, not a second submit, so a retry that overtakes the first response cannot charge twice.
 
 A few things we check before calling a retry policy done:
 
@@ -653,8 +709,14 @@ A few things we check before calling a retry policy done:
 - Double the client count. The number of requests reaching the origin must stay flat.
 - Block the retry endpoint. The user must still see a readable page.
 - Set the system clock forward by an hour. The budget must reset once, not lock the user out.
+- Set the clock backward by an hour. The budget must not stay spent forever.
+- Open four tabs and retry in all of them. The origin must see one retry, not four.
+- Remove the service worker. The cookie path must still enforce the budget.
+- Edit the cookie to a huge window. The server must still shed the load.
 
-The last one is not hypothetical. A laptop waking from sleep had a clock jump, and our window arithmetic treated the cookie as eternally spent. The user could not retry until they cleared cookies, and of course they did not know that.
+The clock case is not hypothetical. A laptop waking from sleep had a clock jump, and our window arithmetic treated the cookie as eternally spent. The user could not retry until they cleared cookies, and of course they did not know that.
+
+Once the mechanics are in place, measure them. We record retries attempted, retries allowed, and the delay between the error and the successful retry, labelled by route. The most useful graph is not the retry count; it is retry success. If retries almost never succeed, the client is wasting its budget on a failure that needs a person, and the page should say so instead of offering the button. That graph is also how we found a route whose retries always landed on the same unhealthy backend, because the load balancer had not removed it yet.
 
 None of this is as satisfying as a clever algorithm. It is mostly deciding what failure looks like and making sure the page can show it. That is also why I like the 503 plus `+"`Retry-After`"+` approach: it gives every layer a shared vocabulary for "not now".`)
 

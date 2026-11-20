@@ -156,12 +156,17 @@ func TestSeedDeepThread(t *testing.T) {
 		t.Fatalf("list comments: %v", err)
 	}
 
-	const longBodyWords = 400
+	const (
+		longBodyWords     = 400
+		veryLongBodyWords = 1000
+	)
 	depth := make(map[int64]int, len(comments))
 	children := make(map[int64][]int64, len(comments))
 	longDepths := make(map[int]int)
+	veryLongDepths := make(map[int]int)
 	maxDepth := 0
 	longComments := 0
+	veryLongComments := 0
 	longTopLevel := false
 	longOneParent := false
 	deletedWithLiveReply := false
@@ -195,7 +200,12 @@ func TestSeedDeepThread(t *testing.T) {
 			}
 		}
 
-		if len(strings.Fields(comment.Body)) < longBodyWords {
+		words := len(strings.Fields(comment.Body))
+		if words >= veryLongBodyWords {
+			veryLongComments++
+			veryLongDepths[depth[comment.ID]]++
+		}
+		if words < longBodyWords {
 			continue
 		}
 		longComments++
@@ -208,14 +218,23 @@ func TestSeedDeepThread(t *testing.T) {
 		}
 	}
 
-	t.Logf("deep thread: %d comments, max depth %d, long comments %d at depths %v",
-		len(comments), maxDepth, longComments, longDepths)
+	t.Logf("deep thread: %d comments, max depth %d, long comments %d at depths %v, very long comments %d at depths %v",
+		len(comments), maxDepth, longComments, longDepths, veryLongComments, veryLongDepths)
 
 	if maxDepth < 14 {
 		t.Errorf("deepest comment is at depth %d, want at least 14", maxDepth)
 	}
 	if longComments < 6 {
 		t.Errorf("found %d long comments, want at least 6", longComments)
+	}
+	if veryLongComments < 2 {
+		t.Errorf("found %d very long comments, want at least 2", veryLongComments)
+	}
+	if veryLongDepths[8] == 0 {
+		t.Error("no very long comment at depth 8, so the middle of the chain has no long parent")
+	}
+	if veryLongDepths[15] == 0 {
+		t.Error("no very long comment at depth 15, so the deepest long comment is not very long")
 	}
 	for _, band := range []struct {
 		name     string
