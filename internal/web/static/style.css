@@ -1632,7 +1632,14 @@ a.btn.pri:hover {
 	border-bottom: 1px solid var(--line);
 }
 
-.none {
+/* Collapsing the focused comment hides the replies that sit beside the card
+   on this page, not only the card body. */
+.comment-page:has(.c.focus.collapsed) > .rh,
+.comment-page:has(.c.focus.collapsed) > .comments {
+	display: none;
+}
+
+.comment-page .no-comments {
 	margin: 18px 0 0;
 	color: var(--muted);
 	font: 12px var(--font-mono);

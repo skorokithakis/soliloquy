@@ -16,10 +16,10 @@
 		<ol class="kids replies" data-parent-id="{{.Focused.PublicID}}">
 			{{range .Replies}}{{template "comment" .}}{{end}}
 		</ol>
-		{{if not .Replies}}<p class="none no-comments">no replies yet</p>{{end}}
+		{{if not .Replies}}<p class="no-comments">no replies yet</p>{{end}}
 	</section>
 
-	{{if not .Visitor}}
+	{{if and (not .Visitor) (not .Focused.Deleted)}}
 	<div class="dock">
 		<a class="fake" href="/comments/{{.Focused.PublicID}}/reply?return_to={{.Focused.PublicID}}" data-reply-dock="{{.Focused.PublicID}}">reply to {{.Focused.Author}}…</a>
 	</div>

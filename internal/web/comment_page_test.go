@@ -192,6 +192,9 @@ func TestCommentPageShowsDeletedCommentWithReplies(t *testing.T) {
 	if !strings.Contains(body, `<span class="label">1 reply · best first</span>`) {
 		t.Error("the reply header does not count only visible replies")
 	}
+	if strings.Contains(body, "data-reply-dock") {
+		t.Error("the deleted focused comment still shows the phone reply bar")
+	}
 }
 
 func TestCommentPageDoesNotMarkThreadRead(t *testing.T) {
@@ -304,8 +307,8 @@ func TestCommentTimestampsLinkToCommentPage(t *testing.T) {
 	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
 
 	for _, want := range []string{
-		`<a class="ts" href="/comments/` + comment.PublicID + `" title="` + comment.CreatedAt.UTC().Format("2006-01-02 15:04") + `">`,
-		`<a class="ts" href="/comments/` + deleted.PublicID + `" title="` + deleted.CreatedAt.UTC().Format("2006-01-02 15:04") + `">`,
+		`<a class="ts" href="/comments/` + comment.PublicID + `" title="` + comment.CreatedAt.UTC().Format("2006-01-02 15:04") + ` UTC">`,
+		`<a class="ts" href="/comments/` + deleted.PublicID + `" title="` + deleted.CreatedAt.UTC().Format("2006-01-02 15:04") + ` UTC">`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("thread page does not contain %q", want)

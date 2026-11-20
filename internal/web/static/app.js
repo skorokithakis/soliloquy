@@ -605,6 +605,14 @@ document.addEventListener("click", (event) => {
 
 	const comment = document.getElementById("c" + dock.dataset.replyDock);
 	const link = comment && comment.querySelector("a.reply-link");
+	if (link && comment.classList.contains("collapsed")) {
+		// Reuse the toggle so its label and aria state stay correct; a reply
+		// box built inside a collapsed comment would stay hidden.
+		const toggle = comment.querySelector(".tog");
+		if (toggle) {
+			toggle.click();
+		}
+	}
 	if (link && openReply(link, comment)) {
 		event.preventDefault();
 	}
@@ -2194,6 +2202,11 @@ if (eventsURL && "EventSource" in window) {
 		// the parent. A live delete re-renders the header, so remove the link
 		// and the separator before it.
 		if (comment.classList.contains("focus")) {
+			const dock = document.querySelector(".comment-page .dock");
+			if (dock) {
+				dock.remove();
+			}
+
 			const parent = newHeader.querySelector("a.par");
 			if (parent) {
 				const separator = parent.previousElementSibling;

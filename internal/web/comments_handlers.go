@@ -174,7 +174,7 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 		Score:          comment.Score,
 		ScoreText:      pointsText(comment.Score),
 		CreatedAt:      relativeTime(comment.CreatedAt, now),
-		CreatedAtTitle: comment.CreatedAt.UTC().Format("2006-01-02 15:04"),
+		CreatedAtTitle: comment.CreatedAt.UTC().Format("2006-01-02 15:04") + " UTC",
 		Edited:         comment.EditedAt != nil,
 		Deleted:        comment.DeletedAt != nil,
 		IsAuthor:       viewer != nil && viewer.ID == comment.AuthorID && comment.DeletedAt == nil,
@@ -423,6 +423,9 @@ func replyReturnTo(r *http.Request) string {
 	if !validPublicID(id) {
 		return ""
 	}
+	// Deliberately no same-thread lookup: this value comes from our own reply
+	// links, and a tampered ID only sends the same member to a 404 after their
+	// reply; the path is built here, so it is not an open redirect.
 	return id
 }
 
