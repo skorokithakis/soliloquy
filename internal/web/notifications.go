@@ -142,9 +142,7 @@ var htmlTagPattern = regexp.MustCompile(`<[^>]*>`)
 // returns a short one-line preview. Tags are removed before entities are
 // unescaped, so user text that looks like HTML stays visible as text.
 func notificationSnippet(bodyHTML string, limit int) string {
-	text := htmlTagPattern.ReplaceAllString(bodyHTML, " ")
-	text = html.UnescapeString(text)
-	text = strings.Join(strings.Fields(text), " ")
+	text := plainText(bodyHTML)
 	if text == "" {
 		return ""
 	}
@@ -154,6 +152,14 @@ func notificationSnippet(bodyHTML string, limit int) string {
 		return string(runes[:limit]) + "…"
 	}
 	return text
+}
+
+// plainText returns the text content of rendered, sanitized HTML with its
+// whitespace collapsed to one line.
+func plainText(bodyHTML string) string {
+	text := htmlTagPattern.ReplaceAllString(bodyHTML, " ")
+	text = html.UnescapeString(text)
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // createNotification creates a notification and pushes it to the recipient's

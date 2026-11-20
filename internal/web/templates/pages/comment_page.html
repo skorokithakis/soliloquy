@@ -1,6 +1,41 @@
+{{define "parent-comment"}}
+<div class="p{{if .Last}} last{{end}}">
+	<div class="pl">
+		<span class="who">
+			{{if .Deleted}}<span class="gone">[deleted]</span>{{else if .AuthorDeleted}}<span class="gone">{{.Author}}</span>{{else if .LoggedIn}}<a class="u" href="/u/{{.AuthorUsername}}">{{.Author}}</a>{{else}}<span class="u">{{.Author}}</span>{{end}}
+			{{if and .IsOP (not .Deleted)}}<span class="op">op</span>{{end}}
+		</span>
+		<a class="ts" href="/comments/{{.PublicID}}" title="{{.CreatedAtTitle}}">{{.CreatedAt}}</a>
+		{{if not .Deleted}}
+		<button class="tog" type="button" hidden data-context-toggle data-author-label="{{if .AuthorDeleted}}a deleted user{{else}}{{.Author}}{{end}}" aria-expanded="false" aria-label="Show all of the comment by {{if .AuthorDeleted}}a deleted user{{else}}{{.Author}}{{end}}">[+]</button>
+		<span class="ex">{{.Excerpt}}</span>
+		{{end}}
+	</div>
+	{{if not .Deleted}}<div class="pb md" hidden>{{.Body}}</div>{{end}}
+</div>
+{{end}}
+
 {{define "content"}}
 <div class="comment-page">
 	<a class="tl" href="/threads/{{.Thread.PublicID}}#c{{.Focused.PublicID}}" title="Back to the full thread"><span aria-hidden="true">‹</span><span class="tt">{{.Thread.Title}}</span></a>
+
+	{{if .HasParents}}
+	<section class="ctx" aria-label="Earlier comments in this conversation">
+		{{if .Fold}}
+		<details class="ctx-fold">
+			<summary class="fold">
+				<span class="tg closed" aria-hidden="true">[+]</span><span class="tg open" aria-hidden="true">[-]</span>
+				<b>{{.FoldText}}</b>
+				<span class="fold-meta">started by {{.FoldMeta}}</span>
+			</summary>
+			{{range .EarlierParents}}{{template "parent-comment" .}}{{end}}
+		</details>
+		{{else}}
+		{{range .EarlierParents}}{{template "parent-comment" .}}{{end}}
+		{{end}}
+		{{template "parent-comment" .LastParent}}
+	</section>
+	{{end}}
 
 	<ol class="comment-list">
 		{{template "comment" .Focused}}

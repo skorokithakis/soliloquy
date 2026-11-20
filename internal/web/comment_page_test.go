@@ -44,6 +44,9 @@ func TestCommentPageShowsFocusedBranchAsRoot(t *testing.T) {
 		`<a class="par" href="#c` + focused.PublicID + `">parent</a>`,
 		`<a class="reply-link" href="/comments/` + focused.PublicID + `/reply?return_to=` + focused.PublicID + `">reply</a>`,
 		`<a class="reply-link" href="/comments/` + reply.PublicID + `/reply?return_to=` + focused.PublicID + `">reply</a>`,
+		// The parent is now shown in the context area as a read-only row.
+		`<section class="ctx"`,
+		"branch root",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("comment page does not contain %q", want)
@@ -51,11 +54,11 @@ func TestCommentPageShowsFocusedBranchAsRoot(t *testing.T) {
 	}
 
 	for _, unwanted := range []string{
-		"branch root",
 		"sibling branch",
 		"other top level",
 		"thread body text",
 		`id="comments"`,
+		`id="c` + root.PublicID + `"`,
 	} {
 		if strings.Contains(body, unwanted) {
 			t.Errorf("comment page contains %q", unwanted)

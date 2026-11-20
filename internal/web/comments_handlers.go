@@ -98,10 +98,34 @@ type commentView struct {
 
 type commentPageData struct {
 	PageData
-	Thread    threadView
-	Focused   commentView
-	Replies   []commentView
-	ReplyText string
+	Thread         threadView
+	EarlierParents []parentCommentView
+	LastParent     parentCommentView
+	HasParents     bool
+	Fold           bool
+	FoldText       string
+	FoldMeta       string
+	Focused        commentView
+	Replies        []commentView
+	ReplyText      string
+}
+
+// parentCommentView is one read-only comment in the context area. It has no
+// votes, replies or actions, and it deliberately is not a commentView so the
+// template cannot emit comment controls or a comment id.
+type parentCommentView struct {
+	PublicID       string
+	Author         string
+	AuthorUsername string
+	AuthorDeleted  bool
+	Deleted        bool
+	IsOP           bool
+	CreatedAt      string
+	CreatedAtTitle string
+	Excerpt        string
+	Body           template.HTML
+	Last           bool
+	LoggedIn       bool
 }
 
 type commentFormPageData struct {
@@ -217,6 +241,64 @@ func commentViewFor(node *db.CommentNode, viewer *db.User, threadAuthorID int64,
 	return view
 }
 
+// parentChain returns the focused comment's ancestors, top-level comment first
+// and direct parent last. All of them come from the comments already loaded
+// for the page.
+func parentChain(comments []db.Comment, focused *db.Comment) []db.Comment {
+	byID := make(map[int64]db.Comment, len(comments))
+	for _, comment := range comments {
+		byID[comment.ID] = comment
+	}
+
+	var chain []db.Comment
+	for parentID := focused.ParentID; parentID != nil; {
+		parent, ok := byID[*parentID]
+		if !ok {
+			break
+		}
+		chain = append(chain, parent)
+		parentID = parent.ParentID
+	}
+
+	// The walk starts at the direct parent; the context area shows the chain
+	// oldest first.
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
+	}
+	return chain
+}
+
+func parentCommentViewFor(comment db.Comment, viewer *db.User, threadAuthorID int64, now time.Time, last bool) parentCommentView {
+	view := parentCommentView{
+		PublicID:       comment.PublicID,
+		Author:         comment.AuthorName(),
+		AuthorUsername: comment.AuthorUsername,
+		AuthorDeleted:  comment.AuthorDeletedAt != nil,
+		Deleted:        comment.DeletedAt != nil,
+		IsOP:           comment.AuthorID == threadAuthorID,
+		CreatedAt:      relativeTime(comment.CreatedAt, now),
+		CreatedAtTitle: comment.CreatedAt.UTC().Format("2006-01-02 15:04") + " UTC",
+		Last:           last,
+		LoggedIn:       viewer != nil,
+	}
+	if !view.Deleted {
+		// The excerpt is plain text; CSS cuts it to one line, or three for the
+		// direct parent. The full body is kept for the JavaScript expander.
+		view.Excerpt = plainText(comment.BodyHTML)
+		view.Body = template.HTML(comment.BodyHTML)
+	}
+	return view
+}
+
+// parentAuthorText is the name a parent row shows, also used in the fold's
+// "started by" text.
+func parentAuthorText(comment db.Comment) string {
+	if comment.DeletedAt != nil {
+		return "[deleted]"
+	}
+	return comment.AuthorName()
+}
+
 func (s *Server) handleCommentPage(w http.ResponseWriter, r *http.Request) {
 	publicID := r.PathValue("id")
 	if !validPublicID(publicID) {
@@ -287,6 +369,27 @@ func (s *Server) handleCommentPage(w http.ResponseWriter, r *http.Request) {
 		Replies:   replies,
 		ReplyText: repliesText(countVisibleReplies(node.Replies)),
 	}
+
+	// The parent chain comes from the comments this page already loaded. Each
+	// ancestor has the focused comment as a visible descendant, so it is also
+	// present in the rendered tree.
+	chain := parentChain(comments, &node.Comment)
+	parents := make([]parentCommentView, len(chain))
+	for i, parent := range chain {
+		parents[i] = parentCommentViewFor(parent, user, thread.AuthorID, now, i == len(chain)-1)
+	}
+	if len(parents) > 0 {
+		data.HasParents = true
+		data.LastParent = parents[len(parents)-1]
+		data.EarlierParents = parents[:len(parents)-1]
+		// More than three parents: fold every row but the direct parent.
+		if len(parents) > 3 {
+			data.Fold = true
+			data.FoldText = fmt.Sprintf("%d earlier comments", len(parents)-1)
+			data.FoldMeta = parentAuthorText(chain[0]) + ", " + relativeTime(chain[0].CreatedAt, now)
+		}
+	}
+
 	data.EventThreadID = thread.PublicID
 	data.EventSince = now.Unix()
 	data.Visitor = user == nil

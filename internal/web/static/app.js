@@ -473,6 +473,30 @@ document.addEventListener("click", (event) => {
 	toggle.setAttribute("aria-label", collapsed ? "Expand comment" : "Collapse comment");
 });
 
+// Context area: expand a parent comment from its excerpt to the full body.
+// The control is hidden without JavaScript, where the age link is the way to
+// the parent's own page.
+document.addEventListener("click", (event) => {
+	const toggle = event.target.closest("[data-context-toggle]");
+	if (!toggle) {
+		return;
+	}
+
+	const row = toggle.closest(".ctx .p");
+	const body = row && row.querySelector(".pb");
+	if (!row || !body) {
+		return;
+	}
+
+	const open = body.hidden;
+	body.hidden = !open;
+	row.classList.toggle("open", open);
+	toggle.textContent = open ? "[-]" : "[+]";
+	toggle.setAttribute("aria-expanded", open ? "true" : "false");
+	const author = toggle.dataset.authorLabel || "this comment";
+	toggle.setAttribute("aria-label", (open ? "Show the excerpt of" : "Show all of") + " the comment by " + author);
+});
+
 // buildReplyForm creates the inline reply form inside a comment and returns
 // it, or null when the comment has nowhere to put it. The click handler below
 // and the page-load draft restore both use it, so they build the same markup.
