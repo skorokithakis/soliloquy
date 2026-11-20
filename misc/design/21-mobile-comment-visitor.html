@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <title>Soliloquy mobile: comment, visitor</title>
-<script src="6bd6c8d5-2648-48c4-b79a-423767b587ea"></script>
+<script src="9b15f898-dc42-4204-be20-35e1d5110e96"></script>
 </head>
 <body>
 <x-dc>
@@ -51,7 +51,7 @@ body{margin:0}
 .md pre code{background:none;border:0;padding:0;font-size:inherit}
 .md a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .ment{color:var(--accent);font:500 .9em 'IBM Plex Mono',monospace;background:var(--soft);padding:0 3px;border-radius:3px}
-.c{padding-top:10px;scroll-margin-top:16px}
+.c{padding-top:10px;scroll-margin-top:48px}
 .ch{display:flex;align-items:center;gap:8px;font:12px 'IBM Plex Mono',monospace;color:var(--muted);min-height:22px;border-radius:3px}
 .u{color:var(--ink);font-weight:600}
 .c:target>.ch{background:var(--soft);box-shadow:0 0 0 4px var(--soft)}
@@ -88,31 +88,27 @@ body{margin:0}
 /* New: timestamp link (shared with the thread page) */
 .ts{display:inline-flex;align-items:center;color:inherit;white-space:nowrap;border-radius:3px}
 .ts:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
-.ts:focus-visible,.tl:focus-visible,.fold:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ts:focus-visible,.tl:focus-visible,.up:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* New: thread line */
-.tl{display:flex;align-items:center;gap:6px;min-height:24px;max-width:100%;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+/* New: thread bar. It stays at the top of the screen. */
+.tbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:16px;min-height:36px;background:var(--bg);border-bottom:1px solid var(--line2);color:var(--muted)}
+.up{flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:3px;font:12px 'IBM Plex Mono',monospace}
+.tl{display:flex;align-items:center;gap:6px;min-height:24px;flex:1;min-width:0;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
 .tl .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* New: context area */
-.ctx{margin-top:6px;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
-.fold{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;font:inherit;color:var(--muted);background:none;border:0;padding:0;cursor:pointer;text-align:left}
-.fold .tg{font-weight:600;color:var(--ink);padding:2px 4px;margin-left:-4px;border-radius:3px}
-.fold b{font-weight:600;color:var(--ink)}
-.fold:hover .tg{color:var(--accent);background:var(--soft)}
-.fold:hover b{color:var(--accent)}
-.p{border-top:1px solid var(--line2)}
-.pl{display:flex;align-items:center;gap:8px;min-height:28px}
-.who{flex:none;width:124px;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
-.p .ts{flex:none;width:30px}
-.ex{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:13.5px/20px 'IBM Plex Sans',system-ui,sans-serif;color:var(--muted)}
-.p.last .pl{flex-wrap:wrap}
-.p.last .ex{flex:none;width:100%;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;margin:0 0 8px}
-.pb{margin:0 0 10px;color:var(--ink)}
+.ctx{scroll-margin-top:36px}
+.ctx .p{padding:4px 0 8px}
+.irt{display:flex;align-items:center;gap:12px;margin:6px 0;font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:var(--muted)}
+.irt::before,.irt::after{content:"";flex:1;height:1px;background:var(--line)}
+.pl{display:flex;align-items:center;gap:8px;min-height:28px;font:12px 'IBM Plex Mono',monospace;color:var(--muted)}
+.who{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pb{color:var(--ink)}
 .pb>p{max-width:72ch}
 
 /* New: focused comment */
-.focus{margin-top:6px;padding:8px 16px 12px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.focus{scroll-margin-top:44px;margin-top:10px;padding:10px 16px 14px;background:var(--card);border-top:2px solid var(--accent);border-bottom:1px solid var(--line)}
+.focus>.ch{font-size:13px}
 .focus>.cb,.focus>.ca,.focus>form{margin-left:0}
 .focus>.cb{margin-top:8px;font-size:15.5px;line-height:1.6}
 .focus>.ca{margin-top:10px}
@@ -124,10 +120,14 @@ body{margin:0}
 .v-author .if-mira,.v-visitor .if-mira,.v-member .if-pvh,.v-visitor .if-pvh,.v-visitor .if-in,.v-member .if-out,.v-author .if-out{display:none!important}
 .v-visitor .cb,.v-visitor .ca{margin-left:0}
 
+/* Canvas only: 'landed' draws the screen as it is after the jump to the focused comment. In the app the browser scrolls, so these rules do not ship. */
+.landed .top,.landed .mtop{display:none}
+.win{display:none}
+
 /* Phone. In the app this block is @media (max-width:640px); the class exists only for this canvas. */
 .ph{width:390px;min-height:0;overflow:hidden;position:relative}
 .ph.scr{height:844px}
-.ph.tall{height:1900px}
+.ph.tall{height:3700px}
 .ph .wrap{padding:0 16px}
 .mtop{background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:2px;height:52px;padding:0 6px}
 .ph .logo{font-size:15px}
@@ -137,11 +137,8 @@ body{margin:0}
 .mlg{display:inline-flex;align-items:center;height:44px;padding:0 10px;font:500 13px 'IBM Plex Mono',monospace}
 .ph .tl{min-height:32px}
 .ph .ts{min-height:32px;padding:0 4px;margin:0 -4px}
-.ph .fold{min-height:36px}
-.ph .pl{flex-wrap:wrap;min-height:32px;gap:6px}
-.ph .who{width:auto}
-.ph .p .ts{width:auto}
-.ph .ex{flex:none;width:100%;margin:-2px 0 8px}
+.ph .up{min-height:32px}
+.ph .pl{min-height:32px}
 .ph .vote{width:32px;height:28px;margin-left:-6px}
 .ph .c{padding-top:8px}
 .ph .ch{gap:6px;min-height:32px}
@@ -157,7 +154,7 @@ body{margin:0}
 .ph .ca .pick button{width:44px;height:44px;padding:0;border-radius:6px;font-size:20px}
 .ph .kids{margin-left:8px;padding-left:10px}
 .ph.v-visitor .cb,.ph.v-visitor .ca{margin-left:0}
-.ph .focus{margin:6px -16px 0;padding:4px 16px 8px;border-width:1px 0;border-radius:0}
+.ph .focus{margin:6px -16px 0;padding:6px 16px 8px}
 .ph .focus>.cb,.ph .focus>.ca,.ph .focus>form{margin-left:0}
 .ph .focus>.cb{margin-top:4px;font-size:15px}
 .ph .focus>.ca{margin-top:6px}
@@ -180,27 +177,26 @@ body{margin:0}
 <a class="mlg if-out" href="Login.dc.html">log in</a>
 </header>
 <main class="wrap" style="padding-top: 12px">
-<a class="tl" href="M-Thread.dc.html" title="Back to the full thread"><span aria-hidden="true">‹</span><span class="tt">Postgres 18 async I/O: real-world numbers?</span></a>
+<div class="tbar"><a class="tl" href="M-Thread.dc.html" title="Back to the full thread"><span aria-hidden="true">‹</span><span class="tt">Postgres 18 async I/O: real-world numbers?</span></a><sc-if value="{{hasCtx}}" hint-placeholder-val="{{ true }}"><a class="up" href="#ctx" title="Go to the first comment of this conversation"><span aria-hidden="true">↑</span>{{upText}}</a></sc-if></div>
 
 <sc-if value="{{hasCtx}}" hint-placeholder-val="{{ true }}">
-<section class="ctx" aria-label="Earlier comments in this conversation">
-<sc-if value="{{hasFold}}" hint-placeholder-val="{{ true }}">
-<button class="fold" type="button" sc-camel-on-click="{{toggleFold}}" aria-expanded="{{foldOpen}}"><span class="tg">{{foldMark}}</span><b>{{foldText}}</b><span>{{foldMeta}}</span></button>
-</sc-if>
-<sc-for list="{{ctx}}" as="c" hint-placeholder-count="1">
-<div class="{{c.cls}}">
+<div class="{{winCls}}">
+<section class="ctx" id="ctx" aria-label="Earlier comments in this conversation">
+<sc-for list="{{ctx}}" as="c" hint-placeholder-count="2">
+<div class="p">
+<sc-if value="{{c.reply}}" hint-placeholder-val="{{ false }}"><div class="irt"><span aria-hidden="true">↑</span>in reply to<span aria-hidden="true">↑</span></div></sc-if>
 <div class="pl">
 <span class="who"><sc-if value="{{c.linkUser}}" hint-placeholder-val="{{ true }}"><a class="u" href="M-Front.dc.html">{{c.user}}</a></sc-if><sc-if value="{{c.plainUser}}" hint-placeholder-val="{{ false }}"><span class="u">{{c.user}}</span></sc-if><sc-if value="{{c.ghost}}" hint-placeholder-val="{{ false }}"><span class="gone">[deleted user]</span></sc-if><sc-if value="{{c.gone}}" hint-placeholder-val="{{ false }}"><span class="gone">[deleted]</span></sc-if><sc-if value="{{c.op}}" hint-placeholder-val="{{ false }}"><span class="op">op</span></sc-if></span>
 <a class="ts" href="M-Comment-visitor.dc.html" title="{{c.when}}">{{c.age}}</a>
-<sc-if value="{{c.canOpen}}" hint-placeholder-val="{{ true }}"><button class="tog" type="button" sc-camel-on-click="{{c.toggle}}" aria-expanded="{{c.open}}" aria-label="{{c.aria}}">{{c.label}}</button></sc-if>
-<sc-if value="{{c.shut}}" hint-placeholder-val="{{ true }}"><span class="ex">{{c.ex}}</span></sc-if>
 </div>
-<sc-if value="{{c.open}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{c.hasBody}}" hint-placeholder-val="{{ true }}">
 <div class="pb md"><sc-for list="{{c.blocks}}" as="b" hint-placeholder-count="2"><sc-if value="{{b.isP}}" hint-placeholder-val="{{ true }}"><p>{{b.t}}</p></sc-if><sc-if value="{{b.isPre}}" hint-placeholder-val="{{ false }}"><pre><code>{{b.t}}</code></pre></sc-if></sc-for></div>
 </sc-if>
 </div>
 </sc-for>
 </section>
+<div class="irt"><span aria-hidden="true">↑</span>in reply to<span aria-hidden="true">↑</span></div>
+</div>
 </sc-if>
 
 <article class="c focus" id="c13" aria-label="Comment by pvh">
@@ -293,7 +289,7 @@ body{margin:0}
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;parents&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;one&quot;,&quot;many&quot;],&quot;default&quot;:&quot;none&quot;},&quot;chain&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;folded&quot;,&quot;open&quot;],&quot;default&quot;:&quot;folded&quot;},&quot;viewer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;member&quot;,&quot;author&quot;,&quot;visitor&quot;],&quot;default&quot;:&quot;visitor&quot;},&quot;replies&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;some&quot;,&quot;none&quot;],&quot;default&quot;:&quot;some&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;auto&quot;],&quot;default&quot;:&quot;light&quot;},&quot;parents&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;one&quot;,&quot;many&quot;],&quot;default&quot;:&quot;none&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;landed&quot;,&quot;top&quot;],&quot;default&quot;:&quot;landed&quot;},&quot;viewer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;member&quot;,&quot;author&quot;,&quot;visitor&quot;],&quot;default&quot;:&quot;visitor&quot;},&quot;replies&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;some&quot;,&quot;none&quot;],&quot;default&quot;:&quot;some&quot;},&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
 class Component extends DCLogic {
   renderVals() {
     const P = this.props || {};
@@ -301,7 +297,7 @@ class Component extends DCLogic {
     const PHONE = true;
     const theme = P.theme ?? 'light';
     const parents = P.parents ?? 'none';
-    const chain = P.chain ?? 'folded';
+    const view = P.view ?? 'landed';
     const viewer = P.viewer ?? 'visitor';
     const replies = P.replies ?? 'some';
     const isIn = viewer !== 'visitor';
@@ -325,20 +321,14 @@ class Component extends DCLogic {
     ];
     const all = parents === 'none' ? [] : parents === 'one' ? ALL.slice(-1) : ALL;
     const n = all.length;
-    // More than 3 parents: show only the direct parent and the "N earlier comments" control.
-    const hasFold = n > 3;
-    const foldOpen = 'fold' in S ? S.fold : chain === 'open';
-    const openIds = S.openIds || (chain === 'open' ? { p12: true } : {});
-    const vis = hasFold && !foldOpen ? all.slice(-1) : all;
-    const ctx = vis.map((c, i) => {
-      const last = i === vis.length - 1;
+    // Each parent shows its full text: no excerpt and no fold.
+    // Canvas only: 'landed' draws the screen as it is after the jump to the focused comment.
+    const landed = view === 'landed' && n > 0;
+    const ctx = all.map((c, i) => {
       const named = !c.gone && !c.ghost;
-      const open = !c.gone && !!openIds[c.id];
       return {
-        cls: 'p' + (last ? ' last' : ''), user: c.user, linkUser: named && isIn, plainUser: named && !isIn, ghost: !!c.ghost, gone: !!c.gone, op: !!c.op,
-        age: c.age, when: c.when, ex: c.ex, canOpen: !c.gone, open: open, shut: !c.gone && !open, label: open ? '[-]' : '[+]',
-        aria: (open ? 'Show the excerpt of' : 'Show all of') + ' the comment by ' + (c.ghost ? 'a deleted user' : c.user),
-        toggle: () => this.setState({ openIds: Object.assign({}, openIds, { [c.id]: !open }) }),
+        user: c.user, linkUser: named && isIn, plainUser: named && !isIn, ghost: !!c.ghost, gone: !!c.gone, op: !!c.op,
+        age: c.age, when: c.when, hasBody: !c.gone, reply: i > 0,
         blocks: c.blocks.map((b) => ({ isP: b[0] === 'p', isPre: b[0] === 'pre', t: b[1] }))
       };
     });
@@ -385,11 +375,9 @@ class Component extends DCLogic {
     });
 
     return {
-      rootCls: 'sq ' + theme + ' v-' + viewer + (PHONE ? ' ph scr' : ''),
+      rootCls: 'sq ' + theme + ' v-' + viewer + (landed ? ' landed' : '') + (PHONE ? ' ph scr' : ''),
       isIn: isIn, isOut: !isIn,
-      hasCtx: n > 0, hasFold: hasFold, foldOpen: hasFold && foldOpen, foldMark: foldOpen ? '[-]' : '[+]',
-      foldText: (n - 1) + ' earlier comments', foldMeta: foldOpen ? '' : 'started by jules, 2d',
-      toggleFold: () => this.setState({ fold: !foldOpen }),
+      hasCtx: n > 0, winCls: landed ? 'win' : 'flow', upText: n + (n === 1 ? ' earlier comment' : ' earlier comments'),
       ctx: ctx, f: f, k: k,
       showReplies: !fshut && replies === 'some', showNone: !fshut && replies === 'none',
       showDock: PHONE && isIn && !replyOpen,
