@@ -14,6 +14,21 @@ before you change templates or CSS, and compare your result with it.
 The app must match the design unless a deviation is deliberate. Deliberate
 deviations are recorded in gnosis. Run `gn show design-reference` to see them.
 
+## QA data
+
+`.symphony/serve` seeds `.symphony-cache/qa.db` on every run with `cmd/qaseed`.
+The seeder does nothing when the database already has threads.
+
+- Admin account: `admin` / `admin`.
+- Eight members: `packet`, `kernel`, `nullptr`, `tabs`, `segfault`,
+  `rubberduck`, `coldstart`, `bytemare`. Their password is `password`.
+- Twelve threads from the last ten days, including a busy thread with 80
+  nested comments, long posts with a table of contents, and votes and
+  reactions spread across the content.
+
+Delete `.symphony-cache/qa.db` (and its `-wal` and `-shm` files) to reseed with
+fresh relative dates.
+
 ## Finishing work
 
 When you finish a task, commit and push the changes. Do not wait to be asked.

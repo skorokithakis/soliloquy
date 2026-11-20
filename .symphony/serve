@@ -2,11 +2,16 @@
 # Build and run Soliloquy for manual QA on 0.0.0.0:8000.
 #
 # The database persists in .symphony-cache/qa.db between runs. Delete that file
-# to start again from an empty forum.
+# (and its -wal and -shm files) to start again from an empty forum.
 #
-# On an empty database the app logs a one-time admin invite URL. This script
-# uses it to create the QA admin account, username "admin" and password
-# "admin". The log also goes to .symphony-cache/serve.log.
+# Every run builds cmd/qaseed and runs it against the database before starting
+# the server. On an empty database that adds the QA admin (admin/admin), eight
+# members (password "password"), threads, comments and votes. The seeder is a
+# no-op when any thread already exists.
+#
+# On an empty database the app also logs a one-time admin invite URL. This
+# script uses it to create the QA admin account if the seeder did not. The log
+# also goes to .symphony-cache/serve.log.
 #
 # The server runs with -allow-any-origin, so forms work at any address. Links
 # that the app builds (invites, password resets) still use the base URL. Set
@@ -25,6 +30,11 @@ log=.symphony-cache/serve.log
 
 mkdir -p .symphony-cache
 go build -o .symphony-cache/soliloquy .
+go build -o .symphony-cache/qaseed ./cmd/qaseed
+
+# Seed before starting the server. The seeder logs one line and exits without
+# changing anything when the database already has threads.
+.symphony-cache/qaseed -db .symphony-cache/qa.db >> "$log" 2>&1
 
 # Remember where this run's log output starts, so an invite from an earlier
 # run is not used.
