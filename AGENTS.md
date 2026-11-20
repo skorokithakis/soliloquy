@@ -22,9 +22,17 @@ The seeder does nothing when the database already has threads.
 - Admin account: `admin` / `admin`.
 - Eight members: `packet`, `kernel`, `nullptr`, `tabs`, `segfault`,
   `rubberduck`, `coldstart`, `bytemare`. Their password is `password`.
-- Twelve threads from the last ten days, including a busy thread with 80
+- A ninth account, `ghost` (password `password`), is deleted after seeding, so
+  you cannot log in as it. Its one comment shows as `[deleted user]`.
+- Thirteen threads from the last ten days, including a busy thread with 80
   nested comments, long posts with a table of contents, and votes and
   reactions spread across the content.
+- The thread "Postmortem: the cache stampede that took down checkout" holds the
+  comment chain for testing the single-comment page and its parent context. Its
+  main chain is 16 levels deep and has long comments at depths 1, 2, 8 and 15.
+  At depth 12 it has one long comment with a small reply tree and one long
+  leaf. A deleted comment at depth 11 has live replies below it, and one
+  comment was written by the deleted `ghost` account.
 
 Delete `.symphony-cache/qa.db` (and its `-wal` and `-shm` files) to reseed with
 fresh relative dates.

@@ -63,7 +63,30 @@ func seed(ctx context.Context, database *db.DB, now time.Time) (bool, error) {
 	if err := s.createThreads(ctx); err != nil {
 		return false, err
 	}
+	if err := s.deleteAccounts(ctx); err != nil {
+		return false, err
+	}
 	return true, nil
+}
+
+// deleteAccounts deletes the accounts marked deleted after their content
+// exists. Threads, comments and votes stay behind, so the QA data includes a
+// comment whose author is shown as "[deleted user]".
+func (s *seeder) deleteAccounts(ctx context.Context) error {
+	for _, spec := range qaUsers {
+		if !spec.deleted {
+			continue
+		}
+		username := auth.NormalizeUsername(spec.username)
+		user, ok := s.users[username]
+		if !ok {
+			return fmt.Errorf("deleted user %q does not exist", username)
+		}
+		if err := s.db.DeleteAccount(ctx, user.ID, s.now); err != nil {
+			return fmt.Errorf("delete account %q: %w", username, err)
+		}
+	}
+	return nil
 }
 
 func (s *seeder) createUsers(ctx context.Context) error {

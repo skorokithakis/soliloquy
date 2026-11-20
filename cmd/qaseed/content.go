@@ -4,14 +4,20 @@ import "time"
 
 const day = 24 * time.Hour
 
+// deepThreadTitle names the thread whose comment chain exercises the
+// single-comment page and its parent chain. The seed tests refer to it.
+const deepThreadTitle = "Postmortem: the cache stampede that took down checkout"
+
 // userSpec describes one QA account. The admin is created without an inviter;
-// members form a short tree under it.
+// members form a short tree under it. deleted accounts are created like any
+// other, so their content can be seeded, and deleted at the end.
 type userSpec struct {
 	username  string
 	password  string
 	isAdmin   bool
 	invitedBy string
 	age       time.Duration
+	deleted   bool
 }
 
 // qaUsers lists the accounts in invite-tree order, so an inviter always exists
@@ -26,6 +32,9 @@ var qaUsers = []userSpec{
 	{username: "rubberduck", password: "password", invitedBy: "kernel", age: 33 * day},
 	{username: "coldstart", password: "password", invitedBy: "kernel", age: 32 * day},
 	{username: "bytemare", password: "password", invitedBy: "nullptr", age: 31 * day},
+	// ghost writes one comment in the deep thread, then deletes the account.
+	// The comment stays and renders as "[deleted user]".
+	{username: "ghost", password: "password", invitedBy: "packet", age: 30 * day, deleted: true},
 }
 
 // commentSpec is one seeded comment. parent is an index into the thread's
@@ -290,6 +299,15 @@ If you are building a table of contents, test this case. It is much easier to fi
 			},
 		},
 		{
+			author: "coldstart",
+			title:  deepThreadTitle,
+			age:    4*day + 2*time.Hour,
+			body: `Checkout returned errors for eleven minutes on Tuesday. The pricing cache entry expired at the same moment as a deploy, every checkout request missed, and the pricing database spent the next ten minutes answering the same query. Retries from the browser and from our gateway kept it there.
+
+We have the graph and we have opinions. What I want is the part that comes after "add jitter": how do you survive a cold cache, and where do you put the retry budget? Concrete setups are more useful than principles.`,
+			comments: deepComments(),
+		},
+		{
 			author: "rubberduck",
 			title:  "Show us your dotfiles",
 			age:    4*day + 6*time.Hour,
@@ -474,6 +492,225 @@ func busyComments() []commentSpec {
 
 	c79 := add("nullptr", -1, "At some point the answer is to delete the feature. A test that cannot be made reliable is often testing something nobody needs.")
 	add("tabs", c79, "The hard part is admitting that. We spent a month on a test for an admin screen that two people used.")
+
+	return comments
+}
+
+// deepComments builds the thread used to test the single-comment page and its
+// parent chain. Comments are added in chronological order, 45 minutes apart,
+// so a reply is always newer than its parent. The main chain reaches depth 16:
+// a top-level comment at depth 1, a long reply at depth 2, a long comment at
+// depth 8, and a long comment at depth 15. Two branches off the deleted comment
+// at depth 11 sit at depth 12: one is a long leaf, the other a long comment
+// with a small reply tree. The author of the comment at depth 10, ghost, loses
+// their account after seeding.
+func deepComments() []commentSpec {
+	comments := make([]commentSpec, 0, 21)
+	add := func(author string, parent int, body string) int {
+		age := 4*day - time.Duration(len(comments))*45*time.Minute
+		comments = append(comments, commentSpec{author: author, parent: parent, age: age, body: body})
+		return len(comments) - 1
+	}
+
+	c0 := add("packet", -1, `We hit this exact wall two winters ago, on a catalogue page rather than checkout. Jitter helped with the normal expiry case and did nothing for the cold start, because there is no expiry to spread out when the cache is empty.
+
+The distinction we ended up drawing was between a stale cache and a cold cache. A stale entry can be served while one request refreshes it. A cold cache has nothing to serve, so every request is a real miss unless you invent an answer.
+
+Our first useful change was to keep the last good response longer than its freshness window. The cache entry got two deadlines: `+"`fresh_until`"+` and `+"`serve_until`"+`. Between them, the first request to arrive took a short lock and refreshed, and everyone else got the old body with a warning header. After `+"`serve_until`"+` we served an error page rather than a broken price. That one change removed most of the pressure, because the herd only forms when the alternative is a timeout.
+
+The second change was admission control at the origin. We put a small token bucket in front of the expensive query, sized to what the database could actually sustain, not to traffic. Requests that did not get a token waited on the refresh that was already running instead of starting their own. The important detail is that the waiters shared one result: without that, we had replaced a stampede of queries with a stampede of connections holding a lock.
+
+The third change was to make retries boring:
+
+- Retry only idempotent reads, and only after a full response has failed.
+- Use a fixed short budget, not exponential backoff with no ceiling. Three attempts in 800ms is plenty for a page a person is waiting on.
+- Add jitter at the client, not only at the server. A hundred browsers that all start at the same second will still line up.
+- Treat the retry budget as a shared resource. If the origin is shedding, the client should stop, not try harder.
+
+The thing I would do differently is measure the cold path on purpose. We had load tests for the warm path and nothing for the state we actually shipped: an empty cache at 9am. Now we run one test per release that flushes the cache and measures the first hundred requests. It is ugly and it found two more problems in the first month.
+
+One caution about locks: a refresh lock is a single point of failure. Ours has a short TTL and the holder renews it; if the holder dies, the next request takes over. We also log every lock takeover. When the number of takeovers jumped, it turned out the refresh was slower than the lock TTL, which is its own outage waiting to happen.
+
+So my answer is not "add jitter". It is "decide what you will serve when you have nothing, and put a small, shared gate in front of the expensive thing". The cache is a latency optimisation; the gate is what keeps the database alive.`)
+
+	c1 := add("nullptr", c0, `We did the two-deadline trick as well, and it worked until we added a second layer of caching at the CDN. Then the origin lock stopped helping, because the CDN was holding a stale copy and the browser was holding another one. The herd moved to the edge, where we could not see it.
+
+What fixed that was making the freshness explicit in one place and letting every layer derive from it. The origin returns `+"`Cache-Control: max-age=30, stale-while-revalidate=120, stale-if-error=600`"+`, and the CDN honours the same numbers. We no longer have a CDN TTL that disagrees with the application TTL, which used to happen after every deploy.
+
+The table we use for deciding the numbers looks like this:
+
+| Path | Fresh | Stale-while-revalidate | Stale-if-error |
+| --- | --- | --- | --- |
+| Pricing | 30s | 120s | 600s |
+| Stock | 5s | 30s | 60s |
+| Recommendations | 5m | 1h | 1h |
+| Account menu | private, 0 | 0 | 0 |
+
+The account menu row is the useful one. Not everything should be cached, and pretending otherwise creates a different class of bug.
+
+On retries, we went further than a budget: we made the retry decision at the edge, in a small worker, rather than in the page. A browser retry is invisible to us and hard to bound. A worker retry is a line in a metric. The page now gets either a response or a cached error, and only the worker decides to try again. The first week of that change was noisy because the worker retried requests that had already been answered by a user hitting refresh. Idempotency keys fixed it, but only after we started storing them per request rather than per session.
+
+Something else worth saying: the database pool was not really full of work. It was full of waiting. We had a pool of forty connections and a query that took 300ms under load, so the throughput ceiling was about 130 queries a second, and we were sending 900. The pool was doing its job; the query was not. We spent a day on the query plan and got it to 40ms, which changed the arithmetic more than any of the caching work.
+
+> A cache stampede is usually a capacity problem wearing a caching costume.
+
+That is not an argument against caching. It is an argument for knowing which one you have. If the origin can serve the cold load, let it. If it cannot, the gate is not optional, and neither is the test that flushes the cache and measures what happens next.
+
+The other thing I would add is a kill switch for the cache. During the incident we wanted to bypass it to see whether the cached body was wrong, and we had no way to do that without a deploy. Now there is a query parameter that only works for admins on the internal network. It has been used twice, both times during an incident, and both times it shortened the conversation.`)
+
+	c2 := add("coldstart", c1, "The two deadlines are doing more work than the lock in my experience. We also made the refresh return the same promise to all waiters, so a burst of requests creates one query. The lock is only there to stop two refreshes, not to serialize readers.")
+	c3 := add("packet", c2, "That matches what we saw. The lock without single-flight just moves the queue from the database to the application. We ended up with a map keyed by cache key and a channel per entry, which is ten lines and a lot of tests.")
+	c4 := add("nullptr", c3, "Ten lines and a lot of tests is the correct ratio for this. The tests are all about the holder dying halfway through.")
+	c5 := add("coldstart", c4, "We test that by cancelling the refresh context and asserting the next caller takes over. It is the only way I trust the timeout.")
+	c6 := add("packet", c5, "Cancelling the context is a good trick. We use a fake clock for the TTL and a real context for the cancellation, which keeps the two failure modes separate.")
+
+	c7 := add("nullptr", c6, `Here is the smallest version of the single-flight code we ended up with. It is deliberately boring, and it returns the same error to every waiter rather than pretending each caller has its own problem.
+
+~~~go
+type flight struct {
+    done chan struct{}
+    body []byte
+    err  error
+}
+
+func (c *cache) get(ctx context.Context, key string) ([]byte, error) {
+    c.mu.Lock()
+    if f, ok := c.inflight[key]; ok {
+        c.mu.Unlock()
+        select {
+        case <-f.done:
+            return f.body, f.err
+        case <-ctx.Done():
+            return nil, ctx.Err()
+        }
+    }
+    f := &flight{done: make(chan struct{})}
+    c.inflight[key] = f
+    c.mu.Unlock()
+
+    f.body, f.err = c.fetch(ctx, key)
+    close(f.done)
+    c.mu.Lock()
+    delete(c.inflight, key)
+    c.mu.Unlock()
+    return f.body, f.err
+}
+~~~
+
+The parts that are not obvious:
+
+- The fetch uses the first caller's context. If that caller disconnects, everyone waiting gets an error. We accepted that for reads, because a cancelled read is cheap to repeat, but it is a real tradeoff.
+- The map entry is deleted after the close, not before. Otherwise a new caller can start a second fetch while the waiters are still reading the first result.
+- The waiters do not hold the mutex while waiting. That sounds obvious until you see a version that does.
+- We do not cache errors in the single-flight map. The flight is only for concurrent callers; the next call starts a new one.
+
+We also put a maximum number of waiters on each flight. Beyond that, callers get a fast 503 and the retry budget at the edge decides what to do. Without the cap, a slow origin turns the waiting goroutines into the outage: memory grows, the scheduler gets busy, and the thing that was supposed to protect the database becomes the thing that falls over.
+
+Two details cost us a bug each. The flight must use the remaining TTL of the entry, not the configured one, or a refresh can loop forever. And the flight key must include the tenant when the cache is shared, or one tenant's slow query blocks another tenant's fast one.
+
+The test I would write first is not the happy path. It is: start two callers, cancel the first, and assert that the second gets either the result or a clean context error, not a deadlock. The second test is a slow fetch with ten thousand waiters and a cap of a hundred. If that test allocates without bound, the cap is not connected to anything.
+
+One more thing: instrument the number of inflight fetches and the number of waiters. When those two numbers diverge, you have a slow query. When they are both high, you have a hot key. Those are different bugs and they need different fixes.`)
+
+	c8 := add("coldstart", c7, "The context tradeoff is the one I always get wrong. We switched to a background context with a deadline for the fetch, so one disconnecting browser does not poison the result for everyone else.")
+	c9 := add("ghost", c8, "A background context with a deadline is also easier to test, because the deadline is a value you can control rather than whatever the client happened to send.")
+
+	c10 := add("segfault", c9, "We fixed this by turning off retries entirely during the incident and letting the error page handle it. I do not think the cache should retry at all; that belongs to the client, where you can actually see it.")
+	comments[c10].deleted = true
+
+	c11 := add("coldstart", c10, "Turning them off is the right default, but only if the error page is honest about it. Ours used to say something went wrong, so people pressed refresh, which is a retry with extra steps.")
+	c12 := add("packet", c11, "The button is the part everyone forgets to count. We added a fifteen second cooldown to ours and the load during an incident dropped noticeably.")
+	c13 := add("coldstart", c12, "Did the cooldown annoy anyone? We were worried about people who genuinely need to retry after fixing a typo.")
+
+	c14 := add("packet", c13, `The cooldown is fine if it is short and the message explains it. Ours is ten seconds, and the page says "you can try again in a moment" instead of disabling the button silently. We also exempt one retry when the form has changed since the error, because that is usually someone fixing a typo.
+
+The cookie fallback is where ours fell apart, for a reason worth writing down. A cookie is sent on every request to the origin, so a global budget stored in one is both visible to the server and impossible to update atomically. Two tabs read the same value, both decide they have budget, and both spend it.
+
+We replaced it with two numbers in a single cookie: a window start and a count. Each tab increments before it fires and re-reads after. That is not atomic either, but it fails in the safe direction: the count can be too high, never too low. We would rather drop a retry than add one.
+
+~~~go
+// spend reports whether the tab may retry, and records the attempt.
+func spend(c *http.Cookie, now time.Time, limit int) bool {
+    window, count := decode(c.Value)
+    if now.Sub(window) > time.Minute {
+        window, count = now, 0
+    }
+    if count >= limit {
+        return false
+    }
+    c.Value = encode(window, count+1)
+    return true
+}
+~~~
+
+There is a race between the read and the write, and we accepted it. The consequence of losing the race is one extra retry, which is cheaper than a lock in a cookie. If the consequence were a duplicate payment, we would have done it on the server.
+
+The other half of the problem is telling the user what happened. An error page that says "try again" invites the refresh loop. Ours now says "we are busy, this usually clears in under a minute", shows the request id, and disables the button for fifteen seconds. Support tickets dropped after that change, not because the outage was shorter but because the page stopped sounding broken.
+
+A few things we check before calling a retry policy done:
+
+- Kill the origin for five minutes in staging. The page must fail in under two seconds and must not keep retrying.
+- Double the client count. The number of requests reaching the origin must stay flat.
+- Block the retry endpoint. The user must still see a readable page.
+- Set the system clock forward by an hour. The budget must reset once, not lock the user out.
+
+The last one is not hypothetical. A laptop waking from sleep had a clock jump, and our window arithmetic treated the cookie as eternally spent. The user could not retry until they cleared cookies, and of course they did not know that.
+
+None of this is as satisfying as a clever algorithm. It is mostly deciding what failure looks like and making sure the page can show it. That is also why I like the 503 plus `+"`Retry-After`"+` approach: it gives every layer a shared vocabulary for "not now".`)
+
+	add("nullptr", c14, "The clock jump is a great catch. We now store an absolute timestamp and treat anything more than an hour in the future as invalid.")
+
+	cA := add("coldstart", c10, `I agree with the direction, but "let the client decide" hides a problem: the browser cannot tell the difference between an origin that is shedding load and one key that is slow. It sees a timeout and retries, and if every tab does that you have recreated the stampede one layer out.
+
+The split that worked for us was to separate the retry decision from the retry execution:
+
+- The page does not retry. It renders an error with a request id.
+- A service worker queues one retry after a jittered delay if the response was a 503 with `+"`Retry-After`"+`.
+- The worker has a per-tab budget and a global budget stored in the cache API.
+- If the origin says `+"`Retry-After: 30`"+`, the worker does not retry sooner, even if the user presses the button.
+
+That last one is the part people skip. A user pressing refresh is a retry. If your budget does not include the human, it is not a budget.
+
+We also stopped returning 500 for shed load. A 503 with a short `+"`Retry-After`"+` is a message the whole chain can act on. Our CDN can serve stale on 503, the worker knows what to do, and the graph separates "we said no" from "we broke". Before that, every shed request looked like a bug and the on-call engineer spent twenty minutes looking for one.
+
+There is a case for retrying inside the cache layer, though, and it is not the one in the comment above. If the cache can serve a stale body while it refreshes in the background, the refresh can retry as much as it likes without any user waiting. That is a background job with a deadline, not a request path. We run it with a two-minute budget and a circuit breaker per upstream. The breaker opens after five consecutive failures and stays open for thirty seconds. When it is open, the cache serves stale until the serve deadline and then fails closed. That is a deliberate choice: a wrong price is worse than no price.
+
+The thing I would not do is a retry loop with exponential backoff inside the request handler. It holds a connection, it hides the failure from the latency graph, and it makes the timeout budget impossible to reason about. We had one of those for a year. It looked like the p99 was fine because the retried requests were recorded under a different route.
+
+If you want a rule of thumb: retries belong where the work can be abandoned without anyone noticing. For a page, that is almost never the request handler.
+
+The one exception is idempotent reads with a tiny, fixed retry count and a shared budget. Three attempts in under a second, all inside the same deadline. Anything more elaborate belongs in a queue.
+
+> If a retry cannot be abandoned, it is not a retry. It is a second request with extra steps.
+
+We learned that the hard way during the incident that started this thread.`)
+
+	cA1 := add("packet", cA, "The 503 split is the change I would push for first. We used to return 500 for everything and the dashboards were useless: we could not tell load shedding from a real bug until someone read the logs.")
+	add("nullptr", cA, "How do you store the global budget? localStorage is per origin but not shared across tabs in every browser, and the cache API is not available everywhere we still support.")
+	add("coldstart", cA1, "We put a small counter in the service worker and fall back to the cookie when the worker is not available. The cookie path is rarer than the support matrix suggests.")
+
+	add("nullptr", c10, `There is a second failure mode hiding in this thread: the hot key that never expires and the cold key that expires too often look the same in the cache metrics, and they need opposite fixes.
+
+For a hot key, the problem is throughput. One key is requested thousands of times a second and every miss is expensive. For a cold key, the problem is that the first request after a deploy is always a miss. Our dashboards used to report one "miss rate" and we spent a week tuning the wrong one.
+
+The split we use now:
+
+| Signal | Hot key | Cold key |
+| --- | --- | --- |
+| Misses per key | high, concentrated | low, spread out |
+| Origin latency | high for one query | normal |
+| Cache age at miss | near zero | zero or missing |
+| Fix | single-flight and a longer soft TTL | warm the cache before traffic |
+
+For the cold key we added a pre-warm step to the deploy. It reads the twenty most expensive keys in the background and writes them to the cache before the load balancer sends real traffic. It is not clever and it does not cover every key, but it removed the nine o'clock spike on the pricing page.
+
+For the hot key, the fix is the opposite of a cache change. If one key is that popular, it should be a materialised value, refreshed on a schedule, not a cache entry that a request happens to fill. We moved pricing to a small table that is written every ten seconds by one worker. Reads are a single indexed lookup with no cache at all. The cache is now the table, and its failure mode is a stale value, not a stampede.
+
+That is not always possible. When it is not, the next best thing is a per-key lock with a short TTL and a documented takeover behaviour. What is not acceptable is a lock with no TTL, because the first process to die while holding it turns a slow page into an outage that needs a restart to clear.
+
+We also started recording the key in the slow-query log. It is a small change and it made the investigation in this thread possible: without it we could see that the database was busy but not that it was busy with the same five keys.
+
+The uncomfortable part is that both fixes are capacity work. Caching bought us time to do it, and we spent some of that time adding more caching. I would not recommend that trade.`)
 
 	return comments
 }
