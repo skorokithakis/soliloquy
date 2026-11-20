@@ -1200,6 +1200,15 @@ func TestEventsStreamSendsInitialBadgeAndNewComments(t *testing.T) {
 	if payload.CommentID != comment.PublicID || !strings.Contains(payload.HTML, "streamed") {
 		t.Errorf("comment event = %+v", payload)
 	}
+	// The author's other open tabs need the username to tell their own comment
+	// apart from another member's, and broadcast tells them the rendering is
+	// shared, so its vote and react control need fixing up.
+	if payload.Author != alice.Username {
+		t.Errorf("comment event author = %q, want %q", payload.Author, alice.Username)
+	}
+	if !payload.Broadcast {
+		t.Error("live comment event is not marked as a broadcast")
+	}
 }
 
 func TestEventsStreamReplaysMissedThreadChanges(t *testing.T) {
@@ -1309,6 +1318,14 @@ func TestEventsStreamReplaysMissedThreadChanges(t *testing.T) {
 	}
 	if parent.CommentID != created.PublicID || parent.ParentID != nil {
 		t.Errorf("replayed comment = %+v", parent)
+	}
+	if parent.Author != alice.Username {
+		t.Errorf("replayed comment author = %q, want %q", parent.Author, alice.Username)
+	}
+	// A replay is rendered for this viewer, so it must not be fixed up as if
+	// it were the shared broadcast.
+	if parent.Broadcast {
+		t.Error("replayed comment event is marked as a broadcast")
 	}
 	if !strings.Contains(parent.HTML, "<strong>comment</strong>") {
 		t.Errorf("replayed comment HTML = %q, want rendered body", parent.HTML)

@@ -31,15 +31,15 @@ func TestThreadPageMarksCommentsNewSinceLastVisit(t *testing.T) {
 		t.Fatalf("delete comment: %v", err)
 	}
 
-	// Bob has never opened the thread, so his cutoff is his unread_since at
-	// signup: alice's comments are new, his own and the deleted one are not.
+	// Bob's first visit has no earlier visit to compare with, so no comment
+	// is new, not even alice's.
 	openedAt := base.Add(10 * time.Minute)
 	server.now = func() time.Time { return openedAt }
 	body := doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
 
-	assertNewComment(t, body, fromAlice.PublicID, true)
-	assertNewComment(t, body, fromBob.PublicID, false)
-	assertNewComment(t, body, deleted.PublicID, false)
+	for _, comment := range []*db.Comment{fromAlice, fromBob, deleted} {
+		assertNewComment(t, body, comment.PublicID, false)
+	}
 
 	// Opening the page stores the visit as the thread's read time.
 	var lastReadAt int64
@@ -52,13 +52,17 @@ func TestThreadPageMarksCommentsNewSinceLastVisit(t *testing.T) {
 		t.Errorf("last_read_at = %d, want the visit time %d", lastReadAt, openedAt.Unix())
 	}
 
-	// The next visit has nothing new: the earlier visit moved the cutoff past
-	// every comment.
-	server.now = func() time.Time { return openedAt.Add(time.Minute) }
+	// The next visit marks only comments from other members that arrived
+	// after the first visit. Earlier comments and bob's own are not new.
+	newFromAlice := createCommentDirect(t, server, thread, alice, nil, "after the visit", openedAt.Add(time.Minute))
+	newFromBob := createCommentDirect(t, server, thread, bob, nil, "own after the visit", openedAt.Add(2*time.Minute))
+	server.now = func() time.Time { return openedAt.Add(3 * time.Minute) }
 	body = doRequest(t, server, http.MethodGet, threadPath(thread.PublicID), nil, cookie, "").Body.String()
-	for _, comment := range []*db.Comment{fromAlice, fromBob} {
+
+	for _, comment := range []*db.Comment{fromAlice, fromBob, deleted, newFromBob} {
 		assertNewComment(t, body, comment.PublicID, false)
 	}
+	assertNewComment(t, body, newFromAlice.PublicID, true)
 }
 
 func TestInvalidCommentDoesNotMarkThreadRead(t *testing.T) {

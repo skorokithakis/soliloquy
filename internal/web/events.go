@@ -35,6 +35,12 @@ type commentEvent struct {
 	ParentID         *string `json:"parent_id"`
 	HTML             string  `json:"html"`
 	CommentCountText string  `json:"comment_count_text"`
+	// Author lets the author's other open tabs drop the new marker and the
+	// controls they cannot use on their own comment.
+	Author string `json:"author"`
+	// Broadcast marks the one rendering sent to every viewer. A replay is
+	// rendered for its viewer, so its vote and reactions are already right.
+	Broadcast bool `json:"broadcast"`
 }
 
 // commentEditEvent replaces a comment's body. The markup comes from the
@@ -492,19 +498,19 @@ func (s *Server) publishNewComment(ctx context.Context, threadID int64, comment 
 
 // commentPayload renders a comment for a stream. A nil viewer is the live
 // broadcast, where one rendering goes to everyone; a real viewer is a replay,
-// where that viewer's vote and controls must match their page.
+// where that viewer's vote and controls must match their page. Broadcast marks
+// the former, so the author's other open tabs can fix up that rendering.
 func (s *Server) commentPayload(thread *db.Thread, comment *db.Comment, viewer *db.User) (commentEvent, error) {
 	// The stream marks no comment as new; app.js adds the marker on the
-	// viewer's page instead.
+	// viewer's page instead, and skips it for the comment's author.
 	view := commentViewFor(&db.CommentNode{Comment: *comment}, viewer, thread.AuthorID, s.now(), time.Time{})
 	// Only logged-in users have a live stream, so they also get the reply link.
 	view.LoggedIn = true
 	if viewer == nil {
 		// A new comment has only its author's vote, so the vote and reaction
 		// controls are the same for every viewer. The author's other open tabs
-		// get them too: their vote is the one row, which they can remove, and
-		// the server rejects their reaction. The arrow may show as unvoted in
-		// those tabs until a reload, which is a known accepted limit.
+		// get them too, but use the author and broadcast fields to show the
+		// arrow as voted and drop the react control they cannot use.
 		view.CanVote = true
 		view.CanReact = true
 	}
@@ -520,5 +526,7 @@ func (s *Server) commentPayload(thread *db.Thread, comment *db.Comment, viewer *
 		ParentID:         comment.ParentPublicID,
 		HTML:             string(html),
 		CommentCountText: commentsText(thread.CommentCount),
+		Author:           comment.AuthorUsername,
+		Broadcast:        viewer == nil,
 	}, nil
 }

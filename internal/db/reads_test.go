@@ -20,14 +20,15 @@ func TestMarkThreadReadReturnsPreviousCutoff(t *testing.T) {
 		t.Fatalf("CreateThread: %v", err)
 	}
 
-	// The first read starts from the account's unread_since, so content from
-	// before the account existed does not count as new.
-	cutoff, err := database.MarkThreadRead(ctx, alice.ID, thread.ID, base.Add(2*time.Minute))
+	// The first visit has no earlier read to compare with, so its cutoff is
+	// the visit time itself and nothing that already existed counts as new.
+	firstVisit := base.Add(2 * time.Minute)
+	cutoff, err := database.MarkThreadRead(ctx, alice.ID, thread.ID, firstVisit)
 	if err != nil {
 		t.Fatalf("MarkThreadRead first: %v", err)
 	}
-	if !cutoff.Equal(base) {
-		t.Errorf("first cutoff = %v, want unread_since %v", cutoff, base)
+	if !cutoff.Equal(firstVisit) {
+		t.Errorf("first cutoff = %v, want the visit time %v", cutoff, firstVisit)
 	}
 
 	var lastReadAt int64
@@ -36,18 +37,17 @@ func TestMarkThreadReadReturnsPreviousCutoff(t *testing.T) {
 		alice.ID, thread.ID).Scan(&lastReadAt); err != nil {
 		t.Fatalf("read thread_reads row: %v", err)
 	}
-	if lastReadAt != base.Add(2*time.Minute).Unix() {
-		t.Errorf("last_read_at = %d, want %d", lastReadAt, base.Add(2*time.Minute).Unix())
+	if lastReadAt != firstVisit.Unix() {
+		t.Errorf("last_read_at = %d, want %d", lastReadAt, firstVisit.Unix())
 	}
 
-	// Later reads start from the previous read, which is now later than
-	// unread_since.
+	// Later reads start from the previous visit.
 	cutoff, err = database.MarkThreadRead(ctx, alice.ID, thread.ID, base.Add(3*time.Minute))
 	if err != nil {
 		t.Fatalf("MarkThreadRead second: %v", err)
 	}
-	if !cutoff.Equal(base.Add(2 * time.Minute)) {
-		t.Errorf("second cutoff = %v, want the previous read %v", cutoff, base.Add(2*time.Minute))
+	if !cutoff.Equal(firstVisit) {
+		t.Errorf("second cutoff = %v, want the previous read %v", cutoff, firstVisit)
 	}
 
 	if err := database.QueryRowContext(ctx, `
@@ -98,25 +98,27 @@ func TestListThreadsReportsReadStateForViewer(t *testing.T) {
 	}
 
 	// A thread created before the member's unread_since counts as read, and
-	// the new thread is unopened until the member reads it. Only bob's live
-	// comment counts as new; alice's own and the deleted one do not.
+	// the new thread is unopened until the member reads it. Neither reports
+	// new comments: the unopened thread has no previous visit to count from,
+	// and the old thread predates the member's account.
 	threads := listThreadsByID(t, database, alice.ID)
 	assertReadState(t, threads[oldThread.ID], 0, false)
-	assertReadState(t, threads[newThread.ID], 1, true)
+	assertReadState(t, threads[newThread.ID], 0, true)
 
 	// A visitor gets no read state at all.
 	visitorThreads := listThreadsByID(t, database, 0)
 	assertReadState(t, visitorThreads[oldThread.ID], 0, false)
 	assertReadState(t, visitorThreads[newThread.ID], 0, false)
 
-	// Reading the thread clears its unopened marker and counts every earlier
-	// comment as read.
-	cutoff, err := database.MarkThreadRead(ctx, alice.ID, newThread.ID, base.Add(6*time.Hour))
+	// Reading the thread clears its unopened marker. The first visit's cutoff
+	// is the visit time, so no earlier comment counts as new.
+	visit := base.Add(6 * time.Hour)
+	cutoff, err := database.MarkThreadRead(ctx, alice.ID, newThread.ID, visit)
 	if err != nil {
 		t.Fatalf("MarkThreadRead: %v", err)
 	}
-	if !cutoff.Equal(base) {
-		t.Errorf("cutoff = %v, want unread_since %v", cutoff, base)
+	if !cutoff.Equal(visit) {
+		t.Errorf("cutoff = %v, want the visit time %v", cutoff, visit)
 	}
 	threads = listThreadsByID(t, database, alice.ID)
 	assertReadState(t, threads[newThread.ID], 0, false)

@@ -580,9 +580,10 @@ func TestFrontPageShowsReadState(t *testing.T) {
 	}
 	createCommentDirect(t, server, opened, alice, nil, "after the visit", base.Add(7*time.Minute))
 
-	// The unopened thread has a dot and the two comments by alice are new; the
-	// viewer's own comment does not count. The opened thread has no dot but
-	// still reports the comment that arrived after the visit.
+	// The unopened thread has a dot but no new-comment count: bob has never
+	// visited it, so there is no previous visit to count from. The opened
+	// thread has no dot but still reports the comment that arrived after the
+	// visit.
 	server.now = func() time.Time { return base.Add(10 * time.Minute) }
 	body := doRequest(t, server, http.MethodGet, "/", nil, cookie, "").Body.String()
 
@@ -590,11 +591,13 @@ func TestFrontPageShowsReadState(t *testing.T) {
 	for _, want := range []string{
 		`<span class="dot unread-dot" aria-label="unread"></span>`,
 		"3 comments",
-		`<span class="new-count">2 new</span>`,
 	} {
 		if !strings.Contains(unreadRow, want) {
 			t.Errorf("unread thread row does not contain %q", want)
 		}
+	}
+	if strings.Contains(unreadRow, "new-count") {
+		t.Error("never-opened thread row shows a new-comment count")
 	}
 
 	openedRow := frontPageRow(t, body, "Opened thread")

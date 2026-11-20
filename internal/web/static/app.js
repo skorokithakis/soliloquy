@@ -52,10 +52,7 @@ document.addEventListener("submit", async (event) => {
 
 		const button = form.querySelector("button");
 		if (button) {
-			button.classList.toggle("on", Boolean(data.voted));
-			button.dataset.voted = data.voted ? "true" : "false";
-			button.setAttribute("aria-pressed", data.voted ? "true" : "false");
-			button.setAttribute("aria-label", data.voted ? "Remove upvote" : "Upvote");
+			setVoteButton(button, Boolean(data.voted));
 		}
 	} catch (error) {
 		window.location.reload();
@@ -186,6 +183,16 @@ function commentChild(comment, className) {
 	return Array.from(comment.children).find((child) => child.classList.contains(className)) || null;
 }
 
+// setVoteButton puts a vote button in the voted or unvoted state. The live
+// comment handler shares it, because a comment arrives with its author's vote
+// already in place.
+function setVoteButton(button, voted) {
+	button.classList.toggle("on", voted);
+	button.dataset.voted = voted ? "true" : "false";
+	button.setAttribute("aria-pressed", voted ? "true" : "false");
+	button.setAttribute("aria-label", voted ? "Remove upvote" : "Upvote");
+}
+
 // applyCommentVote updates a comment's arrow, score and chips after a vote or
 // a reaction response.
 function applyCommentVote(comment, data) {
@@ -199,10 +206,7 @@ function applyCommentVote(comment, data) {
 
 		const button = header.querySelector(".vote-form button");
 		if (button) {
-			button.classList.toggle("on", Boolean(data.voted));
-			button.dataset.voted = data.voted ? "true" : "false";
-			button.setAttribute("aria-pressed", data.voted ? "true" : "false");
-			button.setAttribute("aria-label", data.voted ? "Remove upvote" : "Upvote");
+			setVoteButton(button, Boolean(data.voted));
 		}
 	}
 
@@ -2146,17 +2150,47 @@ if (eventsURL && "EventSource" in window) {
 
 		const inserted = document.getElementById("c" + data.comment_id);
 		if (inserted) {
+			// A broadcast is one rendering for every viewer, so the author's
+			// other tabs fix it up to match a page load. A replay is rendered for
+			// this viewer and already has the right vote and controls. Neither
+			// marks the author's own comment as new.
+			const own = Boolean(data.author) && data.author === document.body.dataset.user;
 			// A replayed comment may already be deleted and has no new marker.
 			const body = Array.from(inserted.children).find((child) => child.classList.contains("cb"));
 			if (!body || !body.classList.contains("gone")) {
-				inserted.classList.add("new");
 				const header = Array.from(inserted.children).find((child) => child.classList.contains("ch"));
-				const toggle = header && header.querySelector(".tog");
-				if (header) {
-					const tag = document.createElement("span");
-					tag.className = "tag";
-					tag.textContent = "new";
-					header.insertBefore(tag, toggle);
+				if (own) {
+					if (data.broadcast) {
+						const button = header && header.querySelector(".vote-form button");
+						if (button) {
+							setVoteButton(button, true);
+						}
+
+						const actions = Array.from(inserted.children).find((child) => child.classList.contains("ca"));
+						if (actions) {
+							const react = actions.querySelector("details.react");
+							if (react) {
+								react.remove();
+							}
+							// A new comment has no reactions, so any chips are a
+							// stray broadcast rendering of controls the author
+							// cannot use. Their own comments show plain chips on a
+							// page load.
+							const chips = actions.querySelector(".rx");
+							if (chips) {
+								chips.remove();
+							}
+						}
+					}
+				} else {
+					inserted.classList.add("new");
+					const toggle = header && header.querySelector(".tog");
+					if (header) {
+						const tag = document.createElement("span");
+						tag.className = "tag";
+						tag.textContent = "new";
+						header.insertBefore(tag, toggle);
+					}
 				}
 			}
 			enhanceComments(inserted);
