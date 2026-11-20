@@ -1568,11 +1568,27 @@ a.btn.pri:hover {
 
 /* Single-comment page ----------------------------------------------- */
 
-.tl {
+/* The thread line sits in a bar that stays at the top of the screen, so the
+   reader never loses the way back to the thread. */
+.comment-page .tbar {
+	position: sticky;
+	top: 0;
+	z-index: 4;
 	display: flex;
 	align-items: center;
+	gap: 16px;
+	min-height: 36px;
+	background: var(--bg);
+	border-bottom: 1px solid var(--line2);
+	color: var(--muted);
+}
+
+.tl {
+	display: flex;
+	flex: 1;
+	align-items: center;
 	gap: 6px;
-	max-width: 100%;
+	min-width: 0;
 	min-height: 24px;
 	color: var(--muted);
 	font: 12px var(--font-mono);
@@ -1585,79 +1601,59 @@ a.btn.pri:hover {
 	white-space: nowrap;
 }
 
-/* Context area above the focused comment. Every selector is scoped to the
-   page so the design's short class names do not reach the rest of the app. */
-.comment-page .ctx {
-	margin-top: 6px;
-	color: var(--muted);
+/* The link to the top of the context area. A top-level comment has no context
+   area, so it has no link. */
+.comment-page .up {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+	border-radius: 3px;
 	font: 12px var(--font-mono);
 }
 
-.comment-page .ctx summary.fold {
+/* Context area above the focused comment. Every selector is scoped to the
+   page so the design's short class names do not reach the rest of the app. */
+.comment-page .ctx {
+	color: var(--muted);
+	font: 12px var(--font-mono);
+	scroll-margin-top: 36px;
+}
+
+/* Scroll margins keep the jump target clear of the sticky bar. The thread page
+   keeps its own values; .focus comes last so the focused comment lands at the
+   bar's edge rather than at the 48px gap the replies use. */
+.comment-page .c {
+	scroll-margin-top: 48px;
+}
+
+.comment-page .focus {
+	scroll-margin-top: 44px;
+}
+
+/* The divider between two parents, and between the last parent and the
+   focused comment. */
+.comment-page .irt {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	width: 100%;
-	min-height: 28px;
-	padding: 0;
-	border: 0;
-	background: none;
+	gap: 12px;
+	margin: 6px 0;
 	color: var(--muted);
-	font: inherit;
-	text-align: left;
-	list-style: none;
-	cursor: pointer;
+	font: 500 11px var(--font-mono);
+	letter-spacing: 0.06em;
 }
 
-.comment-page .ctx summary.fold::-webkit-details-marker {
-	display: none;
-}
-
-.comment-page .ctx .fold .tg {
-	margin-left: -4px;
-	padding: 2px 4px;
-	border-radius: 3px;
-	color: var(--ink);
-	font-weight: 600;
-}
-
-.comment-page .ctx .fold b {
-	color: var(--ink);
-	font-weight: 600;
-}
-
-.comment-page .ctx .fold:hover .tg {
-	background: var(--soft);
-	color: var(--accent);
-}
-
-.comment-page .ctx .fold:hover b {
-	color: var(--accent);
-}
-
-.comment-page .ctx .fold:focus-visible {
-	outline: 2px solid var(--accent);
-	outline-offset: 2px;
-}
-
-.comment-page .ctx .fold .open {
-	display: none;
-}
-
-.comment-page .ctx-fold[open] .fold .open {
-	display: inline;
-}
-
-.comment-page .ctx-fold[open] .fold .closed {
-	display: none;
-}
-
-.comment-page .ctx-fold[open] .fold-meta {
-	display: none;
+.comment-page .irt::before,
+.comment-page .irt::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--line);
 }
 
 .comment-page .ctx .p {
-	border-top: 1px solid var(--line2);
+	padding: 4px 0 8px;
 }
 
 .comment-page .ctx .pl {
@@ -1668,53 +1664,15 @@ a.btn.pri:hover {
 }
 
 .comment-page .ctx .who {
-	flex: none;
-	width: 124px;
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	overflow: hidden;
 	white-space: nowrap;
-}
-
-.comment-page .ctx .p .ts {
-	flex: none;
-	width: 30px;
-}
-
-.comment-page .ctx .ex {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	color: var(--muted);
-	font: 13.5px/20px var(--font-sans);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.comment-page .ctx .p.last .pl {
-	flex-wrap: wrap;
-}
-
-.comment-page .ctx .p.last .ex {
-	display: -webkit-box;
-	flex: none;
-	width: 100%;
-	margin: 0 0 8px;
-	overflow: hidden;
-	white-space: normal;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-}
-
-.comment-page .ctx .p.open .ex {
-	display: none;
 }
 
 /* The expanded parent uses the normal sans body font, not the design export's
    inherited mono font. */
 .comment-page .ctx .pb {
-	margin: 0 0 10px;
 	color: var(--ink);
 	font: 14.5px/1.55 var(--font-sans);
 }
@@ -1725,11 +1683,15 @@ a.btn.pri:hover {
 
 /* The focused comment sits at the top of the page at full column width. */
 .focus {
-	margin-top: 6px;
-	padding: 8px 16px 12px;
-	border: 1px solid var(--line);
-	border-radius: 6px;
+	margin-top: 10px;
+	padding: 10px 16px 14px;
+	border-top: 2px solid var(--accent);
+	border-bottom: 1px solid var(--line);
 	background: var(--card);
+}
+
+.focus > .ch {
+	font-size: 13px;
 }
 
 .focus > .cb,
@@ -3456,42 +3418,24 @@ a.btn.pri:hover {
 		min-height: 32px;
 	}
 
+	.comment-page .up {
+		min-height: 32px;
+	}
+
 	.ts {
 		min-height: 32px;
 		padding: 0 4px;
 		margin: 0 -4px;
 	}
 
-	.comment-page .ctx .fold {
-		min-height: 36px;
-	}
-
 	.comment-page .ctx .pl {
-		flex-wrap: wrap;
-		gap: 6px;
 		min-height: 32px;
-	}
-
-	.comment-page .ctx .who {
-		width: auto;
-	}
-
-	.comment-page .ctx .p .ts {
-		width: auto;
-	}
-
-	.comment-page .ctx .ex {
-		flex: none;
-		width: 100%;
-		margin: -2px 0 8px;
 	}
 
 	/* The card goes edge to edge on phones. */
 	.focus {
 		margin: 6px -16px 0;
-		padding: 4px 16px 8px;
-		border-width: 1px 0;
-		border-radius: 0;
+		padding: 6px 16px 8px;
 	}
 
 	.focus > .cb {

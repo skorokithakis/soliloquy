@@ -98,16 +98,15 @@ type commentView struct {
 
 type commentPageData struct {
 	PageData
-	Thread         threadView
-	EarlierParents []parentCommentView
-	LastParent     parentCommentView
-	HasParents     bool
-	Fold           bool
-	FoldText       string
-	FoldMeta       string
-	Focused        commentView
-	Replies        []commentView
-	ReplyText      string
+	Thread threadView
+	// Parents is the focused comment's whole ancestor chain, oldest first.
+	Parents []parentCommentView
+	// ParentText is the thread bar's link label, such as "12 earlier
+	// comments".
+	ParentText string
+	Focused    commentView
+	Replies    []commentView
+	ReplyText  string
 }
 
 // parentCommentView is one read-only comment in the context area. It has no
@@ -122,9 +121,7 @@ type parentCommentView struct {
 	IsOP           bool
 	CreatedAt      string
 	CreatedAtTitle string
-	Excerpt        string
 	Body           template.HTML
-	Last           bool
 	LoggedIn       bool
 }
 
@@ -268,7 +265,7 @@ func parentChain(comments []db.Comment, focused *db.Comment) []db.Comment {
 	return chain
 }
 
-func parentCommentViewFor(comment db.Comment, viewer *db.User, threadAuthorID int64, now time.Time, last bool) parentCommentView {
+func parentCommentViewFor(comment db.Comment, viewer *db.User, threadAuthorID int64, now time.Time) parentCommentView {
 	view := parentCommentView{
 		PublicID:       comment.PublicID,
 		Author:         comment.AuthorName(),
@@ -278,25 +275,13 @@ func parentCommentViewFor(comment db.Comment, viewer *db.User, threadAuthorID in
 		IsOP:           comment.AuthorID == threadAuthorID,
 		CreatedAt:      relativeTime(comment.CreatedAt, now),
 		CreatedAtTitle: comment.CreatedAt.UTC().Format("2006-01-02 15:04") + " UTC",
-		Last:           last,
 		LoggedIn:       viewer != nil,
 	}
 	if !view.Deleted {
-		// The excerpt is plain text; CSS cuts it to one line, or three for the
-		// direct parent. The full body is kept for the JavaScript expander.
-		view.Excerpt = plainText(comment.BodyHTML)
+		// The context area shows every parent's full text.
 		view.Body = template.HTML(comment.BodyHTML)
 	}
 	return view
-}
-
-// parentAuthorText is the name a parent row shows, also used in the fold's
-// "started by" text.
-func parentAuthorText(comment db.Comment) string {
-	if comment.DeletedAt != nil {
-		return "[deleted]"
-	}
-	return comment.AuthorName()
 }
 
 func (s *Server) handleCommentPage(w http.ResponseWriter, r *http.Request) {
@@ -373,22 +358,12 @@ func (s *Server) handleCommentPage(w http.ResponseWriter, r *http.Request) {
 	// The parent chain comes from the comments this page already loaded. Each
 	// ancestor has the focused comment as a visible descendant, so it is also
 	// present in the rendered tree.
-	chain := parentChain(comments, &node.Comment)
-	parents := make([]parentCommentView, len(chain))
-	for i, parent := range chain {
-		parents[i] = parentCommentViewFor(parent, user, thread.AuthorID, now, i == len(chain)-1)
+	parents := parentChain(comments, &node.Comment)
+	data.Parents = make([]parentCommentView, len(parents))
+	for i, parent := range parents {
+		data.Parents[i] = parentCommentViewFor(parent, user, thread.AuthorID, now)
 	}
-	if len(parents) > 0 {
-		data.HasParents = true
-		data.LastParent = parents[len(parents)-1]
-		data.EarlierParents = parents[:len(parents)-1]
-		// More than three parents: fold every row but the direct parent.
-		if len(parents) > 3 {
-			data.Fold = true
-			data.FoldText = fmt.Sprintf("%d earlier comments", len(parents)-1)
-			data.FoldMeta = parentAuthorText(chain[0]) + ", " + relativeTime(chain[0].CreatedAt, now)
-		}
-	}
+	data.ParentText = parentsText(len(parents))
 
 	data.EventThreadID = thread.PublicID
 	data.EventSince = now.Unix()
@@ -437,6 +412,15 @@ func repliesText(replies int64) string {
 		return "1 reply"
 	}
 	return fmt.Sprintf("%d replies", replies)
+}
+
+// parentsText is the thread bar's label for the link that jumps to the top of
+// the context area.
+func parentsText(parents int) string {
+	if parents == 1 {
+		return "1 earlier comment"
+	}
+	return fmt.Sprintf("%d earlier comments", parents)
 }
 
 func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
