@@ -3161,13 +3161,15 @@ a.btn.pri:hover {
 		padding-right: 8px;
 	}
 
-	/* The chip and picker buttons are also .ca buttons, so keep the design
-	   sizes instead of the action row's touch target. */
+	/* The chip and picker buttons are also .ca buttons, so they must not get
+	   the action row's touch target size. The chip is 22px high on purpose:
+	   the design has 28px, which the owner found too tall on a real phone
+	   (STA-748). */
 	.ca .chip {
-		height: 28px;
-		min-height: 28px;
-		padding: 0 9px;
-		border-radius: 14px;
+		height: 22px;
+		min-height: 22px;
+		padding: 0 8px;
+		border-radius: 11px;
 		font: 500 12px var(--font-mono);
 	}
 
