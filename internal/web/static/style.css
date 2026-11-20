@@ -3172,6 +3172,12 @@ button.chip:hover {
 		height: 28px;
 	}
 
+	/* With no arrow, a narrower spacer puts the author name in line with
+	   the comment body (26px = 20px + the 6px header gap). */
+	.ch .vote.none {
+		width: 20px;
+	}
+
 	.dock {
 		position: fixed;
 		right: 0;
